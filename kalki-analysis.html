@@ -994,56 +994,60 @@ function clearLog(){document.getElementById('logBody').innerHTML='<div class="em
 let _lastZoneData = null;
 
 function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio) {
-  // Status
   const inZone   = price >= supLow && price <= supHigh;
   const belowBrk = price < breakdown;
-  const pctToLevel = l => ((l-price)/price*100);
+  const pct = l => (((l-price)/price)*100);
 
-  // Find nearest resistance above price
-  const nextR = resistances.find(r => r > price);
+  // Nearest TP above price
+  const nextR    = resistances.find(r => r > price);
   const nextRIdx = nextR ? resistances.indexOf(nextR) : -1;
 
-  // Status label
-  let status;
-  if (belowBrk) status = '🔴 BREAKDOWN';
-  else if (inZone) status = '✅ IN SUPPORT ZONE';
-  else if (nextR && Math.abs(pctToLevel(nextR)) <= 1.5) status = '⚠️ NEAR TP'+(nextRIdx+1);
-  else status = '⬜ NEUTRAL';
+  // Status — clean single emoji, no grey square
+  let statusEmoji, statusText;
+  if      (belowBrk)                                    { statusEmoji='🔴'; statusText='BREAKDOWN'; }
+  else if (inZone)                                      { statusEmoji='✅'; statusText='IN SUPPORT'; }
+  else if (nextR && Math.abs(pct(nextR)) <= 1.5)       { statusEmoji='⚠️'; statusText='NEAR TP'+(nextRIdx+1); }
+  else if (nextR && pct(nextR) > 0 && pct(nextR) <= 5) { statusEmoji='📈'; statusText='WATCHING TP'+(nextRIdx+1); }
+  else                                                  { statusEmoji='⏸'; statusText='NEUTRAL'; }
 
-  // Verdict specifics
-  const rsiTxt  = rsi14  ? ' · RSI '+(+rsi14).toFixed(0)+'(1D)' : '';
-  const smaTxt  = sma20  ? ' · SMA20(1D) $'+(+sma20).toFixed(2) : '';
-  const volTxt  = volRatio ? ' · vol '+(+volRatio).toFixed(1)+'× avg' : '';
-  const verdict = '📝 '+stV+rsiTxt+smaTxt+volTxt;
+  // Verdict — split onto 2 lines so it never wraps mid-line on mobile
+  const scoreVerdict = stV.split(' — ')[0]; // just "Buy" / "Caution" / "Avoid"
+  const scoreDetail  = stV.split(' — ')[1] || '';
+  const rsiLine  = rsi14    ? 'RSI ' +(+rsi14).toFixed(0)+'(1D)' : '';
+  const smaLine  = sma20    ? 'SMA20 $'+(+sma20).toFixed(2) : '';
+  const volLine  = volRatio ? 'Vol '+(+volRatio).toFixed(1)+'× avg' : '';
+  const techLine = [rsiLine, smaLine, volLine].filter(Boolean).join('  ·  ');
 
-  // Build level rows — highlight the next target
-  // Labels: Break→Stop Loss, Sup→Support, R1→TP1, R2→TP2 etc
+  // Level rows — fixed-width columns using mono spacing trick in Telegram
   const levelRows = [];
-  levelRows.push('🛑 Stop Loss  *$'+breakdown.toFixed(2)+'*  '+pctToLevel(breakdown).toFixed(1)+'%');
-  levelRows.push('🟠 Support    *$'+supLow+'–$'+supHigh+'*  '+pctToLevel(supHigh).toFixed(1)+'%');
+  const fmtRow = (emoji, label, val, pctVal, tag) => {
+    const p = (pctVal>=0?'+':'')+pctVal.toFixed(1)+'%';
+    return emoji+' `'+label.padEnd(10)+'` *$'+val+'*  '+p+(tag?' ◀':'');
+  };
+  levelRows.push(fmtRow('🛑','Stop Loss', breakdown.toFixed(2), pct(breakdown), false));
+  levelRows.push(fmtRow('🟠','Support',   supLow+'–'+supHigh,   pct(supHigh),   false));
   resistances.forEach((r,i) => {
-    const isNext = r === nextR;
-    const label = 'TP'+(i+1);
-    const pctStr = (pctToLevel(r)>=0?'+':'')+pctToLevel(r).toFixed(1)+'%';
-    const row = '🎯 '+label+'        *$'+r.toFixed(2)+'*  '+pctStr+(isNext?' ◀ NEXT':'');
-    levelRows.push(row);
+    levelRows.push(fmtRow('🎯','TP'+(i+1), r.toFixed(2), pct(r), r===nextR));
   });
 
-  const msg = [
+  const lines = [
     '⚡ *'+ticker+'*',
-    '━━━━━━━━━━━━━━━━━━━━━━━━',
-    '💰 Price: *$'+price.toFixed(2)+'*  📊 '+status,
     '',
-    '*Levels:*',
+    '💰 *$'+price.toFixed(2)+'*   '+statusEmoji+' '+statusText,
+    '',
+    '*── Levels ──────────────*',
     ...levelRows,
     '',
-    '📊 ST: *'+shortScore+'%*  LT: *'+longScore+'%*  OV: *'+overall+'%*',
-    verdict,
-    '━━━━━━━━━━━━━━━━━━━━━━━━',
-    '⚡ Kalki Analysis Platform'
-  ].join('\n');
+    '*── Kalki Score ─────────*',
+    '📊 ST *'+shortScore+'%*  ·  LT *'+longScore+'%*  ·  OV *'+overall+'%*',
+    '📝 *'+scoreVerdict+'*'+(scoreDetail?' — '+scoreDetail:''),
+    (techLine ? '    '+techLine : ''),
+    '',
+    '─────────────────────────',
+    '⚡ _Kalki Analysis Platform_'
+  ].filter(l => l !== null);
 
-  return msg;
+  return lines.join('\n');
 }
 
 async function sendZoneMapToTelegram() {
