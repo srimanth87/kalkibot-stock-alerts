@@ -1032,13 +1032,14 @@ function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistan
 
   const lines = [
     '⚡ *'+ticker+'*',
+    '─────────────────────────',
     '',
     '💰 *$'+price.toFixed(2)+'*   '+statusEmoji+' '+statusText,
     '',
     '*── Levels ──────────────*',
     ...levelRows,
     '',
-    '*── Kalki Score ─────────*',
+    '*── Score ─────────*',
     '📊 ST *'+shortScore+'%*  ·  LT *'+longScore+'%*  ·  OV *'+overall+'%*',
     '📝 *'+scoreVerdict+'*'+(scoreDetail?' — '+scoreDetail:''),
     (techLine ? '    '+techLine : ''),
