@@ -917,9 +917,9 @@ function renderSc(){
   if(!scTickers.length){el.innerHTML='<div class="empty-s">Add a ticker above ↑ · Click any card to open Kalki Analysis</div>';return;}
   el.innerHTML=scTickers.map((t,i)=>{
     const pd=t.price!=null?'$'+t.price.toFixed(2):'—';
-    const sc=t.status==='entry'?'ae':t.status==='breakdown'?'ab':t.status==='resistance'?'ar':'';
-    const sl=t.status==='entry'?'✅ IN SUPPORT':t.status==='breakdown'?'🔴 BREAKDOWN':t.status==='resistance'?'⚠ AT RESIST':'— Watching · click to analyze';
-    const ss=t.status==='entry'?'iz':t.status==='breakdown'?'bd':t.status==='resistance'?'ar2':'nt';
+    const sc=t.status==='entry'?'ae':t.status==='stoploss'?'ab':t.status==='tp1'?'ar':t.status==='resistance'?'ar':'';
+    const sl=t.status==='entry'?'✅ IN SUPPORT':t.status==='stoploss'?'🚨 STOP LOSS HIT':t.status==='tp1'?'🎯 TP1 HIT':t.status==='resistance'?'⚠ AT RESIST':'— Watching';
+    const ss=t.status==='entry'?'iz':t.status==='stoploss'?'bd':t.status==='tp1'?'ar2':t.status==='resistance'?'ar2':'nt';
     return `<div class="tc-card ${sc}" onclick="openKalkiFromCard(${i})" title="Click to open Kalki Analysis">
       <div class="tc-sym">${t.sym}</div>
       <div class="tc-zones">
@@ -938,10 +938,12 @@ async function fetchScanPrice(sym){
   catch(e){sLog('Fetch error '+sym+': '+e.message,'inf');return null;}
 }
 function evalStatus(t){
-  if(t.price==null)return 'neutral';const p=t.price;
-  if(p<t.brk)return 'breakdown';
+  if(t.price==null)return 'neutral';
+  const p=t.price;
+  if(p<=t.brk)return 'stoploss';
   if(p>=t.supLow&&p<=t.supHigh)return 'entry';
-  for(const r of t.res)if(Math.abs(p-r)/r<=RES_TOL)return 'resistance';
+  if(t.res.length>0&&Math.abs(p-t.res[0])/t.res[0]<=RES_TOL)return 'tp1';
+  for(let i=1;i<t.res.length;i++)if(Math.abs(p-t.res[i])/t.res[i]<=RES_TOL)return 'resistance';
   return 'neutral';
 }
 async function sendTG(msg){
@@ -954,17 +956,77 @@ async function runScan(){
   if(!scTickers.length)return sLog('No tickers','inf');
   document.getElementById('scanBtn').disabled=true;setStat('SCANNING',true);
   for(let i=0;i<scTickers.length;i++){
-    const t=scTickers[i];scTickers[i].price=await fetchScanPrice(t.sym);
-    const ns=evalStatus(scTickers[i]);scTickers[i].status=ns;const key=t.sym+'_'+ns;
+    const t=scTickers[i];
+    scTickers[i].price=await fetchScanPrice(t.sym);
+    const ns=evalStatus(scTickers[i]);
+    scTickers[i].status=ns;
+    const key=t.sym+'_'+ns;
     if(ns!=='neutral'&&!alertSt[key]){
-      alertSt[key]=true;const p=scTickers[i].price?.toFixed(2);
-      if(ns==='entry'){await sendTG(`⚡ *KALKI ENTRY ALERT*\n\n*${t.sym}* @ $${p}\n🟠 Support: $${t.supLow}–$${t.supHigh}\n🎯 Targets: ${t.res.map((r,i)=>'TP'+(i+1)+' $'+r).join(' → ')}\n🛑 Stop Loss: $${t.brk}`);sLog(`${t.sym} @ $${p} — IN SUPPORT ZONE`,'ea');}
-      else if(ns==='breakdown'){await sendTG(`🔴 *KALKI BREAKDOWN*\n\n*${t.sym}* @ $${p}\n🛑 Broke below Stop Loss $${t.brk}`);sLog(`${t.sym} @ $${p} — BREAKDOWN`,'ba');}
-      else if(ns==='resistance'){const nr=t.res.find(r=>Math.abs(scTickers[i].price-r)/r<=RES_TOL);const tpIdx = t.res.indexOf(nr); await sendTG(`⚠️ *KALKI RESISTANCE*\n\n*${t.sym}* @ $${p}\n🎯 Approaching TP${tpIdx+1} at $${nr}`);sLog(`${t.sym} @ $${p} — NEAR R${nr}`,'ra');}
+      alertSt[key]=true;
+      const p=scTickers[i].price?.toFixed(2);
+      const supMid=(t.supLow+t.supHigh)/2;
+      const pctSup=r=>((r-supMid)/supMid*100);
+      const fmt=r=>(pctSup(r)>=0?'+':'')+pctSup(r).toFixed(1)+'%';
+
+      if(ns==='entry'){
+        const tpLines=t.res.map((r,idx)=>{
+          const isNext=idx===0;
+          return '🎯 `'+('TP'+(idx+1)).padEnd(10)+'` *$'+r+'*  '+(isNext?'*'+fmt(r)+'* ◄ NOW':fmt(r));
+        }).join('\n');
+        await sendTG(
+          '⚡ *'+t.sym+'*\n*────────────*\n\n'+
+          '💰 *$'+p+'*   ✅ IN SUPPORT\n\n'+
+          '*── Levels ──────────────*\n'+
+          '🛑 `'+('Stop Loss').padEnd(10)+'` *$'+t.brk+'*  '+fmt(t.brk)+'\n'+
+          '🟠 `'+('Support').padEnd(10)+'` *$'+t.supLow+'–'+t.supHigh+'*  _entry zone_\n'+
+          tpLines+'\n\n'+
+          '*────────────*\n'+
+          '⚡ _Kalki Analysis Platform_'
+        );
+        sLog(`${t.sym} @ $${p} — ✅ IN SUPPORT ZONE`,'ea');
+      }
+      else if(ns==='stoploss'){
+        await sendTG(
+          '🚨 *STOP LOSS HIT — '+t.sym+'*\n*────────────*\n\n'+
+          '💰 *$'+p+'*   🔴 BREAKDOWN\n\n'+
+          '⛔ Price broke below *$'+t.brk+'*\n'+
+          'Setup invalidated — exit position\n\n'+
+          '*────────────*\n'+
+          '⚡ _Kalki Analysis Platform_'
+        );
+        sLog(`${t.sym} @ $${p} — 🚨 STOP LOSS HIT`,'ba');
+      }
+      else if(ns==='tp1'){
+        const tp1=t.res[0];
+        await sendTG(
+          '🎯 *TP1 HIT — '+t.sym+'*\n*────────────*\n\n'+
+          '💰 *$'+p+'*   🎯 TARGET 1 REACHED\n\n'+
+          '`'+('TP1').padEnd(10)+'` *$'+tp1+'*  *'+fmt(tp1)+'* from support\n'+
+          '💡 Consider partial profits\n'+
+          (t.res[1]?'📈 Next: TP2 *$'+t.res[1]+'*  '+fmt(t.res[1]):'')+'\n\n'+
+          '*────────────*\n'+
+          '⚡ _Kalki Analysis Platform_'
+        );
+        sLog(`${t.sym} @ $${p} — 🎯 TP1 HIT $${tp1}`,'ra');
+      }
+      else if(ns==='resistance'){
+        const nr=t.res.find(r=>Math.abs(scTickers[i].price-r)/r<=RES_TOL);
+        const tpIdx=t.res.indexOf(nr);
+        await sendTG(
+          '⚠️ *NEAR TP'+(tpIdx+1)+' — '+t.sym+'*\n*────────────*\n\n'+
+          '💰 *$'+p+'*   ⚠️ NEAR TP'+(tpIdx+1)+'\n\n'+
+          '`'+('TP'+(tpIdx+1)).padEnd(10)+'` *$'+nr+'*  '+fmt(nr)+' from support\n\n'+
+          '*────────────*\n'+
+          '⚡ _Kalki Analysis Platform_'
+        );
+        sLog(`${t.sym} @ $${p} — ⚠️ NEAR TP${tpIdx+1} $${nr}`,'ra');
+      }
     }
-    if(ns==='neutral')Object.keys(alertSt).filter(k=>k.startsWith(t.sym)).forEach(k=>delete alertSt[k]);
+    if(ns==='neutral')Object.keys(alertSt).filter(k=>k.startsWith(t.sym+'_')).forEach(k=>delete alertSt[k]);
   }
-  saveSc();renderSc();setStat(isAuto?'AUTO':'IDLE',isAuto);document.getElementById('scanBtn').disabled=false;sLog(`Scan done — ${scTickers.length} ticker(s)`,'inf');
+  saveSc();renderSc();setStat(isAuto?'AUTO':'IDLE',isAuto);
+  document.getElementById('scanBtn').disabled=false;
+  sLog(`Scan done — ${scTickers.length} ticker(s)`,'inf');
 }
 function toggleAuto(){
   isAuto=!isAuto;const b=document.getElementById('autoBtn');
@@ -1010,24 +1072,26 @@ function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistan
   else if (nextR && pct(nextR) > 0 && pct(nextR) <= 5) { statusEmoji='📈'; statusText='WATCHING TP'+(nextRIdx+1); }
   else                                                  { statusEmoji='⏸'; statusText='NEUTRAL'; }
 
-  // Verdict — split onto 2 lines so it never wraps mid-line on mobile
-  const scoreVerdict = stV.split(' — ')[0]; // just "Buy" / "Caution" / "Avoid"
+  const scoreVerdict = stV.split(' — ')[0];
   const scoreDetail  = stV.split(' — ')[1] || '';
-  const rsiLine  = rsi14    ? 'RSI ' +(+rsi14).toFixed(0)+'(1D)' : '';
-  const smaLine  = sma20    ? 'SMA20 $'+(+sma20).toFixed(2) : '';
-  const volLine  = volRatio ? 'Vol '+(+volRatio).toFixed(1)+'× avg' : '';
+  const rsiLine  = rsi14    ? 'RSI '+(+rsi14).toFixed(0) : '';
+  const smaLine  = sma20    ? 'SMA $'+(+sma20).toFixed(0) : '';
+  const volLine  = volRatio ? 'Vol '+(+volRatio).toFixed(1)+'×' : '';
   const techLine = [rsiLine, smaLine, volLine].filter(Boolean).join('  ·  ');
 
-  // Level rows — fixed-width columns using mono spacing trick in Telegram
+  // All % from support midpoint
+  const supMid = (supLow + supHigh) / 2;
+  const pctSup = l => (((l - supMid) / supMid) * 100);
+
   const levelRows = [];
   const fmtRow = (emoji, label, val, pctVal, tag) => {
     const p = (pctVal>=0?'+':'')+pctVal.toFixed(1)+'%';
-    return emoji+' `'+label.padEnd(10)+'` *$'+val+'*  '+p+(tag?' ◀':'');
+    return emoji+' `'+label.padEnd(10)+'` *$'+val+'*  '+(tag ? '*'+p+'* ◄ NOW' : p);
   };
-  levelRows.push(fmtRow('🛑','Stop Loss', breakdown.toFixed(2), pct(breakdown), false));
-  levelRows.push(fmtRow('🟠','Support',   supLow+'–'+supHigh,   pct(supHigh),   false));
+  levelRows.push(fmtRow('🛑','Stop Loss', breakdown.toFixed(2), pctSup(breakdown), false));
+  levelRows.push('🟠 `'+('Support').padEnd(10)+'` *$'+supLow+'–'+supHigh+'*  _entry zone_');
   resistances.forEach((r,i) => {
-    levelRows.push(fmtRow('🎯','TP'+(i+1), r.toFixed(2), pct(r), r===nextR));
+    levelRows.push(fmtRow('🎯','TP'+(i+1), r.toFixed(2), pctSup(r), r===nextR));
   });
 
   const lines = [
