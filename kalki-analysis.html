@@ -213,6 +213,31 @@ input:focus{border-color:var(--accent);}
 .alert-source{background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.18);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;line-height:1.7;color:#94a3b8;}
 .alert-source strong{color:var(--accent2);}
 
+/* PORTFOLIO TAB */
+.pf-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;transition:border-color 0.2s;}
+.pf-card.win{border-left:3px solid var(--green);}.pf-card.loss{border-left:3px solid var(--red);}.pf-card.closed{opacity:0.55;}
+.pf-sym{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:#fff;}
+.pf-grade{font-size:10px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:20px;display:inline-block;margin-top:2px;}
+.pf-grade.ap{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.pf-grade.a{background:rgba(59,130,246,0.15);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);}
+.pf-grade.b{background:rgba(245,158,11,0.15);color:var(--accent);border:1px solid rgba(245,158,11,0.3);}
+.pf-grade.c{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.pf-meta{display:flex;flex-direction:column;gap:4px;}
+.pf-row{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;font-family:'DM Mono',monospace;}
+.pf-lbl{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px;}
+.pf-val{color:var(--text);font-weight:500;}
+.pf-status{font-size:11px;margin-top:3px;color:var(--dim);}
+.pf-pnl{text-align:right;}
+.pf-pnl-amt{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;}
+.pf-pnl-pct{font-family:'DM Mono',monospace;font-size:12px;margin-top:2px;}
+.pf-pnl-amt.pos,.pf-pnl-pct.pos{color:var(--green);}
+.pf-pnl-amt.neg,.pf-pnl-pct.neg{color:var(--red);}
+.pf-actions{display:flex;gap:6px;margin-top:8px;}
+.pf-tp-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+.pf-tp{font-size:10px;padding:2px 7px;border-radius:12px;font-family:'DM Mono',monospace;border:1px solid var(--border);color:var(--dim);}
+.pf-tp.hit{background:rgba(16,185,129,0.12);color:var(--green);border-color:rgba(16,185,129,0.3);}
+.pf-tp.next{background:rgba(245,158,11,0.12);color:var(--accent);border-color:rgba(245,158,11,0.3);}
+
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
@@ -230,6 +255,7 @@ input:focus{border-color:var(--accent);}
   <button class="tab active" id="t-an" onclick="switchTab('an')">📊 Live Analysis</button>
   <button class="tab" id="t-sc" onclick="switchTab('sc')">🔔 Zone Scanner</button>
   <button class="tab" id="t-ka" onclick="switchTab('ka')">⚡ Kalki Analysis</button>
+  <button class="tab" id="t-pf" onclick="switchTab('pf')">💼 Portfolio</button>
 </div>
 
 <!-- ══ TAB 1: LIVE ANALYSIS ══ -->
@@ -378,6 +404,53 @@ input:focus{border-color:var(--accent);}
   </div><!-- /kaContent -->
 </div><!-- /kaTab -->
 
+<!-- ══ TAB 4: PORTFOLIO TRACKER ══ -->
+<div id="pfTab" style="display:none;">
+
+  <!-- Summary bar -->
+  <div class="score-banner" id="pfSummary" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:20px;">
+    <div class="score-item"><div class="score-lbl">Invested</div><div class="score-val" id="pfTotalInvested" style="font-size:28px;color:var(--accent);">$0</div><div class="score-sub">total deployed</div></div>
+    <div class="score-item"><div class="score-lbl">Current Value</div><div class="score-val" id="pfCurrentVal" style="font-size:28px;color:var(--green);">$0</div><div class="score-sub">live estimate</div></div>
+    <div class="score-item"><div class="score-lbl">Total P&L</div><div class="score-val" id="pfTotalPnl" style="font-size:28px;">$0</div><div class="score-sub" id="pfTotalPct">0.0%</div></div>
+    <div class="score-item"><div class="score-lbl">Positions</div><div class="score-val" id="pfCount" style="font-size:28px;color:var(--accent2);">0</div><div class="score-sub" id="pfWinLoss">0W / 0L</div></div>
+  </div>
+
+  <!-- Manual add -->
+  <div class="scanner-section">
+    <div class="sec-title">+ Add Position Manually</div>
+    <div style="display:grid;grid-template-columns:90px 100px 100px 80px 1fr auto;gap:8px;align-items:end;">
+      <div class="field"><label>Ticker</label><input id="pfTick" placeholder="AXTI" style="text-transform:uppercase"/></div>
+      <div class="field"><label>Entry $</label><input id="pfEntry" type="number" placeholder="39.50" step="0.01"/></div>
+      <div class="field"><label>Invest $</label><input id="pfAmt" type="number" placeholder="10000" step="100"/></div>
+      <div class="field"><label>Grade</label>
+        <select id="pfGrade" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%;">
+          <option>A+</option><option>A</option><option selected>B</option><option>C</option>
+        </select>
+      </div>
+      <div class="field"><label>Notes</label><input id="pfNotes" placeholder="Entry at support zone"/></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-p" onclick="pfAdd()">Add</button></div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">💼 Positions</span>
+    <button class="btn btn-sm" id="pfFilterAll" onclick="pfSetFilter('all')" style="background:var(--accent);color:#000;border:none;">All</button>
+    <button class="btn btn-sm" id="pfFilterOpen" onclick="pfSetFilter('open')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Open</button>
+    <button class="btn btn-sm" id="pfFilterClosed" onclick="pfSetFilter('closed')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Closed</button>
+    <button class="btn btn-sm" id="pfFilterWin" onclick="pfSetFilter('win')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Winners</button>
+    <button class="btn btn-sm" id="pfFilterLoss" onclick="pfSetFilter('loss')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Losers</button>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="pfRefreshAll()" style="background:transparent;border:1px solid var(--border);color:var(--text);">🔄 Refresh Prices</button>
+      <button class="btn btn-d btn-sm" onclick="pfClearClosed()">Clear Closed</button>
+    </div>
+  </div>
+
+  <!-- Positions list -->
+  <div id="pfList"><div class="empty-s">No positions yet — add one above or alerts auto-log here</div></div>
+
+</div><!-- /pfTab -->
+
 </div><!-- /wrap -->
 <script>
 'use strict';
@@ -387,6 +460,7 @@ input:focus{border-color:var(--accent);}
 // ══════════════════════════════════════════════════════
 let scTickers = JSON.parse(localStorage.getItem('kalki_sc')||'[]');
 let kaSelected = null; // currently selected ticker in Kalki Analysis tab
+// alertSt[sym] = { status } — tracks last fired status per ticker
 let alertSt = {}, autoIv = null, isAuto = false;
 const SCAN_IV = 60000, RES_TOL = 0.015;
 
@@ -396,11 +470,12 @@ function proxy(){ return (document.getElementById('proxyUrl').value||'https://ya
 // TABS
 // ══════════════════════════════════════════════════════
 function switchTab(t) {
-  ['an','sc','ka'].forEach(id => {
+  ['an','sc','ka','pf'].forEach(id => {
     document.getElementById('t-'+id).classList.toggle('active', t===id);
     document.getElementById(id+'Tab').style.display = t===id ? 'block' : 'none';
   });
   if (t === 'ka') refreshKaTab();
+  if (t === 'pf') pfRender();
 }
 function quickPick(s){ document.getElementById('searchInput').value=s; document.querySelectorAll('.qp').forEach(el=>el.classList.toggle('active',el.textContent===s)); runAnalysis(); }
 document.getElementById('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(); });
@@ -960,69 +1035,82 @@ async function runScan(){
     scTickers[i].price=await fetchScanPrice(t.sym);
     const ns=evalStatus(scTickers[i]);
     scTickers[i].status=ns;
-    const key=t.sym+'_'+ns;
-    if(ns!=='neutral'&&!alertSt[key]){
-      alertSt[key]=true;
-      const p=scTickers[i].price?.toFixed(2);
-      const supMid=(t.supLow+t.supHigh)/2;
-      const pctSup=r=>((r-supMid)/supMid*100);
-      const fmt=r=>(pctSup(r)>=0?'+':'')+pctSup(r).toFixed(1)+'%';
 
-      if(ns==='entry'){
-        const tpLines=t.res.map((r,idx)=>{
-          const isNext=idx===0;
-          return '🎯 `'+('TP'+(idx+1)).padEnd(10)+'` *$'+r+'*  '+(isNext?'*'+fmt(r)+'* ◄ NOW':fmt(r));
-        }).join('\n');
-        await sendTG(
-          '⚡ *'+t.sym+'*\n*────────────*\n\n'+
-          '💰 *$'+p+'*   ✅ IN SUPPORT\n\n'+
-          '*── Levels ──────────────*\n'+
-          '🛑 `'+('Stop Loss').padEnd(10)+'` *$'+t.brk+'*  '+fmt(t.brk)+'\n'+
-          '🟠 `'+('Support').padEnd(10)+'` *$'+t.supLow+'–'+t.supHigh+'*  _entry zone_\n'+
-          tpLines+'\n\n'+
-          '*────────────*\n'+
-          '⚡ _Kalki Analysis Platform_'
-        );
-        sLog(`${t.sym} @ $${p} — ✅ IN SUPPORT ZONE`,'ea');
-      }
-      else if(ns==='stoploss'){
-        await sendTG(
-          '🚨 *STOP LOSS HIT — '+t.sym+'*\n*────────────*\n\n'+
-          '💰 *$'+p+'*   🔴 BREAKDOWN\n\n'+
-          '⛔ Price broke below *$'+t.brk+'*\n'+
-          'Setup invalidated — exit position\n\n'+
-          '*────────────*\n'+
-          '⚡ _Kalki Analysis Platform_'
-        );
-        sLog(`${t.sym} @ $${p} — 🚨 STOP LOSS HIT`,'ba');
-      }
-      else if(ns==='tp1'){
-        const tp1=t.res[0];
-        await sendTG(
-          '🎯 *TP1 HIT — '+t.sym+'*\n*────────────*\n\n'+
-          '💰 *$'+p+'*   🎯 TARGET 1 REACHED\n\n'+
-          '`'+('TP1').padEnd(10)+'` *$'+tp1+'*  *'+fmt(tp1)+'* from support\n'+
-          '💡 Consider partial profits\n'+
-          (t.res[1]?'📈 Next: TP2 *$'+t.res[1]+'*  '+fmt(t.res[1]):'')+'\n\n'+
-          '*────────────*\n'+
-          '⚡ _Kalki Analysis Platform_'
-        );
-        sLog(`${t.sym} @ $${p} — 🎯 TP1 HIT $${tp1}`,'ra');
-      }
-      else if(ns==='resistance'){
-        const nr=t.res.find(r=>Math.abs(scTickers[i].price-r)/r<=RES_TOL);
-        const tpIdx=t.res.indexOf(nr);
-        await sendTG(
-          '⚠️ *NEAR TP'+(tpIdx+1)+' — '+t.sym+'*\n*────────────*\n\n'+
-          '💰 *$'+p+'*   ⚠️ NEAR TP'+(tpIdx+1)+'\n\n'+
-          '`'+('TP'+(tpIdx+1)).padEnd(10)+'` *$'+nr+'*  '+fmt(nr)+' from support\n\n'+
-          '*────────────*\n'+
-          '⚡ _Kalki Analysis Platform_'
-        );
-        sLog(`${t.sym} @ $${p} — ⚠️ NEAR TP${tpIdx+1} $${nr}`,'ra');
-      }
+    if(ns==='neutral'){
+      delete alertSt[t.sym];
+      continue;
     }
-    if(ns==='neutral')Object.keys(alertSt).filter(k=>k.startsWith(t.sym+'_')).forEach(k=>delete alertSt[k]);
+
+    const prev=alertSt[t.sym];
+    const isNew=!prev;
+    const isUpdate=prev&&prev.status!==ns&&(ns==='stoploss'||ns==='tp1'||ns==='resistance');
+
+    if(!isNew&&!isUpdate) continue;
+
+    alertSt[t.sym]={status:ns};
+    const tag=isNew?'〔NEW ALERT〕':'〔UPDATE〕';
+    const p=scTickers[i].price?.toFixed(2);
+    const supMid=(t.supLow+t.supHigh)/2;
+    const pctSup=r=>((r-supMid)/supMid*100);
+    const fmt=r=>(pctSup(r)>=0?'+':'')+pctSup(r).toFixed(1)+'%';
+    const header='⚡ *'+t.sym+'*  '+tag+'\n*────────────*\n';
+
+    if(ns==='entry'){
+      if(isNew){
+        pfAutoLog(t.sym, scTickers[i].price, 'B', '✅ IN SUPPORT', t.res, t.brk, t.supLow, t.supHigh);
+      }
+      const tpLines=t.res.map((r,idx)=>{
+        const isNext=idx===0;
+        return '🎯 `'+('TP'+(idx+1)).padEnd(10)+'` *$'+r+'*  '+(isNext?'*'+fmt(r)+'* ◄ NEXT':fmt(r));
+      }).join('\n');
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   ✅ IN SUPPORT\n\n'+
+        '*── Levels ──────────────*\n'+
+        '🛑 `'+('Stop Loss').padEnd(10)+'` *$'+t.brk+'*  '+fmt(t.brk)+'\n'+
+        '🟠 `'+('Support').padEnd(10)+'` *$'+t.supLow+'–'+t.supHigh+'*  _entry zone_\n'+
+        tpLines+'\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — ✅ IN SUPPORT [${tag}]`,'ea');
+    }
+    else if(ns==='stoploss'){
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   🔴 STOP LOSS HIT\n\n'+
+        '⛔ Price broke below *$'+t.brk+'*\n'+
+        'Setup invalidated — exit position\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — 🚨 STOP LOSS [${tag}]`,'ba');
+    }
+    else if(ns==='tp1'){
+      const tp1=t.res[0];
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   🎯 TP1 HIT\n\n'+
+        '🎯 `'+('TP1').padEnd(10)+'` *$'+tp1+'*  *'+fmt(tp1)+'* ◄ NEXT\n'+
+        '💡 Consider partial profits\n'+
+        (t.res[1]?'📈 Next: TP2 *$'+t.res[1]+'*  '+fmt(t.res[1]):'')+'\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — 🎯 TP1 HIT [${tag}]`,'ra');
+    }
+    else if(ns==='resistance'){
+      const nr=t.res.find(r=>Math.abs(scTickers[i].price-r)/r<=RES_TOL);
+      const tpIdx=t.res.indexOf(nr);
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   ⚠️ NEAR TP'+(tpIdx+1)+'\n\n'+
+        '🎯 `'+('TP'+(tpIdx+1)).padEnd(10)+'` *$'+nr+'*  *'+fmt(nr)+'* ◄ NEXT\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — ⚠️ NEAR TP${tpIdx+1} [${tag}]`,'ra');
+    }
   }
   saveSc();renderSc();setStat(isAuto?'AUTO':'IDLE',isAuto);
   document.getElementById('scanBtn').disabled=false;
@@ -1079,6 +1167,16 @@ function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistan
   const volLine  = volRatio ? 'Vol '+(+volRatio).toFixed(1)+'×' : '';
   const techLine = [rsiLine, smaLine, volLine].filter(Boolean).join('  ·  ');
 
+  // Grade logic
+  let gradeLine, warningLine='';
+  if      (overall >= 70 && inZone) { gradeLine='🥇🥇🥇 *A+*  ·  Strong buy setup'; }
+  else if (overall >= 70)           { gradeLine='🥇🥇🥇 *A+*  ·  High conviction'; }
+  else if (overall >= 65)           { gradeLine='🥇🥇 *A*  ·  Bullish momentum'; }
+  else if (overall >= 60 && inZone) { gradeLine='🥇🥇 *A*  ·  Buy at support'; }
+  else if (overall >= 60)           { gradeLine='🥇 *B*  ·  '+(scoreDetail||'Moderate setup'); }
+  else if (overall >= 50)           { gradeLine='🥇 *B*  ·  Mixed signals'; }
+  else                              { gradeLine='🚫 *C*  ·  Weak momentum'; warningLine='⚠️ _Low conviction — trade with caution_'; }
+
   // All % from support midpoint
   const supMid = (supLow + supHigh) / 2;
   const pctSup = l => (((l - supMid) / supMid) * 100);
@@ -1086,7 +1184,7 @@ function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistan
   const levelRows = [];
   const fmtRow = (emoji, label, val, pctVal, tag) => {
     const p = (pctVal>=0?'+':'')+pctVal.toFixed(1)+'%';
-    return emoji+' `'+label.padEnd(10)+'` *$'+val+'*  '+(tag ? '*'+p+'* ◄ NOW' : p);
+    return emoji+' `'+label.padEnd(10)+'` *$'+val+'*  '+(tag ? '*'+p+'* ◄ NEXT' : p);
   };
   levelRows.push(fmtRow('🛑','Stop Loss', breakdown.toFixed(2), pctSup(breakdown), false));
   levelRows.push('🟠 `'+('Support').padEnd(10)+'` *$'+supLow+'–'+supHigh+'*  _entry zone_');
@@ -1094,19 +1192,23 @@ function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistan
     levelRows.push(fmtRow('🎯','TP'+(i+1), r.toFixed(2), pctSup(r), r===nextR));
   });
 
+  const isGradeC = overall < 50;
   const lines = [
     '⚡ *'+ticker+'*',
     '*────────────*',
     '',
     '💰 *$'+price.toFixed(2)+'*   '+statusEmoji+' '+statusText,
+    gradeLine,
+    warningLine||null,
     '',
     '*── Levels ──────────────*',
     ...levelRows,
     '',
     '*── Score ─────────*',
     '📊 ST *'+shortScore+'%*  ·  LT *'+longScore+'%*  ·  OV *'+overall+'%*',
-    '📝 *'+scoreVerdict+'*'+(scoreDetail?' — '+scoreDetail:''),
-    (techLine ? '    '+techLine : ''),
+    isGradeC
+      ? '📝 *'+scoreVerdict+'*'+(techLine?'  ·  '+techLine:'')
+      : '📝 *'+scoreVerdict+'*'+(techLine?'  ·  '+techLine:''),
     '',
     '*────────────*',
     '⚡ _Kalki Analysis Platform_'
@@ -1172,6 +1274,202 @@ async function sendZoneMapToTelegram() {
     btn.style.opacity='1';
     btn.style.pointerEvents='auto';
   }
+}
+
+// ══════════════════════════════════════════════════════
+// PORTFOLIO TRACKER
+// ══════════════════════════════════════════════════════
+let pfPositions = JSON.parse(localStorage.getItem('kalki_pf')||'[]');
+let pfFilter = 'all';
+
+function pfSave(){ localStorage.setItem('kalki_pf', JSON.stringify(pfPositions)); }
+
+function pfAutoLog(sym, entryPrice, grade, status, resistances, breakdown, supLow, supHigh){
+  // Only auto-log if not already an open position for this sym
+  if(pfPositions.find(p=>p.sym===sym&&p.state==='open')) return;
+  pfPositions.unshift({
+    id: Date.now(),
+    sym, entryPrice, grade,
+    invest: 10000,
+    currentPrice: entryPrice,
+    status,
+    resistances: resistances||[],
+    breakdown, supLow, supHigh,
+    notes: 'Auto-logged · '+status,
+    state: 'open',
+    closedPrice: null,
+    addedAt: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+  });
+  pfSave();
+}
+
+function pfAdd(){
+  const sym=(document.getElementById('pfTick').value||'').trim().toUpperCase();
+  const entry=parseFloat(document.getElementById('pfEntry').value);
+  const invest=parseFloat(document.getElementById('pfAmt').value)||10000;
+  const grade=document.getElementById('pfGrade').value;
+  const notes=document.getElementById('pfNotes').value.trim();
+  if(!sym||isNaN(entry))return alert('Enter ticker and entry price');
+  // find zones from scTickers if available
+  const sc=scTickers.find(t=>t.sym===sym);
+  pfPositions.unshift({
+    id:Date.now(), sym, entryPrice:entry, grade, invest,
+    currentPrice:entry, status:'Added manually',
+    resistances:sc?.res||[], breakdown:sc?.brk||null,
+    supLow:sc?.supLow||null, supHigh:sc?.supHigh||null,
+    notes, state:'open', closedPrice:null,
+    addedAt:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+  });
+  pfSave();
+  ['pfTick','pfEntry','pfNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pfAmt').value='10000';
+  pfRender();
+  switchTab('pf');
+}
+
+function pfClose(id){
+  const pos=pfPositions.find(p=>p.id===id);
+  if(!pos)return;
+  const input=prompt('Close '+pos.sym+' — Enter exit price:', pos.currentPrice.toFixed(2));
+  if(input===null)return; // cancelled
+  const exitPrice=parseFloat(input);
+  if(isNaN(exitPrice)||exitPrice<=0)return alert('Invalid price entered');
+  pos.state='closed';
+  pos.closedPrice=exitPrice;
+  pos.currentPrice=exitPrice;
+  pos.status='🔒 Closed @ $'+exitPrice.toFixed(2);
+  pfSave(); pfRender();
+}
+
+function pfRemove(id){
+  if(!confirm('Remove this position?'))return;
+  pfPositions=pfPositions.filter(p=>p.id!==id);
+  pfSave(); pfRender();
+}
+
+function pfClearClosed(){
+  if(!confirm('Remove all closed positions?'))return;
+  pfPositions=pfPositions.filter(p=>p.state!=='closed');
+  pfSave(); pfRender();
+}
+
+function pfSetFilter(f){
+  pfFilter=f;
+  ['all','open','closed','win','loss'].forEach(k=>{
+    const b=document.getElementById('pfFilter'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(b){b.style.background=k===f?'var(--accent)':'transparent';b.style.color=k===f?'#000':'var(--dim)';b.style.borderColor=k===f?'var(--accent)':'var(--border)';}
+  });
+  pfRender();
+}
+
+async function pfRefreshAll(){
+  const opens=pfPositions.filter(p=>p.state==='open');
+  if(!opens.length)return sLog('No open positions to refresh','inf');
+  sLog('Refreshing portfolio prices…','inf');
+  for(const pos of opens){
+    try{
+      const r=await fetchYahoo(pos.sym,'1d','1m');
+      const cls=r.indicators?.quote?.[0]?.close?.filter(c=>c!=null);
+      if(cls?.length) pos.currentPrice=cls[cls.length-1];
+      // update TP status
+      if(pos.resistances?.length){
+        const tpsHit=pos.resistances.filter(r=>pos.currentPrice>=r);
+        pos.tpsHit=tpsHit.length;
+        const nextTP=pos.resistances.find(r=>pos.currentPrice<r);
+        pos.nextTP=nextTP||null;
+        if(pos.breakdown&&pos.currentPrice<=pos.breakdown) pos.status='🔴 STOP LOSS';
+        else if(pos.tpsHit===pos.resistances.length) pos.status='✅ ALL TPs HIT';
+        else if(pos.nextTP) pos.status='📈 Watching TP'+(pos.tpsHit+1);
+        else pos.status='⏸ Neutral';
+      }
+    }catch(e){ sLog('Refresh failed '+pos.sym,'inf'); }
+  }
+  pfSave(); pfRender();
+  sLog('Portfolio prices refreshed','inf');
+}
+
+function pfCalcPnl(pos){
+  const price=pos.state==='closed'?pos.closedPrice:pos.currentPrice;
+  const shares=pos.invest/pos.entryPrice;
+  const currentVal=shares*price;
+  const pnl=currentVal-pos.invest;
+  const pct=(pnl/pos.invest)*100;
+  return{shares,currentVal,pnl,pct};
+}
+
+function pfRender(){
+  const el=document.getElementById('pfList');
+  let filtered=pfPositions;
+  if(pfFilter==='open') filtered=pfPositions.filter(p=>p.state==='open');
+  else if(pfFilter==='closed') filtered=pfPositions.filter(p=>p.state==='closed');
+  else if(pfFilter==='win') filtered=pfPositions.filter(p=>pfCalcPnl(p).pnl>0);
+  else if(pfFilter==='loss') filtered=pfPositions.filter(p=>pfCalcPnl(p).pnl<0);
+
+  if(!filtered.length){el.innerHTML='<div class="empty-s">No positions match this filter</div>';pfUpdateSummary();return;}
+
+  el.innerHTML=filtered.map(pos=>{
+    const {shares,currentVal,pnl,pct}=pfCalcPnl(pos);
+    const isPos=pnl>=0;
+    const winCls=pos.state==='closed'?'closed':isPos?'win':'loss';
+    const gradeCls=pos.grade==='A+'?'ap':pos.grade==='A'?'a':pos.grade==='B'?'b':'c';
+
+    // TP pills
+    const tpPills=(pos.resistances||[]).map((r,i)=>{
+      const hit=pos.currentPrice>=r;
+      const isNext=!hit&&(i===0||(pos.resistances[i-1]&&pos.currentPrice>=pos.resistances[i-1]));
+      return `<span class="pf-tp ${hit?'hit':isNext?'next':''}">${hit?'✓ ':''}TP${i+1} $${r}</span>`;
+    }).join('');
+
+    const priceDisplay=pos.state==='closed'
+      ?`<span style="color:var(--dim);font-size:11px;">Closed @ $${pos.closedPrice?.toFixed(2)}</span>`
+      :`$${pos.currentPrice.toFixed(2)}`;
+
+    return `<div class="pf-card ${winCls}">
+      <div>
+        <div class="pf-sym">${pos.sym}</div>
+        <div class="pf-grade ${gradeCls}">${pos.grade}</div>
+      </div>
+      <div class="pf-meta">
+        <div class="pf-row">
+          <div><div class="pf-lbl">Entry</div><div class="pf-val">$${pos.entryPrice.toFixed(2)}</div></div>
+          <div><div class="pf-lbl">Current</div><div class="pf-val">${priceDisplay}</div></div>
+          <div><div class="pf-lbl">Invested</div><div class="pf-val">$${pos.invest.toLocaleString()}</div></div>
+          <div><div class="pf-lbl">Shares</div><div class="pf-val">${shares.toFixed(1)}</div></div>
+        </div>
+        <div class="pf-status">${pos.status}${pos.notes?' · <span style="color:var(--dim)">'+pos.notes+'</span>':''} · <span style="color:var(--dim2)">${pos.addedAt}</span></div>
+        ${tpPills?`<div class="pf-tp-row">${tpPills}</div>`:''}
+        <div class="pf-actions">
+          ${pos.state==='open'?`<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="pfClose(${pos.id})">✓ Close</button>`:'<span style="font-size:10px;color:var(--dim);padding:5px 0;">CLOSED</span>'}
+          <button class="btn btn-d btn-sm" onclick="pfRemove(${pos.id})">✕</button>
+        </div>
+      </div>
+      <div class="pf-pnl">
+        <div class="pf-pnl-amt ${isPos?'pos':'neg'}">${isPos?'+':'-'}$${Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+        <div class="pf-pnl-pct ${isPos?'pos':'neg'}">${isPos?'+':''}${pct.toFixed(1)}%</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:4px;">$${currentVal.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  pfUpdateSummary();
+}
+
+function pfUpdateSummary(){
+  const open=pfPositions.filter(p=>p.state==='open');
+  const totalInvested=pfPositions.reduce((a,p)=>a+p.invest,0);
+  const totalCurrent=pfPositions.reduce((a,p)=>a+pfCalcPnl(p).currentVal,0);
+  const totalPnl=totalCurrent-totalInvested;
+  const totalPct=totalInvested?((totalPnl/totalInvested)*100):0;
+  const winners=pfPositions.filter(p=>pfCalcPnl(p).pnl>0).length;
+  const losers=pfPositions.filter(p=>pfCalcPnl(p).pnl<0).length;
+  document.getElementById('pfTotalInvested').textContent='$'+totalInvested.toLocaleString();
+  document.getElementById('pfCurrentVal').textContent='$'+Math.round(totalCurrent).toLocaleString();
+  const pnlEl=document.getElementById('pfTotalPnl');
+  pnlEl.textContent=(totalPnl>=0?'+':'-')+'$'+Math.abs(Math.round(totalPnl)).toLocaleString();
+  pnlEl.style.color=totalPnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('pfTotalPct').textContent=(totalPct>=0?'+':'')+totalPct.toFixed(1)+'%';
+  document.getElementById('pfCount').textContent=open.length;
+  document.getElementById('pfWinLoss').textContent=winners+'W / '+losers+'L';
 }
 
 // ── INIT ─────────────────────────────────────────────
