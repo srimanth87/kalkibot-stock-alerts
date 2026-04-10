@@ -213,7 +213,26 @@ input:focus{border-color:var(--accent);}
 .alert-source{background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.18);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;line-height:1.7;color:#94a3b8;}
 .alert-source strong{color:var(--accent2);}
 
-/* PORTFOLIO TAB */
+/* SUBSCRIBERS TAB */
+.sb-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;transition:border-color 0.2s;}
+.sb-card.active{border-left:3px solid var(--green);}
+.sb-card.expiring{border-left:3px solid var(--warn);}
+.sb-card.expired{border-left:3px solid var(--red);opacity:0.65;}
+.sb-name{font-size:16px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px;}
+.sb-handle{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);}
+.sb-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:12px;font-family:'DM Mono',monospace;}
+.sb-meta-item{display:flex;flex-direction:column;gap:2px;}
+.sb-meta-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);}
+.sb-meta-val{color:var(--text);}
+.sb-notes{font-size:11px;color:var(--dim);margin-top:5px;font-style:italic;}
+.sb-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;}
+.sb-badge.active{background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.sb-badge.expiring{background:rgba(249,115,22,0.12);color:var(--warn);border:1px solid rgba(249,115,22,0.3);}
+.sb-badge.expired{background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.sb-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.sb-amount{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--accent);}
+.sb-expiry{font-size:11px;color:var(--dim);font-family:'DM Mono',monospace;}
+.sb-actions{display:flex;gap:6px;margin-top:4px;}
 .pf-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;transition:border-color 0.2s;}
 .pf-card.win{border-left:3px solid var(--green);}.pf-card.loss{border-left:3px solid var(--red);}.pf-card.closed{opacity:0.55;}
 .pf-sym{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:#fff;}
@@ -238,6 +257,41 @@ input:focus{border-color:var(--accent);}
 .pf-tp.hit{background:rgba(16,185,129,0.12);color:var(--green);border-color:rgba(16,185,129,0.3);}
 .pf-tp.next{background:rgba(245,158,11,0.12);color:var(--accent);border-color:rgba(245,158,11,0.3);}
 
+/* REPORT TAB */
+.rp-filter-btn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.rp-filter-btn.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700;}
+.rp-filter-btn:hover:not(.active){border-color:var(--dim);color:var(--text);}
+.rp-stat{flex:1;min-width:70px;text-align:center;padding:10px 4px;border-right:1px solid var(--border);flex-shrink:0;}
+.rp-stat:last-child{border-right:none;}
+.rp-stat-num{font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;}
+.rp-stat-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.rp-row2{padding:12px 16px;border-bottom:1px solid rgba(31,45,69,0.5);position:relative;}
+.rp-row2:last-child{border-bottom:none;}
+.rp-row2::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+.rp-row2.rp2-win::before{background:var(--green);}
+.rp-row2.rp2-open::before{background:var(--accent);}
+.rp-row2.rp2-warn::before{background:var(--warn);}
+.rp-row2.rp2-loss::before{background:var(--red);}
+.rp2-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.rp2-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.rp2-sym{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;line-height:1;}
+.rp2-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;}
+.rp2-days{font-size:9px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:8px;background:rgba(100,116,139,0.08);color:var(--dim);border:1px solid var(--border);}
+.rp2-right{text-align:right;flex-shrink:0;}
+.rp2-pct{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;}
+.rp2-amt{font-family:'DM Mono',monospace;font-size:9px;color:var(--dim);margin-top:1px;}
+.rp2-price{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:12px;margin-bottom:6px;flex-wrap:wrap;}
+.rp2-bar{display:flex;gap:2px;margin-bottom:6px;}
+.rp2-seg{flex:1;height:3px;border-radius:2px;background:var(--dim2);}
+.rp2-seg.hit{background:var(--green);}
+.rp2-seg.nxt{background:var(--accent);animation:rp2blink 1.2s ease infinite;}
+.rp2-seg.wrn{background:var(--warn);}
+.rp2-seg.los{background:var(--red);}
+@keyframes rp2blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.rp2-meta{display:flex;gap:10px;flex-wrap:wrap;}
+.rp2-meta-item{font-size:10px;font-family:'DM Mono',monospace;color:var(--dim2);}
+.rp2-meta-item span{color:var(--dim);}
+
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
@@ -256,6 +310,8 @@ input:focus{border-color:var(--accent);}
   <button class="tab" id="t-sc" onclick="switchTab('sc')">🔔 Zone Scanner</button>
   <button class="tab" id="t-ka" onclick="switchTab('ka')">⚡ Kalki Analysis</button>
   <button class="tab" id="t-pf" onclick="switchTab('pf')">💼 Portfolio</button>
+  <button class="tab" id="t-sb" onclick="switchTab('sb')">👥 Subscribers</button>
+  <button class="tab" id="t-rp" onclick="switchTab('rp')">📋 Report</button>
 </div>
 
 <!-- ══ TAB 1: LIVE ANALYSIS ══ -->
@@ -311,6 +367,20 @@ input:focus{border-color:var(--accent);}
       <div class="field"><label>Bot Token</label><input id="botToken" placeholder="8570415382:AAF7…"/></div>
       <div class="field"><label>Chat ID</label><input id="chatId" placeholder="1026720092"/></div>
       <div class="field full"><label>Yahoo Proxy URL</label><input id="proxyUrl" value="https://yahoo-proxy.srimanthgada87.workers.dev"/><span class="hint">Used for Analysis + Scanner · format: ?url=YAHOO_URL</span></div>
+      <div class="field full">
+        <label>JSONBin Bin ID</label>
+        <input id="jbBinId" placeholder="65f3a8c2266ccd473adc1234"/>
+        <span class="hint">From jsonbin.io → your bin → Bin ID</span>
+      </div>
+      <div class="field full">
+        <label>JSONBin API Key (Master Key)</label>
+        <input id="jbApiKey" placeholder="$2a$10$..." type="password"/>
+        <span class="hint">From jsonbin.io → Account → API Keys &nbsp; <span id="gsSyncStatus" style="color:var(--green)"></span></span>
+      </div>
+      <div class="field full" style="display:flex;gap:8px;">
+        <button class="btn btn-p btn-sm" onclick="gsSyncAll()">☁ Sync to JSONBin</button>
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text);" onclick="gsLoadAll()">⬇ Load from JSONBin</button>
+      </div>
     </div>
   </div>
   <div class="scanner-section">
@@ -418,9 +488,10 @@ input:focus{border-color:var(--accent);}
   <!-- Manual add -->
   <div class="scanner-section">
     <div class="sec-title">+ Add Position Manually</div>
-    <div style="display:grid;grid-template-columns:90px 100px 100px 80px 1fr auto;gap:8px;align-items:end;">
+    <div style="display:grid;grid-template-columns:80px 90px 90px 90px 70px 1fr auto;gap:8px;align-items:end;flex-wrap:wrap;">
       <div class="field"><label>Ticker</label><input id="pfTick" placeholder="AXTI" style="text-transform:uppercase"/></div>
       <div class="field"><label>Entry $</label><input id="pfEntry" type="number" placeholder="39.50" step="0.01"/></div>
+      <div class="field"><label>Entry Date</label><input id="pfEntryDate" type="date"/></div>
       <div class="field"><label>Invest $</label><input id="pfAmt" type="number" placeholder="10000" step="100"/></div>
       <div class="field"><label>Grade</label>
         <select id="pfGrade" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%;">
@@ -451,6 +522,113 @@ input:focus{border-color:var(--accent);}
 
 </div><!-- /pfTab -->
 
+<!-- ══ TAB 5: SUBSCRIBERS ══ -->
+<div id="sbTab" style="display:none;">
+
+  <!-- Summary bar -->
+  <div class="score-banner" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:20px;">
+    <div class="score-item"><div class="score-lbl">Active</div><div class="score-val" id="sbActiveCount" style="font-size:28px;color:var(--green);">0</div><div class="score-sub">subscribers</div></div>
+    <div class="score-item"><div class="score-lbl">Monthly Revenue</div><div class="score-val" id="sbMonthlyRev" style="font-size:28px;color:var(--accent);">$0</div><div class="score-sub">recurring</div></div>
+    <div class="score-item"><div class="score-lbl">Expiring Soon</div><div class="score-val" id="sbExpiringSoon" style="font-size:28px;color:var(--warn);">0</div><div class="score-sub">within 7 days</div></div>
+    <div class="score-item"><div class="score-lbl">Expired</div><div class="score-val" id="sbExpiredCount" style="font-size:28px;color:var(--red);">0</div><div class="score-sub">need renewal</div></div>
+  </div>
+
+  <!-- Add subscriber -->
+  <div class="scanner-section">
+    <div class="sec-title">+ Add Subscriber</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 120px 120px auto;gap:8px;align-items:end;">
+      <div class="field"><label>Name</label><input id="sbName" placeholder="John Smith"/></div>
+      <div class="field"><label>Telegram Handle</label><input id="sbHandle" placeholder="@johnsmith"/></div>
+      <div class="field"><label>Payment Method</label><input id="sbMethod" placeholder="Venmo / Zelle / PayPal"/></div>
+      <div class="field"><label>Amount / mo</label><input id="sbAmount" type="number" placeholder="99" step="1"/></div>
+      <div class="field"><label>Paid Date</label><input id="sbPaidDate" type="date"/></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-p" onclick="sbAdd()">Add</button></div>
+    </div>
+    <div style="margin-top:8px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+      <div class="field"><label>Notes</label><input id="sbNotes" placeholder="Referred by AXTI alert · 3 month plan"/></div>
+    </div>
+  </div>
+
+  <!-- Filter + actions -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">👥 Members</span>
+    <button class="btn btn-sm" id="sbFilterAll"    onclick="sbSetFilter('all')"     style="background:var(--accent);color:#000;border:none;">All</button>
+    <button class="btn btn-sm" id="sbFilterActive" onclick="sbSetFilter('active')"  style="background:transparent;border:1px solid var(--border);color:var(--dim);">Active</button>
+    <button class="btn btn-sm" id="sbFilterExpiring" onclick="sbSetFilter('expiring')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Expiring</button>
+    <button class="btn btn-sm" id="sbFilterExpired" onclick="sbSetFilter('expired')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Expired</button>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="sbExportCSV()" style="background:transparent;border:1px solid var(--border);color:var(--text);">📥 Export CSV</button>
+      <button class="btn btn-d btn-sm" onclick="sbClearExpired()">Clear Expired</button>
+    </div>
+  </div>
+
+  <!-- Subscribers list -->
+  <div id="sbList"><div class="empty-s">No subscribers yet — add one above</div></div>
+
+</div><!-- /sbTab -->
+
+<!-- ══ TAB 6: REPORT ══ -->
+<div id="rpTab" style="display:none;">
+
+  <!-- Card wrapper -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;max-width:600px;">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--accent);">⚡ Alert Performance</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm" onclick="rpRefresh()" id="rpRefreshBtn" style="background:transparent;border:1px solid var(--border);color:var(--text);">🔄 Refresh</button>
+        <button class="btn btn-sm" onclick="rpShowScreenshot()" style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;">📸 Screenshot</button>
+        <button class="btn btn-p btn-sm" onclick="rpSendTelegram()" id="rpTgBtn">📤 Telegram</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div style="display:flex;gap:4px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;background:rgba(6,8,16,0.4);">
+      <button class="rp-filter-btn active" id="rpf-all"       onclick="rpSetFilter('all')">All</button>
+      <button class="rp-filter-btn"        id="rpf-open"      onclick="rpSetFilter('open')">Open</button>
+      <button class="rp-filter-btn"        id="rpf-closed"    onclick="rpSetFilter('closed')">Closed</button>
+      <button class="rp-filter-btn"        id="rpf-thismonth" onclick="rpSetFilter('thismonth')">This Month</button>
+      <button class="rp-filter-btn"        id="rpf-lastmonth" onclick="rpSetFilter('lastmonth')">Last Month</button>
+      <input id="rpSearch" placeholder="Search ticker…" oninput="rpRender()"
+        style="flex:1;min-width:80px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;"/>
+    </div>
+
+    <!-- Stats bar -->
+    <div style="display:flex;border-bottom:1px solid var(--border);overflow-x:auto;" id="rpStats"></div>
+
+    <!-- Rows -->
+    <div id="rpList"><div class="empty-s">No tickers — add some in Zone Scanner tab</div></div>
+
+    <!-- Footer -->
+    <div style="padding:8px 14px;font-size:10px;color:var(--dim2);font-family:'DM Mono',monospace;border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+      <span>⚡ Kalki · srimanth87.github.io/ema_strategy</span>
+      <span id="rpFooterStats">—</span>
+    </div>
+
+  </div>
+
+</div><!-- /rpTab -->
+
+<!-- ══ SCREENSHOT OVERLAY ══ -->
+<div id="ssOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
+  <div style="max-width:960px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:#a78bfa;">📸 Screenshot this area &nbsp;·&nbsp; <span style="color:#10b981">Click the card or bubble to copy text</span></div>
+      <button onclick="document.getElementById('ssOverlay').style.display='none'" style="font-family:'DM Mono',monospace;font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer;">✕ Close</button>
+    </div>
+    <div style="display:flex;gap:14px;align-items:flex-start;">
+      <!-- Report card -->
+      <div id="ssCard" style="background:#0d1120;border:1px solid #1f2d45;border-radius:14px;overflow:hidden;flex:1;min-width:0;"></div>
+      <!-- Telegram bubble -->
+      <div style="background:#c8dfc8;border-radius:14px;padding:14px 12px;width:340px;flex-shrink:0;display:flex;flex-direction:column;">
+        <div style="font-size:9px;color:#6b8f6b;font-family:'DM Mono',monospace;text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Telegram · click to copy</div>
+        <div id="ssBubble" style="background:#fff;border-radius:16px 16px 4px 16px;padding:13px 14px 10px;box-shadow:0 1px 2px rgba(0,0,0,0.1);overflow-x:auto;transition:outline 0.2s;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /wrap -->
 <script>
 'use strict';
@@ -470,12 +648,14 @@ function proxy(){ return (document.getElementById('proxyUrl').value||'https://ya
 // TABS
 // ══════════════════════════════════════════════════════
 function switchTab(t) {
-  ['an','sc','ka','pf'].forEach(id => {
+  ['an','sc','ka','pf','sb','rp'].forEach(id => {
     document.getElementById('t-'+id).classList.toggle('active', t===id);
     document.getElementById(id+'Tab').style.display = t===id ? 'block' : 'none';
   });
   if (t === 'ka') refreshKaTab();
   if (t === 'pf') pfRender();
+  if (t === 'sb') sbRender();
+  if (t === 'rp') rpRender();
 }
 function quickPick(s){ document.getElementById('searchInput').value=s; document.querySelectorAll('.qp').forEach(el=>el.classList.toggle('active',el.textContent===s)); runAnalysis(); }
 document.getElementById('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(); });
@@ -975,12 +1155,12 @@ function addTicker(){
   if(isNaN(brk))return alert('Enter breakdown level');
   const res=resRaw.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
   scTickers.push({sym,supLow,supHigh,brk,res,price:null,status:'neutral'});
-  saveSc();renderSc();
+  saveSc();renderSc();autoSync();
   ['inTick','inSup','inBrk','inRes'].forEach(id=>document.getElementById(id).value='');
 }
 
-function removeTicker(i,e){e.stopPropagation();scTickers.splice(i,1);if(kaSelected>=scTickers.length)kaSelected=scTickers.length-1;saveSc();renderSc();}
-function clearAll(){if(!confirm('Remove all?'))return;scTickers=[];kaSelected=null;saveSc();renderSc();}
+function removeTicker(i,e){e.stopPropagation();scTickers.splice(i,1);if(kaSelected>=scTickers.length)kaSelected=scTickers.length-1;saveSc();renderSc();autoSync();}
+function clearAll(){if(!confirm('Remove all?'))return;scTickers=[];kaSelected=null;saveSc();renderSc();autoSync();}
 
 function openKalkiFromCard(i) {
   kaSelected = i;
@@ -1306,51 +1486,72 @@ function pfAutoLog(sym, entryPrice, grade, status, resistances, breakdown, supLo
 function pfAdd(){
   const sym=(document.getElementById('pfTick').value||'').trim().toUpperCase();
   const entry=parseFloat(document.getElementById('pfEntry').value);
+  const entryDate=document.getElementById('pfEntryDate').value || new Date().toISOString().split('T')[0];
   const invest=parseFloat(document.getElementById('pfAmt').value)||10000;
   const grade=document.getElementById('pfGrade').value;
   const notes=document.getElementById('pfNotes').value.trim();
   if(!sym||isNaN(entry))return alert('Enter ticker and entry price');
-  // find zones from scTickers if available
   const sc=scTickers.find(t=>t.sym===sym);
   pfPositions.unshift({
-    id:Date.now(), sym, entryPrice:entry, grade, invest,
+    id:Date.now(), sym, entryPrice:entry, entryDate, grade, invest,
     currentPrice:entry, status:'Added manually',
     resistances:sc?.res||[], breakdown:sc?.brk||null,
     supLow:sc?.supLow||null, supHigh:sc?.supHigh||null,
-    notes, state:'open', closedPrice:null,
+    notes, state:'open', closedPrice:null, closeDate:null,
     addedAt:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
   });
   pfSave();
-  ['pfTick','pfEntry','pfNotes'].forEach(id=>document.getElementById(id).value='');
+  ['pfTick','pfEntry','pfNotes','pfEntryDate'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pfAmt').value='10000';
-  pfRender();
+  pfRender(); autoSync();
   switchTab('pf');
+}
+
+function pfEdit(id){
+  const pos=pfPositions.find(p=>p.id===id);
+  if(!pos)return;
+  const entry=prompt('Entry price:', pos.entryPrice?.toFixed(2)||'');
+  if(entry===null)return;
+  const entryDate=prompt('Entry date (YYYY-MM-DD):', pos.entryDate||'');
+  if(entryDate===null)return;
+  const invest=prompt('Amount invested ($):', pos.invest||10000);
+  if(invest===null)return;
+  const notes=prompt('Notes:', pos.notes||'');
+  if(notes===null)return;
+  if(entry) pos.entryPrice=parseFloat(entry)||pos.entryPrice;
+  if(entryDate) pos.entryDate=entryDate;
+  if(invest) pos.invest=parseFloat(invest)||pos.invest;
+  pos.notes=notes;
+  pfSave(); pfRender(); autoSync();
 }
 
 function pfClose(id){
   const pos=pfPositions.find(p=>p.id===id);
   if(!pos)return;
   const input=prompt('Close '+pos.sym+' — Enter exit price:', pos.currentPrice.toFixed(2));
-  if(input===null)return; // cancelled
+  if(input===null)return;
   const exitPrice=parseFloat(input);
   if(isNaN(exitPrice)||exitPrice<=0)return alert('Invalid price entered');
+  const dateInput=prompt('Close date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if(dateInput===null)return;
   pos.state='closed';
   pos.closedPrice=exitPrice;
   pos.currentPrice=exitPrice;
+  pos.closeDate=dateInput||new Date().toISOString().split('T')[0];
   pos.status='🔒 Closed @ $'+exitPrice.toFixed(2);
-  pfSave(); pfRender();
+  pfSave(); pfRender(); autoSync();
 }
 
 function pfRemove(id){
   if(!confirm('Remove this position?'))return;
   pfPositions=pfPositions.filter(p=>p.id!==id);
-  pfSave(); pfRender();
+  pfSave(); pfRender(); autoSync();
 }
 
 function pfClearClosed(){
   if(!confirm('Remove all closed positions?'))return;
   pfPositions=pfPositions.filter(p=>p.state!=='closed');
-  pfSave(); pfRender();
+  pfSave(); pfRender(); autoSync();
 }
 
 function pfSetFilter(f){
@@ -1432,14 +1633,22 @@ function pfRender(){
       <div class="pf-meta">
         <div class="pf-row">
           <div><div class="pf-lbl">Entry</div><div class="pf-val">$${pos.entryPrice.toFixed(2)}</div></div>
+          <div><div class="pf-lbl">Entry Date</div><div class="pf-val" style="font-size:12px">${pos.entryDate||'—'}</div></div>
           <div><div class="pf-lbl">Current</div><div class="pf-val">${priceDisplay}</div></div>
           <div><div class="pf-lbl">Invested</div><div class="pf-val">$${pos.invest.toLocaleString()}</div></div>
-          <div><div class="pf-lbl">Shares</div><div class="pf-val">${shares.toFixed(1)}</div></div>
         </div>
+        ${pos.state==='closed'?`<div class="pf-row" style="margin-top:4px">
+          <div><div class="pf-lbl">Closed $</div><div class="pf-val" style="color:var(--green)">$${pos.closedPrice?.toFixed(2)||'—'}</div></div>
+          <div><div class="pf-lbl">Close Date</div><div class="pf-val" style="font-size:12px">${pos.closeDate||'—'}</div></div>
+          <div><div class="pf-lbl">Shares</div><div class="pf-val">${shares.toFixed(1)}</div></div>
+        </div>`:`<div class="pf-row" style="margin-top:4px">
+          <div><div class="pf-lbl">Shares</div><div class="pf-val">${shares.toFixed(1)}</div></div>
+        </div>`}
         <div class="pf-status">${pos.status}${pos.notes?' · <span style="color:var(--dim)">'+pos.notes+'</span>':''} · <span style="color:var(--dim2)">${pos.addedAt}</span></div>
         ${tpPills?`<div class="pf-tp-row">${tpPills}</div>`:''}
         <div class="pf-actions">
-          ${pos.state==='open'?`<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="pfClose(${pos.id})">✓ Close</button>`:'<span style="font-size:10px;color:var(--dim);padding:5px 0;">CLOSED</span>'}
+          <button class="btn btn-sm" onclick="pfEdit(${pos.id})" style="background:rgba(59,130,246,0.1);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);">✏ Edit</button>
+          ${pos.state!=='closed'?`<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="pfClose(${pos.id})">✓ Close Position</button>`:'<span style="font-size:10px;color:var(--dim);padding:5px 0;">CLOSED</span>'}
           <button class="btn btn-d btn-sm" onclick="pfRemove(${pos.id})">✕</button>
         </div>
       </div>
@@ -1472,6 +1681,666 @@ function pfUpdateSummary(){
   document.getElementById('pfWinLoss').textContent=winners+'W / '+losers+'L';
 }
 
+// ══════════════════════════════════════════════════════
+// SUBSCRIBERS
+// ══════════════════════════════════════════════════════
+let sbSubs = JSON.parse(localStorage.getItem('kalki_sb')||'[]');
+let sbFilter = 'all';
+
+function sbSave(){ localStorage.setItem('kalki_sb', JSON.stringify(sbSubs)); }
+
+function sbStatus(sub){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const expiry = new Date(sub.expiryDate); expiry.setHours(0,0,0,0);
+  const diff = Math.round((expiry-today)/(1000*60*60*24));
+  if(diff < 0) return 'expired';
+  if(diff <= 7) return 'expiring';
+  return 'active';
+}
+
+function sbDaysLeft(sub){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const expiry = new Date(sub.expiryDate); expiry.setHours(0,0,0,0);
+  return Math.round((expiry-today)/(1000*60*60*24));
+}
+
+function sbAdd(){
+  const name   = document.getElementById('sbName').value.trim();
+  const handle = document.getElementById('sbHandle').value.trim();
+  const method = document.getElementById('sbMethod').value.trim();
+  const amount = parseFloat(document.getElementById('sbAmount').value)||0;
+  const paidDate = document.getElementById('sbPaidDate').value;
+  const notes  = document.getElementById('sbNotes').value.trim();
+  if(!name||!paidDate) return alert('Name and paid date are required');
+  // expiry = paid date + 30 days
+  const expiry = new Date(paidDate);
+  expiry.setDate(expiry.getDate()+30);
+  sbSubs.unshift({
+    id: Date.now(), name, handle, method, amount,
+    paidDate, expiryDate: expiry.toISOString().split('T')[0],
+    notes,
+    addedAt: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+  });
+  sbSave();
+  ['sbName','sbHandle','sbMethod','sbNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sbAmount').value='';
+  document.getElementById('sbPaidDate').value='';
+  sbRender(); autoSync();
+}
+
+function sbRenew(id){
+  const sub=sbSubs.find(s=>s.id===id);
+  if(!sub)return;
+  const newDate=prompt('Renewal paid date (YYYY-MM-DD):',new Date().toISOString().split('T')[0]);
+  if(!newDate)return;
+  const expiry=new Date(newDate);
+  expiry.setDate(expiry.getDate()+30);
+  sub.paidDate=newDate;
+  sub.expiryDate=expiry.toISOString().split('T')[0];
+  sbSave(); sbRender(); autoSync();
+}
+
+function sbRemove(id){
+  if(!confirm('Remove this subscriber?'))return;
+  sbSubs=sbSubs.filter(s=>s.id!==id);
+  sbSave(); sbRender(); autoSync();
+}
+
+function sbClearExpired(){
+  if(!confirm('Remove all expired subscribers?'))return;
+  sbSubs=sbSubs.filter(s=>sbStatus(s)!=='expired');
+  sbSave(); sbRender(); autoSync();
+}
+
+function sbSetFilter(f){
+  sbFilter=f;
+  ['all','active','expiring','expired'].forEach(k=>{
+    const id='sbFilter'+k.charAt(0).toUpperCase()+k.slice(1);
+    const b=document.getElementById(id);
+    if(b){b.style.background=k===f?'var(--accent)':'transparent';b.style.color=k===f?'#000':'var(--dim)';b.style.borderColor=k===f?'var(--accent)':'var(--border)';}
+  });
+  sbRender();
+}
+
+function sbExportCSV(){
+  if(!sbSubs.length)return alert('No subscribers to export');
+  const rows=[['Name','Handle','Method','Amount','Paid Date','Expiry','Status','Notes','Added']];
+  sbSubs.forEach(s=>rows.push([s.name,s.handle,s.method,s.amount,s.paidDate,s.expiryDate,sbStatus(s),s.notes,s.addedAt]));
+  const csv=rows.map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='kalki-subscribers-'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+}
+
+function sbRender(){
+  // update summary
+  const active=sbSubs.filter(s=>sbStatus(s)==='active');
+  const expiring=sbSubs.filter(s=>sbStatus(s)==='expiring');
+  const expired=sbSubs.filter(s=>sbStatus(s)==='expired');
+  const monthlyRev=[...active,...expiring].reduce((a,s)=>a+s.amount,0);
+  document.getElementById('sbActiveCount').textContent=active.length;
+  document.getElementById('sbMonthlyRev').textContent='$'+monthlyRev.toLocaleString();
+  document.getElementById('sbExpiringSoon').textContent=expiring.length;
+  document.getElementById('sbExpiredCount').textContent=expired.length;
+
+  // filter
+  let filtered=sbSubs;
+  if(sbFilter==='active')   filtered=sbSubs.filter(s=>sbStatus(s)==='active');
+  if(sbFilter==='expiring') filtered=sbSubs.filter(s=>sbStatus(s)==='expiring');
+  if(sbFilter==='expired')  filtered=sbSubs.filter(s=>sbStatus(s)==='expired');
+
+  const el=document.getElementById('sbList');
+  if(!filtered.length){el.innerHTML='<div class="empty-s">No subscribers match this filter</div>';return;}
+
+  el.innerHTML=filtered.map(sub=>{
+    const st=sbStatus(sub);
+    const days=sbDaysLeft(sub);
+    const daysLabel=days<0?'Expired '+(Math.abs(days))+' days ago':days===0?'Expires today':'Expires in '+days+' day'+(days!==1?'s':'');
+    const badgeLabel=st==='active'?'✅ Active':st==='expiring'?'⚠️ Expiring':'🔴 Expired';
+    return `<div class="sb-card ${st}">
+      <div>
+        <div class="sb-name">
+          ${sub.name}
+          <span class="sb-badge ${st}">${badgeLabel}</span>
+        </div>
+        ${sub.handle?`<div class="sb-handle">${sub.handle}</div>`:''}
+        <div class="sb-meta">
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Paid</div><div class="sb-meta-val">${sub.paidDate}</div></div>
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Expiry</div><div class="sb-meta-val">${sub.expiryDate}</div></div>
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Method</div><div class="sb-meta-val">${sub.method||'—'}</div></div>
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Added</div><div class="sb-meta-val">${sub.addedAt}</div></div>
+        </div>
+        ${sub.notes?`<div class="sb-notes">📝 ${sub.notes}</div>`:''}
+        <div class="sb-actions">
+          <button class="btn btn-sm" style="background:rgba(59,130,246,0.1);color:var(--accent2);border:1px solid rgba(59,130,246,0.3)" onclick="sbRenew(${sub.id})">🔄 Renew</button>
+          <button class="btn btn-d btn-sm" onclick="sbRemove(${sub.id})">✕</button>
+        </div>
+      </div>
+      <div class="sb-right">
+        <div class="sb-amount">$${sub.amount}<span style="font-size:12px;color:var(--dim)">/mo</span></div>
+        <div class="sb-expiry" style="color:${st==='expired'?'var(--red)':st==='expiring'?'var(--warn)':'var(--dim)'}">${daysLabel}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// REPORT TAB
+// ══════════════════════════════════════════════════════
+let rpFilter = 'all';
+
+function rpSetFilter(f) {
+  rpFilter = f;
+  ['all','open','closed','thismonth','lastmonth'].forEach(k => {
+    const b = document.getElementById('rpf-'+k);
+    if (b) b.classList.toggle('active', k === f);
+  });
+  rpRender();
+}
+
+function rpDaysHeld(t) {
+  const start = new Date(t.entryDate || t.addedAt || Date.now());
+  const end   = t.closeDate ? new Date(t.closeDate) : new Date();
+  return Math.max(0, Math.round((end - start) / 86400000));
+}
+
+function rpIsThisMonth(t) {
+  const now = new Date(), d = new Date(t.entryDate || t.addedAt || 0);
+  return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+}
+
+function rpIsLastMonth(t) {
+  const now = new Date();
+  const last = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const d = new Date(t.entryDate || t.addedAt || 0);
+  return d.getMonth()===last.getMonth() && d.getFullYear()===last.getFullYear();
+}
+
+function rpGetFiltered() {
+  const q = (document.getElementById('rpSearch')?.value||'').trim().toUpperCase();
+  return pfPositions.filter(t => {
+    if (q && !t.sym.includes(q)) return false;
+    if (rpFilter==='open')      return t.state !== 'closed';
+    if (rpFilter==='closed')    return t.state === 'closed';
+    if (rpFilter==='thismonth') return rpIsThisMonth(t);
+    if (rpFilter==='lastmonth') return rpIsLastMonth(t);
+    return true;
+  });
+}
+
+function rpStatus2(t) {
+  const p = t.state==='closed' ? t.closedPrice : t.currentPrice;
+  if (!p) return { label:'⏸ NO DATA', pillColor:'var(--dim)', rowCls:'rp2-open' };
+  if (t.state==='closed') {
+    const pct = rpPct(t);
+    return pct >= 0
+      ? { label:'✓ CLOSED', pillColor:'var(--green)', rowCls:'rp2-win' }
+      : { label:'✗ STOPPED', pillColor:'var(--red)',  rowCls:'rp2-loss' };
+  }
+  if (t.breakdown && p <= t.breakdown) return { label:'🚨 STOP LOSS', pillColor:'var(--red)', rowCls:'rp2-loss' };
+  if (t.supLow && t.supHigh && p >= t.supLow && p <= t.supHigh) return { label:'✅ IN SUPPORT', pillColor:'var(--green)', rowCls:'rp2-win' };
+  const res = t.resistances || [];
+  const nextR = res.find(r => p < r);
+  const nextRIdx = nextR ? res.indexOf(nextR) : -1;
+  if (nextR && Math.abs((nextR-p)/nextR) <= 0.015) return { label:'⚠️ NEAR TP'+(nextRIdx+1), pillColor:'var(--warn)', rowCls:'rp2-warn' };
+  const tpsHit = res.filter(r=>p>=r).length;
+  if (tpsHit > 0) return { label:'📈 TP'+tpsHit+' HIT', pillColor:'var(--accent)', rowCls:'rp2-open' };
+  return { label:'👀 WATCHING', pillColor:'var(--accent)', rowCls:'rp2-open' };
+}
+
+function rpPct(t) {
+  const price = t.state==='closed' ? t.closedPrice : t.currentPrice;
+  if (!price || !t.entryPrice) return null;
+  return ((price - t.entryPrice) / t.entryPrice * 100);
+}
+
+function rpTpBar(t) {
+  const res = t.resistances || [];
+  if (!res.length) return '';
+  const p = (t.state==='closed' ? t.closedPrice : t.currentPrice) || 0;
+  const nextR = res.find(r => p < r);
+  return res.map(r => {
+    const hit = p >= r;
+    const isNext = r === nextR;
+    const wrn = isNext && Math.abs((r-p)/r) <= 0.015;
+    return `<div class="rp2-seg ${hit?'hit':isNext?(wrn?'wrn':'nxt'):''}"></div>`;
+  }).join('');
+}
+
+function rpGradeTxt(t) {
+  const g = t.grade;
+  if (!g) return '—';
+  if (g==='A+') return '🥇🥇🥇 A+';
+  if (g==='A')  return '🥇🥇 A';
+  if (g==='B')  return '🥇 B';
+  return '📉 C';
+}
+
+async function rpRefresh() {
+  if (!pfPositions.length) return;
+  const btn = document.getElementById('rpRefreshBtn');
+  btn.textContent = '⟳ Refreshing...'; btn.disabled = true;
+  const opens = pfPositions.filter(p=>p.state!=='closed');
+  for (const pos of opens) {
+    const price = await fetchScanPrice(pos.sym);
+    if (price) pos.currentPrice = price;
+  }
+  pfSave(); rpRender();
+  btn.textContent = '🔄 Refresh'; btn.disabled = false;
+}
+
+function rpRender() {
+  if (!pfPositions.length) {
+    document.getElementById('rpStats').innerHTML = '';
+    document.getElementById('rpList').innerHTML = '<div class="empty-s">No positions — add some in the Portfolio tab first</div>';
+    document.getElementById('rpFooterStats').textContent = '—';
+    return;
+  }
+
+  const filtered = rpGetFiltered();
+
+  // Stats
+  const withPnl = filtered.filter(t => (t.currentPrice||t.closedPrice) && t.entryPrice);
+  const totalPnl = withPnl.reduce((a,t) => a + (rpPct(t)/100)*(t.invest||10000), 0);
+  const wins = withPnl.filter(t => rpPct(t) > 0).length;
+  const winRate = withPnl.length ? Math.round(wins/withPnl.length*100) : 0;
+  const withDates = filtered.filter(t => t.alertDate);
+  const avgHold = withDates.length ? Math.round(withDates.reduce((a,t)=>a+rpDaysHeld(t),0)/withDates.length) : 0;
+  const pnlColor = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const pnlStr = (totalPnl>=0?'+$':'−$')+Math.abs(Math.round(totalPnl)).toLocaleString();
+
+  document.getElementById('rpStats').innerHTML = `
+    <div class="rp-stat"><div class="rp-stat-num" style="color:${pnlColor}">${pnlStr}</div><div class="rp-stat-lbl">P&L</div></div>
+    <div class="rp-stat"><div class="rp-stat-num" style="color:var(--accent)">${filtered.length}</div><div class="rp-stat-lbl">Positions</div></div>
+    <div class="rp-stat"><div class="rp-stat-num" style="color:var(--accent2)">${winRate}%</div><div class="rp-stat-lbl">Win Rate</div></div>
+    <div class="rp-stat"><div class="rp-stat-num" style="color:#a78bfa">${avgHold}d</div><div class="rp-stat-lbl">Avg Hold</div></div>`;
+
+  if (!filtered.length) {
+    document.getElementById('rpList').innerHTML = '<div class="empty-s">No positions match this filter</div>';
+    document.getElementById('rpFooterStats').textContent = '$10k per position · 0 results';
+    return;
+  }
+
+  // Sort: open/support first, then by pnl
+  const stOrder = { 'rp2-win':0, 'rp2-open':1, 'rp2-warn':2, 'rp2-loss':3 };
+  const sorted = [...filtered].sort((a,b) => {
+    const oa = stOrder[rpStatus2(a).rowCls]||0;
+    const ob = stOrder[rpStatus2(b).rowCls]||0;
+    if (oa !== ob) return oa - ob;
+    return (rpPct(b)||0) - (rpPct(a)||0);
+  });
+
+  document.getElementById('rpList').innerHTML = sorted.map(t => {
+    const st  = rpStatus2(t);
+    const pct = rpPct(t);
+    const pctStr = pct!=null ? (pct>=0?'+':'')+pct.toFixed(1)+'%' : '—';
+    const amtStr = pct!=null ? (pct>=0?'+$':'−$')+Math.abs(Math.round(pct/100*(t.invest||10000))).toLocaleString() : '';
+    const pctColor = pct==null?'var(--dim)':pct>=0?'var(--green)':pct<-1?'var(--red)':'var(--warn)';
+    const days = rpDaysHeld(t);
+    const entryStr = t.entryPrice ? '$'+t.entryPrice.toFixed(2) : '—';
+    const currPrice = t.state==='closed' ? t.closedPrice : t.currentPrice;
+    const currStr  = currPrice ? '$'+currPrice.toFixed(2) : '—';
+    const stateStr = t.state==='closed'
+      ? '· Closed '+(t.closeDate||'')
+      : '· Holding since '+(t.entryDate||'—');
+    const alertDt  = t.entryDate || '—';
+    const res = t.resistances || [];
+    const nextR = res.find(r=>(currPrice||0)<r);
+    const nextInfo = nextR ? `Next <span style="color:var(--accent)">TP${res.indexOf(nextR)+1} $${nextR}</span>` : res.length ? `<span style="color:var(--green)">All TPs hit</span>` : '—';
+
+    return `<div class="rp-row2 ${st.rowCls}">
+      <div class="rp2-top">
+        <div class="rp2-left">
+          <div class="rp2-sym">${t.sym}</div>
+          <span class="rp2-pill" style="background:${st.pillColor}22;color:${st.pillColor};border:1px solid ${st.pillColor}55">${st.label}</span>
+          <span class="rp2-days">${days}d</span>
+        </div>
+        <div class="rp2-right">
+          <div class="rp2-pct" style="color:${pctColor}">${pctStr}</div>
+          <div class="rp2-amt">${amtStr}</div>
+        </div>
+      </div>
+      <div class="rp2-price">
+        <span style="color:var(--dim);font-family:'DM Mono',monospace">${entryStr}</span>
+        <span style="color:var(--dim2)">──▶</span>
+        <span style="color:${pctColor};font-weight:500;font-family:'DM Mono',monospace">${currStr}</span>
+        <span style="font-size:10px;color:${pctColor}">${stateStr}</span>
+      </div>
+      <div class="rp2-bar">${rpTpBar(t)}</div>
+      <div class="rp2-meta">
+        <div class="rp2-meta-item">Entry <span>${alertDt}</span></div>
+        <div class="rp2-meta-item">Grade <span>${rpGradeTxt(t)}</span></div>
+        <div class="rp2-meta-item">${nextInfo}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const openC   = filtered.filter(t=>t.state!=='closed').length;
+  const closedC = filtered.filter(t=>t.state==='closed').length;
+  document.getElementById('rpFooterStats').textContent = `$10k per pos · ${openC} open · ${closedC} closed`;
+}
+
+async function rpSendTelegram() {
+  const tok = document.getElementById('botToken').value.trim();
+  const cid = document.getElementById('chatId').value.trim();
+  if (!tok || !cid) { alert('Set Bot Token and Chat ID in Zone Scanner tab first'); return; }
+  const btn = document.getElementById('rpTgBtn');
+  btn.textContent = '📤 Sending...'; btn.disabled = true;
+
+  const filtered = rpGetFiltered();
+  const withPnl  = filtered.filter(t=>(t.currentPrice||t.closedPrice)&&t.entryPrice);
+  const totalPnl = withPnl.reduce((a,t)=>a+(rpPct(t)/100)*(t.invest||10000),0);
+  const wins      = withPnl.filter(t=>rpPct(t)>0).length;
+  const winRate   = withPnl.length?Math.round(wins/withPnl.length*100):0;
+
+  const stOrder = { 'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3 };
+  const sorted = [...filtered].sort((a,b)=>(stOrder[rpStatus2(a).rowCls]||0)-(stOrder[rpStatus2(b).rowCls]||0));
+
+  const closed   = sorted.filter(t=>t.state==='closed');
+  const watching = sorted.filter(t=>t.state!=='closed'&&rpStatus2(t).rowCls!=='rp2-warn'&&rpStatus2(t).rowCls!=='rp2-loss');
+  const warning  = sorted.filter(t=>t.state!=='closed'&&(rpStatus2(t).rowCls==='rp2-warn'||rpStatus2(t).rowCls==='rp2-loss'));
+
+  // shared format helpers
+  const fP = v => { if(!v) return '-'; if(v>=100) return '$'+Math.round(v); return '$'+parseFloat(v).toFixed(2); };
+  const padL = (s,n) => { s=String(s); while(s.length<n) s=' '+s; return s; };
+  const padR = (s,n) => { s=String(s); while(s.length<n) s=s+' '; return s; };
+
+  const fmtRow = t => {
+    const pct    = rpPct(t);
+    const curr   = t.state==='closed'?t.closedPrice:t.currentPrice;
+    const pctStr = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
+    const emoji  = pct==null?'-':pct>=0?'📈':'📉';
+    const sym    = padR(t.sym, 5);
+    const ep     = padL(fP(t.entryPrice), 7);
+    const cp     = padL(fP(curr), 7);
+    const pp     = padL(pctStr, 7);
+    return `${emoji} ${sym} ${ep}  →  ${cp}  ${pp}`;
+  };
+
+  const pnlStr = (totalPnl>=0?'+$':'-$')+Math.abs(Math.round(totalPnl)).toLocaleString();
+  const date   = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+  let sections = '';
+  if (closed.length)   sections += `── CLOSED ──\n`  + closed.map(fmtRow).join('\n')   + '\n\n';
+  if (watching.length) sections += `── WATCHING ──\n` + watching.map(fmtRow).join('\n') + '\n\n';
+  if (warning.length)  sections += `── NEAR STOP ──\n`+ warning.map(fmtRow).join('\n')  + '\n\n';
+
+  const msg =
+    `⚡ *KALKI REPORT* · ${date}\n` +
+    `────────────\n` +
+    `💰 *${pnlStr}*  ·  Win *${winRate}%*  ·  *${filtered.length}* positions\n\n` +
+    sections +
+    `_$10,000 invested per position_\n` +
+    `────────────\n` +
+    `⚡ _Kalki Analysis Platform_`;
+
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})});
+    const d = await r.json();
+    if (d.ok) { btn.textContent='✅ Sent!'; setTimeout(()=>{btn.textContent='📤 Telegram';btn.disabled=false;},2500); }
+    else throw new Error(d.description);
+  } catch(e) { alert('Failed: '+e.message); btn.textContent='📤 Telegram'; btn.disabled=false; }
+}
+
+// ══════════════════════════════════════════════════════
+// JSONBIN.IO SYNC
+// ══════════════════════════════════════════════════════
+function jbBinId()  { return (document.getElementById('jbBinId')?.value||'').trim(); }
+function jbApiKey() { return (document.getElementById('jbApiKey')?.value||'').trim(); }
+
+function gsStatus(msg, color='var(--green)') {
+  const el = document.getElementById('gsSyncStatus');
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+
+async function gsSyncAll() {
+  const binId  = jbBinId();
+  const apiKey = jbApiKey();
+  if (!binId || !apiKey) return alert('Enter JSONBin Bin ID and API Key in Zone Scanner settings');
+  gsStatus('Syncing...', 'var(--accent)');
+  try {
+    const payload = {
+      portfolio:   pfPositions,
+      watchlist:   scTickers,
+      subscribers: sbSubs,
+      updatedAt:   new Date().toISOString()
+    };
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': apiKey,
+      },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.message || 'Sync failed');
+    localStorage.setItem('kalki_jb_bin', binId);
+    localStorage.setItem('kalki_jb_key', apiKey);
+    gsStatus('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    gsStatus('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+async function gsLoadAll() {
+  const binId  = jbBinId();
+  const apiKey = jbApiKey();
+  if (!binId || !apiKey) return alert('Enter JSONBin Bin ID and API Key first');
+  gsStatus('Loading...', 'var(--accent)');
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+      headers: { 'X-Master-Key': apiKey }
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.message || 'Load failed');
+    const data = d.record;
+    if (data.portfolio)   { pfPositions = data.portfolio;   pfSave(); pfRender(); }
+    if (data.watchlist)   { scTickers   = data.watchlist;   saveSc(); renderSc(); }
+    if (data.subscribers) { sbSubs      = data.subscribers; sbSave(); sbRender(); }
+    localStorage.setItem('kalki_jb_bin', binId);
+    localStorage.setItem('kalki_jb_key', apiKey);
+    gsStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    gsStatus('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+// Auto-sync helpers with debounce — syncs 2s after last change
+let _syncTimer = null;
+function autoSync() {
+  if (!jbBinId() || !jbApiKey()) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    gsSyncAll().catch(()=>{});
+  }, 2000);
+}
+async function pfSaveAndSync(){ pfSave(); autoSync(); }
+async function saveSCAndSync(){ saveSc(); autoSync(); }
+async function sbSaveAndSync(){ sbSave(); autoSync(); }
+
+function rpShowScreenshot() {
+  const filtered = rpGetFiltered();
+  if (!filtered.length) return alert('No positions to show');
+
+  const stOrder = { 'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3 };
+  const sorted = [...filtered].sort((a,b)=>(stOrder[rpStatus2(a).rowCls]||0)-(stOrder[rpStatus2(b).rowCls]||0));
+
+  const withPnl  = filtered.filter(t=>(t.currentPrice||t.closedPrice)&&t.entryPrice);
+  const totalPnl = withPnl.reduce((a,t)=>a+(rpPct(t)/100)*(t.invest||10000),0);
+  const wins     = withPnl.filter(t=>rpPct(t)>0).length;
+  const winRate  = withPnl.length?Math.round(wins/withPnl.length*100):0;
+  const avgHold  = filtered.length?Math.round(filtered.reduce((a,t)=>a+rpDaysHeld(t),0)/filtered.length):0;
+  const pnlColor = totalPnl>=0?'#10b981':'#ef4444';
+  const pnlStr   = (totalPnl>=0?'+$':'-$')+Math.abs(Math.round(totalPnl)).toLocaleString();
+
+  // helpers
+  const fP = v => { if(!v) return '-'; if(v>=100) return '$'+Math.round(v); return '$'+parseFloat(v).toFixed(2); };
+  const padL = (s,n) => { s=String(s); while(s.length<n) s=' '+s; return s; };
+  const padR = (s,n) => { s=String(s); while(s.length<n) s=s+' '; return s; };
+
+  const closed   = sorted.filter(t=>t.state==='closed');
+  const watching = sorted.filter(t=>t.state!=='closed'&&rpStatus2(t).rowCls!=='rp2-warn'&&rpStatus2(t).rowCls!=='rp2-loss');
+  const warning  = sorted.filter(t=>t.state!=='closed'&&(rpStatus2(t).rowCls==='rp2-warn'||rpStatus2(t).rowCls==='rp2-loss'));
+
+  // card row
+  const cardRow = t => {
+    const pct      = rpPct(t);
+    const pctColor = pct==null?'#64748b':pct>=0?'#10b981':'#ef4444';
+    const emoji    = pct==null?'minus':pct>=0?'up':'down';
+    const emojiHtml= pct==null?'<span>-</span>':pct>=0?'<span style="color:#10b981">📈</span>':'<span style="color:#ef4444">📉</span>';
+    const curr     = t.state==='closed'?t.closedPrice:t.currentPrice;
+    const days     = rpDaysHeld(t);
+    const res      = t.resistances||t.res||[];
+    const p        = curr||0;
+    const nextR    = res.find(r=>p<r);
+    const allHit   = res.length>0&&res.every(r=>p>=r);
+    const tpStr    = allHit?'ALL 🎉':nextR?'TP'+(res.indexOf(nextR)+1):'--';
+    const pctStr   = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
+    const amt      = pct!=null?(pct>=0?'+$':'-$')+Math.abs(Math.round(pct/100*(t.invest||10000))).toLocaleString():'';
+    const tpBar    = res.map(r=>{ const hit=p>=r; const isNext=!hit&&res.find(x=>p<x)===r; return '<div style="flex:1;height:2px;border-radius:1px;background:'+(hit?'#10b981':isNext?'#f59e0b':'#1f2d45')+'"></div>'; }).join('');
+    const bColor   = {'rp2-win':'#10b981','rp2-open':'#f59e0b','rp2-warn':'#f97316','rp2-loss':'#ef4444'}[rpStatus2(t).rowCls]||'#f59e0b';
+    return '<div style="padding:7px 14px;border-bottom:1px solid rgba(31,45,69,0.4);border-left:3px solid '+bColor+'">'
+      +'<div style="display:flex;align-items:center;gap:6px;font-family:DM Mono,monospace;font-size:11px;">'
+      +'<span style="font-size:13px">'+emojiHtml+'</span>'
+      +'<span style="font-family:Bebas Neue,sans-serif;font-size:16px;color:#fff;min-width:48px">'+t.sym+'</span>'
+      +'<span style="color:#64748b;min-width:44px;text-align:right">'+fP(t.entryPrice)+'</span>'
+      +'<span style="color:#475569;width:16px;text-align:center">&#8594;</span>'
+      +'<span style="color:'+pctColor+';min-width:52px">'+fP(curr)+'</span>'
+      +'<span style="color:'+pctColor+';font-weight:700;min-width:52px">'+pctStr+'</span>'
+      +'<span style="color:'+pctColor+';min-width:68px">'+amt+'</span>'
+      +'<span style="color:#64748b;min-width:24px">'+days+'d</span>'
+      +'<span style="color:#f59e0b;font-size:10px">'+tpStr+'</span>'
+      +'</div>'
+      +(res.length?'<div style="display:flex;gap:2px;margin-top:3px;margin-left:26px">'+tpBar+'</div>':'')
+      +'</div>';
+  };
+
+  const cardSection = (lbl, rows) => rows.length
+    ? '<div style="padding:4px 14px;font-size:9px;font-family:DM Mono,monospace;color:#475569;background:rgba(6,8,16,0.4);border-bottom:1px solid rgba(31,45,69,0.4)">'+lbl+'</div>'+rows.map(cardRow).join('')
+    : '';
+
+  const statsHtml = '<div style="display:flex;border-bottom:1px solid #1f2d45;">'
+    +'<div style="flex:1;text-align:center;padding:8px 2px;border-right:1px solid #1f2d45"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:'+pnlColor+'">'+pnlStr+'</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">P&L</div></div>'
+    +'<div style="flex:1;text-align:center;padding:8px 2px;border-right:1px solid #1f2d45"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:#f59e0b">'+filtered.length+'</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">Positions</div></div>'
+    +'<div style="flex:1;text-align:center;padding:8px 2px;border-right:1px solid #1f2d45"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:#3b82f6">'+winRate+'%</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">Win Rate</div></div>'
+    +'<div style="flex:1;text-align:center;padding:8px 2px"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:#a78bfa">'+avgHold+'d</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">Avg Hold</div></div>'
+    +'</div>';
+
+  document.getElementById('ssCard').innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #1f2d45">'
+    +'<div style="font-family:Bebas Neue,sans-serif;font-size:15px;letter-spacing:2px;color:#f59e0b">&#9889; Alert Performance</div>'
+    +'<div style="font-family:DM Mono,monospace;font-size:9px;color:#64748b">'+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})+'</div>'
+    +'</div>'
+    +statsHtml
+    +'<div style="padding:4px 14px;font-size:9px;color:#475569;font-family:DM Mono,monospace;background:rgba(6,8,16,0.5);border-bottom:1px solid #1f2d45;text-align:center">$10,000 invested per position</div>'
+    +cardSection('&#8212;&#8212; &#10003; CLOSED &#8212;&#8212;', closed)
+    +cardSection('&#8212;&#8212; &#128200; WATCHING &#8212;&#8212;', watching)
+    +cardSection('&#8212;&#8212; &#9888;&#65039; NEAR STOP &#8212;&#8212;', warning)
+    +'<div style="padding:6px 14px;font-size:9px;color:#334155;font-family:DM Mono,monospace;border-top:1px solid #1f2d45;text-align:center">&#9889; Kalki Analysis Platform</div>';
+
+  // tg row — all black except profit/loss amounts
+  const tgRow = t => {
+    const pct    = rpPct(t);
+    const emoji  = pct==null?'- ':pct>=0?'📈':'📉';
+    const curr   = t.state==='closed'?t.closedPrice:t.currentPrice;
+    const days   = rpDaysHeld(t);
+    const res    = t.resistances||t.res||[];
+    const p      = curr||0;
+    const nextR  = res.find(r=>p<r);
+    const allHit = res.length>0&&res.every(r=>p>=r);
+    const tpStr  = allHit?'ALL 🎉':nextR?'TP'+(res.indexOf(nextR)+1):'';
+    const pctStr = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
+    const amtPos = pct!=null&&pct>=0;
+    const amt    = pct!=null?(amtPos?'(+$':'(-$')+Math.abs(Math.round(pct/100*(t.invest||10000))).toLocaleString()+')':'';
+    const amtColor = amtPos?'#16a34a':'#dc2626';
+    const symCol = padR(t.sym,5);
+    const epCol  = padL(fP(t.entryPrice),7);
+    const cpCol  = padL(fP(curr),8);
+    const ppCol  = padL(pctStr,7);
+    const apCol  = padR(amt,11);
+    const dpCol  = padL(days+'d',3);
+    return '<div style="font-family:Courier New,monospace;font-size:12.5px;line-height:1.9;white-space:nowrap;color:#1a1a1a;">'
+      +'<span>'+emoji+'</span>'
+      +'<b> '+symCol+'</b>'
+      +'<span style="color:#555"> '+epCol+' &#8594; '+cpCol+'</span>'
+      +'<b> '+ppCol+'</b>'
+      +'<span style="color:'+amtColor+'"> '+apCol+'</span>'
+      +'<span style="color:#888"> '+dpCol+'</span>'
+      +(tpStr?'<span style="color:#555"> '+tpStr+'</span>':'')
+      +'</div>';
+  };
+
+  const tgSection = (lbl, rows) => rows.length
+    ? '<div style="font-size:11px;color:#555;font-family:Courier New,monospace;margin:5px 0 2px">'+lbl+'</div>'+rows.map(tgRow).join('')
+    : '';
+
+  const dateStr = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const timeStr = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+  document.getElementById('ssBubble').innerHTML =
+    '<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:14px;color:#1a1a1a;margin-bottom:6px">&#9889; <b>KALKI REPORT</b> &middot; '+dateStr+'</div>'
+    +'<div style="border-top:1px solid #ddd;margin-bottom:6px"></div>'
+    +'<div style="font-family:-apple-system,sans-serif;font-size:13px;color:#1a1a1a;margin-bottom:2px">&#128176; <b>'+pnlStr+'</b> &middot; Win <b>'+winRate+'%</b> &middot; <b>'+filtered.length+'</b> positions</div>'
+    +'<div style="font-family:Courier New,monospace;font-size:10px;color:#999;margin-bottom:6px">$10,000 invested per position</div>'
+    +tgSection('&#8212;&#8212; &#10003; CLOSED &#8212;&#8212;', closed)
+    +(watching.length?tgSection('&#8212;&#8212; &#128200; WATCHING &#8212;&#8212;', watching):'')
+    +(warning.length?tgSection('&#8212;&#8212; &#9888; NEAR STOP &#8212;&#8212;', warning):'')
+    +'<div style="border-top:1px solid #ddd;margin:6px 0"></div>'
+    +'<div style="font-family:-apple-system,sans-serif;font-size:11px;font-style:italic;color:#999">&#9889; Kalki Analysis Platform</div>'
+    +'<div style="font-size:10px;color:#aaa;text-align:right;margin-top:4px">'+timeStr+' &#10003;&#10003;</div>';
+
+  // shared plain text row builder
+  const buildTxt = () => {
+    const rowTxt = t => {
+      const pct    = rpPct(t);
+      const curr   = t.state==='closed'?t.closedPrice:t.currentPrice;
+      const pctStr = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
+      const emoji  = pct==null?'-':pct>=0?'📈':'📉';
+      const sym    = padR(t.sym, 5);
+      const ep     = padL(fP(t.entryPrice), 7);
+      const cp     = padL(fP(curr), 7);
+      const pp     = padL(pctStr, 7);
+      return `${emoji} ${sym} ${ep}  →  ${cp}  ${pp}`;
+    };
+    const secTxt = (lbl, rows) => rows.length?'\n'+lbl+'\n'+rows.map(rowTxt).join('\n'):'';
+    return '⚡ KALKI REPORT · '+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'\n'
+      +'────────────\n'
+      +'💰 '+pnlStr+'  Win '+winRate+'%  '+filtered.length+' positions\n'
+      +secTxt('── ✓ CLOSED ──', closed)
+      +secTxt('── 📈 WATCHING ──', watching)
+      +secTxt('── ⚠️ NEAR STOP ──', warning)
+      +'\n\n$10,000 invested per position'
+      +'\n────────────\n⚡ Kalki Analysis Platform';
+  };
+
+  const doCopy = async (el) => {
+    try {
+      await navigator.clipboard.writeText(buildTxt());
+      el.style.outline = '2px solid #10b981';
+      const prev = el.title;
+      el.title = '✅ Copied!';
+      setTimeout(()=>{ el.style.outline=''; el.title=prev; }, 2000);
+    } catch(e) { alert('Copy failed — select text manually'); }
+  };
+
+  // click BUBBLE to copy
+  const bubble = document.getElementById('ssBubble');
+  bubble.style.cursor = 'pointer';
+  bubble.title = 'Click to copy text to clipboard';
+  bubble.onclick = () => doCopy(bubble);
+
+  // click CARD to copy
+  const card = document.getElementById('ssCard');
+  card.style.cursor = 'pointer';
+  card.title = 'Click to copy text to clipboard';
+  card.onclick = () => doCopy(card);
+
+  document.getElementById('ssOverlay').style.display = 'block';
+}
+
+
 // ── INIT ─────────────────────────────────────────────
 const st=localStorage.getItem('kalki_tok'),sc=localStorage.getItem('kalki_cid');
 if(st)document.getElementById('botToken').value=st;
@@ -1479,12 +2348,28 @@ if(sc)document.getElementById('chatId').value=sc;
 document.getElementById('botToken').addEventListener('change',e=>localStorage.setItem('kalki_tok',e.target.value));
 document.getElementById('chatId').addEventListener('change',e=>localStorage.setItem('kalki_cid',e.target.value));
 
-// Default AXTI example
-if(!scTickers.length){
-  scTickers.push({sym:'AXTI',supLow:38,supHigh:40,brk:37,res:[42,44,46,50,55,60],price:null,status:'neutral'});
-  saveSc();
+// Restore JSONBin credentials and auto-load on start
+const savedBinId  = localStorage.getItem('kalki_jb_bin');
+const savedApiKey = localStorage.getItem('kalki_jb_key');
+if (savedBinId)  document.getElementById('jbBinId').value  = savedBinId;
+if (savedApiKey) document.getElementById('jbApiKey').value = savedApiKey;
+
+if (savedBinId && savedApiKey) {
+  gsStatus('Loading from JSONBin...', 'var(--accent)');
+  gsLoadAll().then(() => {
+    gsStatus('✅ Loaded from JSONBin');
+    renderSc();
+  }).catch(() => {
+    gsStatus('⚠ Could not reach JSONBin — using local data', 'var(--warn)');
+    renderSc();
+  });
+} else {
+  if(!scTickers.length){
+    scTickers.push({sym:'AXTI',supLow:38,supHigh:40,brk:37,res:[42,44,46,50,55,60],price:null,status:'neutral'});
+    saveSc();
+  }
+  renderSc();
 }
-renderSc();
 </script>
 </body>
 </html>
