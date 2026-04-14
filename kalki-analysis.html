@@ -412,11 +412,36 @@ input:focus{border-color:var(--accent);}
 <!-- ══ TAB 3: KALKI ANALYSIS (from scanner zones) ══ -->
 <div id="kaTab" style="display:none;">
 
+  <!-- Search bar for free ticker lookup -->
+  <div class="search-card" style="margin-bottom:16px;">
+    <div class="search-label">🔍 Search Any Ticker — Auto-calculated Kalki Analysis</div>
+    <div class="search-row">
+      <input class="search-input" id="kaSearchInput" placeholder="NVDA, TSLA, AAPL…" maxlength="10" style="text-transform:uppercase"/>
+      <button class="analyze-btn" id="kaSearchBtn" onclick="runKalkiSearch()">ANALYZE</button>
+      <button id="sendZoneMapBtn" onclick="sendZoneMapToTelegram()" style="display:none;font-family:'DM Sans',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:0 14px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#f59e0b;cursor:pointer;white-space:nowrap;height:42px;">📤 Send to Telegram</button>
+    </div>
+    <div class="quick-picks">
+      <span style="font-size:10px;color:var(--dim);align-self:center;margin-right:4px;">Quick:</span>
+      <span class="qp" onclick="kaQuickPick('NVDA')">NVDA</span>
+      <span class="qp" onclick="kaQuickPick('TSLA')">TSLA</span>
+      <span class="qp" onclick="kaQuickPick('AAPL')">AAPL</span>
+      <span class="qp" onclick="kaQuickPick('META')">META</span>
+      <span class="qp" onclick="kaQuickPick('AMD')">AMD</span>
+      <span class="qp" onclick="kaQuickPick('AMZN')">AMZN</span>
+      <span class="qp" onclick="kaQuickPick('GOOG')">GOOG</span>
+      <span class="qp" onclick="kaQuickPick('MSFT')">MSFT</span>
+    </div>
+  </div>
+
   <!-- Empty state -->
   <div class="ka-empty" id="kaEmpty">
     <div class="ke-title">⚡ Kalki Analysis</div>
-    <div class="ke-sub">Add tickers with zones in the Zone Scanner tab,<br>then click any ticker card to see its full Kalki Analysis here.<br><br>The analysis uses your <strong>exact support, breakdown & resistance levels</strong><br>from the alert — not auto-calculated values.</div>
+    <div class="ke-sub">Search any ticker above for instant auto-calculated analysis.<br><br>Or add tickers with your custom zones in the Zone Scanner tab,<br>then click any ticker card to see zone-based analysis here.</div>
   </div>
+
+  <!-- Search loading/error -->
+  <div class="error-panel"   id="kaErrPanel"     style="display:none;"></div>
+  <div class="loading-panel" id="kaLoadingPanel"  style="display:none;"><div class="spinner"></div><div class="loading-msg" id="kaLoadingMsg">Fetching…</div></div>
 
   <!-- Analysis content (hidden until ticker selected) -->
   <div id="kaContent" style="display:none;">
@@ -447,9 +472,8 @@ input:focus{border-color:var(--accent);}
 
     <!-- AXTI-style Zone Strip -->
     <div class="zone-strip">
-      <div class="zone-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="zone-title">
         <span>📍 Kalki Zone Map — From Your Alert<span class="zt-badge" id="kaZoneBadge">—</span></span>
-        <button id="sendZoneMapBtn" onclick="sendZoneMapToTelegram()" style="font-family:'DM Sans',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:5px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#f59e0b;cursor:pointer;white-space:nowrap;">📤 Send to Telegram</button>
       </div>
       <div class="zone-line" id="kaZoneLine"></div>
       <div class="zone-labels-row" id="kaZoneLabelRow"></div>
@@ -578,7 +602,6 @@ input:focus{border-color:var(--accent);}
       <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--accent);">⚡ Alert Performance</div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn-sm" onclick="rpRefresh()" id="rpRefreshBtn" style="background:transparent;border:1px solid var(--border);color:var(--text);">🔄 Refresh</button>
-        <button class="btn btn-sm" onclick="rpShowScreenshot()" style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;">📸 Screenshot</button>
         <button class="btn btn-p btn-sm" onclick="rpSendTelegram()" id="rpTgBtn">📤 Telegram</button>
       </div>
     </div>
@@ -610,24 +633,6 @@ input:focus{border-color:var(--accent);}
 
 </div><!-- /rpTab -->
 
-<!-- ══ SCREENSHOT OVERLAY ══ -->
-<div id="ssOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
-  <div style="max-width:960px;margin:0 auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div style="font-family:'DM Mono',monospace;font-size:11px;color:#a78bfa;">📸 Screenshot this area &nbsp;·&nbsp; <span style="color:#10b981">Click the card or bubble to copy text</span></div>
-      <button onclick="document.getElementById('ssOverlay').style.display='none'" style="font-family:'DM Mono',monospace;font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer;">✕ Close</button>
-    </div>
-    <div style="display:flex;gap:14px;align-items:flex-start;">
-      <!-- Report card -->
-      <div id="ssCard" style="background:#0d1120;border:1px solid #1f2d45;border-radius:14px;overflow:hidden;flex:1;min-width:0;"></div>
-      <!-- Telegram bubble -->
-      <div style="background:#c8dfc8;border-radius:14px;padding:14px 12px;width:340px;flex-shrink:0;display:flex;flex-direction:column;">
-        <div style="font-size:9px;color:#6b8f6b;font-family:'DM Mono',monospace;text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Telegram · click to copy</div>
-        <div id="ssBubble" style="background:#fff;border-radius:16px 16px 4px 16px;padding:13px 14px 10px;box-shadow:0 1px 2px rgba(0,0,0,0.1);overflow-x:auto;transition:outline 0.2s;"></div>
-      </div>
-    </div>
-  </div>
-</div>
 
 </div><!-- /wrap -->
 <script>
@@ -659,6 +664,7 @@ function switchTab(t) {
 }
 function quickPick(s){ document.getElementById('searchInput').value=s; document.querySelectorAll('.qp').forEach(el=>el.classList.toggle('active',el.textContent===s)); runAnalysis(); }
 document.getElementById('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(); });
+document.getElementById('kaSearchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runKalkiSearch(); });
 
 // ══════════════════════════════════════════════════════
 // FETCH YAHOO (via ?url= proxy format)
@@ -1050,6 +1056,12 @@ async function loadKalki(idx) {
   const t = scTickers[idx];
   if (!t) return;
 
+  // Restore compare banner + chart title (may have been hidden by search)
+  document.getElementById('kaCompareBanner').style.display = '';
+  document.getElementById('kaEmpty').style.display = 'none';
+  document.getElementById('kaErrPanel').style.display = 'none';
+  document.querySelector('#kaTab .chart-card .chart-title span:first-child').textContent = '📈 Price History — Kalki Alert Zones Overlaid';
+
   // Update button styles
   document.querySelectorAll('.ka-ticker-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
 
@@ -1117,7 +1129,7 @@ async function loadKalki(idx) {
     };
     // Reset send button state
     const sb=document.getElementById('sendZoneMapBtn');
-    if(sb){sb.textContent='📤 Send to Telegram';sb.style.opacity='1';sb.style.pointerEvents='auto';}
+    if(sb){sb.textContent='📤 Send to Telegram';sb.style.opacity='1';sb.style.pointerEvents='auto';sb.style.display='';}
     const ss=document.getElementById('tgSendStatus');
     if(ss)ss.style.display='none';
 
@@ -1166,6 +1178,86 @@ function openKalkiFromCard(i) {
   kaSelected = i;
   switchTab('ka');
 }
+
+// ── KALKI ANALYSIS FREE SEARCH ────────────────────────
+function kaQuickPick(sym) {
+  document.getElementById('kaSearchInput').value = sym;
+  document.querySelectorAll('#kaTab .qp').forEach(el => el.classList.toggle('active', el.textContent === sym));
+  runKalkiSearch();
+}
+
+async function runKalkiSearch() {
+  const sym = (document.getElementById('kaSearchInput').value || '').trim().toUpperCase();
+  if (!sym) return;
+
+  // Hide empty state, show loading
+  document.getElementById('kaEmpty').style.display    = 'none';
+  document.getElementById('kaContent').style.display  = 'none';
+  document.getElementById('kaErrPanel').style.display  = 'none';
+  document.getElementById('kaLoadingPanel').style.display = 'flex';
+  document.getElementById('kaLoadingMsg').textContent  = `Fetching ${sym}…`;
+  document.getElementById('kaSearchBtn').disabled      = true;
+
+  // Hide the watchlist selector row + compare banner (search mode = auto zones)
+  document.getElementById('kaSelectRow').innerHTML     = '';
+  document.getElementById('kaCompareBanner').style.display = 'none';
+
+  try {
+    const r = await fetchYahoo(sym, '3mo', '1d');
+    const a = buildFromYahoo(sym, r, null); // null = auto-calc zones
+
+    // Show content
+    document.getElementById('kaLoadingPanel').style.display = 'none';
+    document.getElementById('kaContent').style.display      = 'block';
+
+    // Stock header
+    const ud  = a.change >= 0 ? 'up' : 'dn';
+    const arr = a.change >= 0 ? '▲'  : '▼';
+    document.getElementById('kaStockHeader').innerHTML =
+      `<div><div class="ticker-name">${a.ticker}<span class="kalki-badge" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">Auto Analysis</span></div>` +
+      `<div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div></div>` +
+      `<div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div>` +
+      `<div class="price-change ${ud}">${arr} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div>` +
+      `<div class="as-of">Auto-calculated zones · Support $${a.supLow?.toFixed(2)}–$${a.supHigh?.toFixed(2)} · Break $${a.breakdown?.toFixed(2)}</div></div>`;
+
+    renderScoreBanner(document.getElementById('kaScoreBanner'), a.shortScore, a.longScore, a.overall, a.stV, a.ltV, a.ovV);
+    document.getElementById('kaInsightBox').innerHTML = `<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
+    document.getElementById('kaChartBadge').textContent = a.priceHistory.length + ' DAYS LIVE';
+
+    drawPriceChart('kaChart', a);
+
+    renderZoneStrip(
+      document.getElementById('kaZoneLine'),
+      document.getElementById('kaZoneLabelRow'),
+      document.getElementById('kaZoneBadge'),
+      { price: a.price, supLow: a.supLow, supHigh: a.supHigh, breakdown: a.breakdown, resistances: a.resistances, ticker: a.ticker }
+    );
+
+    // Stats grid
+    document.getElementById('kaStatGrid').innerHTML = a.stats.map(s =>
+      `<div class="stat-item"><div class="sl">${s.label}</div><div class="sv ${s.type||''}">${s.value}</div></div>`
+    ).join('');
+
+    renderFactors(document.getElementById('kaFactorBars'), a.factors);
+    renderSTCard(document.getElementById('kaStCard'),  a.shortScore, a.sBull, a.sBear);
+    renderLTCard(document.getElementById('kaLtCard'),  a.longScore,  a.lBull, a.lBear);
+    renderTargets(document.getElementById('kaTargetsCard'), a.price, a.stStop, a.stT1, a.stT2, a.stT3, a.resistances, a.breakdown);
+    renderStrategy(document.getElementById('kaStratCard'),  a.price, a.supLow, a.supHigh, a.breakdown, a.resistances, a.stStop, a.stT1, a.stT2, a.stT3, a.atr);
+
+    // Hide zone map telegram button (no alert zones)
+    document.getElementById('sendZoneMapBtn').style.display = 'none';
+
+  } catch(e) {
+    document.getElementById('kaLoadingPanel').style.display = 'none';
+    document.getElementById('kaErrPanel').style.display     = 'block';
+    document.getElementById('kaErrPanel').textContent       = `❌ Could not fetch ${sym}: ${e.message}`;
+  } finally {
+    document.getElementById('kaSearchBtn').disabled = false;
+  }
+}
+
+// restore zone map button when switching to watchlist ticker
+const _origRefreshKaTab = refreshKaTab;
 
 function renderSc(){
   const el=document.getElementById('tcList');
@@ -2028,59 +2120,217 @@ async function rpSendTelegram() {
   const btn = document.getElementById('rpTgBtn');
   btn.textContent = '📤 Sending...'; btn.disabled = true;
 
+  const data = rpTelegramReportData();
+  if (!data.filtered.length) {
+    alert('No report rows to send');
+    btn.textContent = '📤 Telegram'; btn.disabled = false;
+    return;
+  }
+
+  try {
+    const svg = rpBuildTelegramCardSvg(data);
+    const pngBlob = await rpSvgToPngBlob(svg, 3);
+    const form = new FormData();
+    form.append('chat_id', cid);
+    form.append('document', pngBlob, `kalki-report-${Date.now()}@3x.png`);
+    form.append('caption', `Kalki Report · ${data.dateShort}`);
+    const r = await fetch(`https://api.telegram.org/bot${tok}/sendDocument`, { method:'POST', body:form });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.description || 'Telegram document upload failed');
+    btn.textContent='✅ Sent HQ';
+    setTimeout(()=>{btn.textContent='📤 Telegram';btn.disabled=false;},2500);
+  } catch(e) {
+    // Fallback to text
+    try {
+      const msg = rpBuildTelegramFallbackText(data);
+      const fb = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})
+      });
+      const fbd = await fb.json();
+      if (!fbd.ok) throw new Error(fbd.description||'Fallback failed');
+      btn.textContent='✅ Sent Text';
+      setTimeout(()=>{btn.textContent='📤 Telegram';btn.disabled=false;},2500);
+    } catch(fe) {
+      alert('Failed: '+fe.message+'\n(Image error: '+e.message+')');
+      btn.textContent='📤 Telegram'; btn.disabled=false;
+    }
+  }
+}
+
+function rpTelegramReportData() {
   const filtered = rpGetFiltered();
   const withPnl  = filtered.filter(t=>(t.currentPrice||t.closedPrice)&&t.entryPrice);
   const totalPnl = withPnl.reduce((a,t)=>a+(rpPct(t)/100)*(t.invest||10000),0);
-  const wins      = withPnl.filter(t=>rpPct(t)>0).length;
-  const winRate   = withPnl.length?Math.round(wins/withPnl.length*100):0;
+  const wins     = withPnl.filter(t=>rpPct(t)>0).length;
+  const winRate  = withPnl.length ? Math.round(wins/withPnl.length*100) : 0;
+  const avgHold  = filtered.length ? Math.round(filtered.reduce((a,t)=>a+rpDaysHeld(t),0)/filtered.length) : 0;
+  const stOrder  = {'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3};
+  const sorted   = [...filtered].sort((a,b)=>(stOrder[rpStatus2(a).rowCls]||0)-(stOrder[rpStatus2(b).rowCls]||0));
+  return {
+    filtered,
+    closed:   sorted.filter(t=>t.state==='closed'),
+    watching: sorted.filter(t=>t.state!=='closed'&&rpStatus2(t).rowCls!=='rp2-warn'&&rpStatus2(t).rowCls!=='rp2-loss'),
+    warning:  sorted.filter(t=>t.state!=='closed'&&(rpStatus2(t).rowCls==='rp2-warn'||rpStatus2(t).rowCls==='rp2-loss')),
+    totalPnl,
+    pnlStr:   (totalPnl>=0?'+$':'-$')+Math.abs(Math.round(totalPnl)).toLocaleString(),
+    winRate,
+    avgHold,
+    dateShort: new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),
+    dateLong:  new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})
+  };
+}
 
-  const stOrder = { 'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3 };
-  const sorted = [...filtered].sort((a,b)=>(stOrder[rpStatus2(a).rowCls]||0)-(stOrder[rpStatus2(b).rowCls]||0));
+function rpXmlEsc(v) {
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
-  const closed   = sorted.filter(t=>t.state==='closed');
-  const watching = sorted.filter(t=>t.state!=='closed'&&rpStatus2(t).rowCls!=='rp2-warn'&&rpStatus2(t).rowCls!=='rp2-loss');
-  const warning  = sorted.filter(t=>t.state!=='closed'&&(rpStatus2(t).rowCls==='rp2-warn'||rpStatus2(t).rowCls==='rp2-loss'));
+function rpFmtMoney(v) {
+  if (v==null||Number.isNaN(v)) return '--';
+  if (Math.abs(v)>=100) return '$'+Math.round(v).toLocaleString();
+  return '$'+Number(v).toFixed(2);
+}
 
-  // shared format helpers
-  const fP = v => { if(!v) return '-'; if(v>=100) return '$'+Math.round(v); return '$'+parseFloat(v).toFixed(2); };
+function rpSvgRow(t, y, width) {
+  const pct      = rpPct(t);
+  const curr     = t.state==='closed' ? t.closedPrice : t.currentPrice;
+  const days     = rpDaysHeld(t);
+  const pctStr   = pct!=null ? (pct>=0?'+':'')+pct.toFixed(1)+'%' : '--';
+  const pctFill  = pct==null?'#243042':pct>=0?'#163828':'#3b1820';
+  const pctText  = pct==null?'#94a3b8':pct>=0?'#63d97e':'#ff6b6b';
+  const border   = {'rp2-win':'#20b26b','rp2-open':'#4b7cff','rp2-warn':'#f59e0b','rp2-loss':'#ef4444'}[rpStatus2(t).rowCls]||'#4b7cff';
+  const iconStroke = pct==null?'#9ca3af':pct>=0?'#63d97e':'#ff6b6b';
+  const iconPath = pct==null
+    ? `<path d="M0 9 L18 9" stroke="${iconStroke}" stroke-width="2.5" stroke-linecap="round"/>`
+    : pct>=0
+      ? `<path d="M1 14 L7 8 L11 12 L18 3" stroke="${iconStroke}" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<path d="M1 3 L7 9 L11 5 L18 15" stroke="${iconStroke}" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return `
+    <rect x="28" y="${y}" width="${width-56}" height="58" rx="12" fill="#0c1323" stroke="#1e2b44" stroke-width="1.2"/>
+    <rect x="28" y="${y}" width="4" height="58" rx="2" fill="${border}"/>
+    <rect x="42" y="${y+11}" width="30" height="30" rx="8" fill="#f8fafc"/>
+    <g transform="translate(48 ${y+17})">${iconPath}</g>
+    <text x="90" y="${y+27}" font-family="DM Sans, Arial, sans-serif" font-size="17" font-weight="700" fill="#f8fafc" letter-spacing="1">${rpXmlEsc(t.sym||'--')}</text>
+    <text x="182" y="${y+27}" font-family="DM Mono, monospace" font-size="15" fill="#9fb0c9">${rpXmlEsc(rpFmtMoney(t.entryPrice))}</text>
+    <text x="306" y="${y+27}" font-family="DM Sans, Arial, sans-serif" font-size="16" fill="#5f7397">→</text>
+    <text x="340" y="${y+27}" font-family="DM Mono, monospace" font-size="15" font-weight="600" fill="${pctText}">${rpXmlEsc(rpFmtMoney(curr))}</text>
+    <text x="90" y="${y+45}" font-family="DM Sans, Arial, sans-serif" font-size="11" fill="#6f86a8">${rpXmlEsc(days+'d')}</text>
+    <rect x="${width-194}" y="${y+12}" width="156" height="34" rx="10" fill="${pctFill}" stroke="${pctText}" stroke-opacity="0.22"/>
+    <text x="${width-116}" y="${y+36}" font-family="DM Mono, monospace" font-size="16" font-weight="700" text-anchor="middle" fill="${pctText}">${rpXmlEsc(pctStr)}</text>`;
+}
+
+function rpSvgSection(label, color, rows, y, width) {
+  if (!rows.length) return { markup:'', nextY:y };
+  let markup = `
+    <line x1="32" y1="${y+13}" x2="${width/2-76}" y2="${y+13}" stroke="#23314b" stroke-width="1"/>
+    <text x="${width/2}" y="${y+18}" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="${color}" letter-spacing="1.8">${rpXmlEsc(label)}</text>
+    <line x1="${width/2+76}" y1="${y+13}" x2="${width-32}" y2="${y+13}" stroke="#23314b" stroke-width="1"/>`;
+  let nextY = y+28;
+  rows.forEach(row => { markup += rpSvgRow(row, nextY, width); nextY += 68; });
+  return { markup, nextY };
+}
+
+function rpBuildTelegramCardSvg(data) {
+  const width       = 820;
+  const headerH     = 92;
+  const summaryH    = 122;
+  const footerH     = 84;
+  const sectionBase = 28;
+  const rowBlock    = 68;
+  const sectionCount = [data.closed,data.watching,data.warning].filter(r=>r.length).length;
+  const rowsCount    = data.closed.length+data.watching.length+data.warning.length;
+  const height = headerH+summaryH+footerH+(sectionCount*sectionBase)+(rowsCount*rowBlock)+38;
+  const profitColor = data.totalPnl>=0?'#4ade80':'#ff6b6b';
+
+  const summaryBoxes = [
+    {x:30,  label:'PROFIT',    value:data.pnlStr,                color:profitColor,    glow:'rgba(34,197,94,0.28)'},
+    {x:292, label:'WIN RATE',  value:data.winRate+'%',            color:'#8bb3ff',      glow:'rgba(96,165,250,0.24)'},
+    {x:554, label:'POSITIONS', value:String(data.filtered.length),color:'#b38cff',      glow:'rgba(168,85,247,0.24)'}
+  ].map(b=>`
+    <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="#0f1628" stroke="#22314a" stroke-width="1.2"/>
+    <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="${b.glow}" fill-opacity="0.22"/>
+    <rect x="${b.x+1}" y="93" width="234" height="18" rx="15" fill="rgba(255,255,255,0.035)"/>
+    <text x="${b.x+26}" y="125" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="#8796ad" letter-spacing="1.6">${b.label}</text>
+    <text x="${b.x+26}" y="156" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="800" fill="${b.color}">${rpXmlEsc(b.value)}</text>`).join('');
+
+  let sectionsMarkup='', y=headerH+summaryH;
+  const cb=rpSvgSection('CLOSED',    '#57d26f', data.closed,   y, width); sectionsMarkup+=cb.markup; y=cb.nextY;
+  const wb=rpSvgSection('WATCHING',  '#83a9ff', data.watching, y, width); sectionsMarkup+=wb.markup; y=wb.nextY;
+  const nb=rpSvgSection('NEAR STOP', '#ff8b5f', data.warning,  y, width); sectionsMarkup+=nb.markup; y=nb.nextY;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#070b14"/><stop offset="58%" stop-color="#0b1020"/><stop offset="100%" stop-color="#120d20"/>
+      </linearGradient>
+      <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="14" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    <rect width="${width}" height="${height}" rx="24" fill="url(#bg)"/>
+    <rect x="10" y="10" width="${width-20}" height="${height-20}" rx="22" fill="none" stroke="#1d2740" stroke-width="1.4"/>
+    <rect x="12" y="12" width="${width-24}" height="${height-24}" rx="20" fill="none" stroke="url(#frame)" stroke-width="0.8"/>
+    <circle cx="744" cy="110" r="122" fill="rgba(88,64,255,0.08)" filter="url(#softGlow)"/>
+    <circle cx="84"  cy="146" r="96"  fill="rgba(34,197,94,0.06)"  filter="url(#softGlow)"/>
+    <text x="32" y="54" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="800" fill="#ffffff">⚡ ANALYSIS REPORT</text>
+    <text x="${width-32}" y="54" text-anchor="end" font-family="DM Sans, Arial, sans-serif" font-size="18" fill="#9cabbe">${rpXmlEsc(data.dateShort)}</text>
+    <line x1="32" y1="72" x2="${width-32}" y2="72" stroke="#22314a" stroke-width="1"/>
+    ${summaryBoxes}
+    ${sectionsMarkup}
+    <rect x="30" y="${height-78}" width="${width-60}" height="48" rx="14" fill="#0c1323" stroke="#1e2b44" stroke-width="1.2"/>
+    <text x="54" y="${height-49}" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="#8395af" letter-spacing="1.3">POSITION SIZE</text>
+    <text x="54" y="${height-24}" font-family="DM Sans, Arial, sans-serif" font-size="16" font-weight="800" fill="#fbbf24">$10,000 <tspan fill="#d9e2f1" font-weight="500">invested per position</tspan></text>
+    <text x="${width/2}" y="${height-6}" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="14" font-weight="700" fill="#87a0ff">⚡ Kalki Analysis Platform</text>
+  </svg>`;
+}
+
+async function rpSvgToPngBlob(svgMarkup, scale=1) {
+  const svgBlob = new Blob([svgMarkup], {type:'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('Card image render failed'));
+      i.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round(img.width  * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.fillStyle = '#070b14';
+    ctx.fillRect(0, 0, img.width, img.height);
+    ctx.drawImage(img, 0, 0);
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG conversion failed')), 'image/png', 1);
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function rpBuildTelegramFallbackText(data) {
+  const fP   = v => { if(!v) return '-'; if(v>=100) return '$'+Math.round(v); return '$'+parseFloat(v).toFixed(2); };
   const padL = (s,n) => { s=String(s); while(s.length<n) s=' '+s; return s; };
   const padR = (s,n) => { s=String(s); while(s.length<n) s=s+' '; return s; };
-
   const fmtRow = t => {
-    const pct    = rpPct(t);
-    const curr   = t.state==='closed'?t.closedPrice:t.currentPrice;
-    const pctStr = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
-    const emoji  = pct==null?'-':pct>=0?'📈':'📉';
-    const sym    = padR(t.sym, 5);
-    const ep     = padL(fP(t.entryPrice), 7);
-    const cp     = padL(fP(curr), 7);
-    const pp     = padL(pctStr, 7);
-    return `${emoji} ${sym} ${ep}  →  ${cp}  ${pp}`;
+    const pct=rpPct(t), curr=t.state==='closed'?t.closedPrice:t.currentPrice;
+    const pctStr=pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
+    const emoji=pct==null?'-':pct>=0?'📈':'📉';
+    return `${emoji} ${padR(t.sym,5)} ${padL(fP(t.entryPrice),7)}  →  ${padL(fP(curr),7)}  ${padL(pctStr,7)}`;
   };
-
-  const pnlStr = (totalPnl>=0?'+$':'-$')+Math.abs(Math.round(totalPnl)).toLocaleString();
-  const date   = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-
-  let sections = '';
-  if (closed.length)   sections += `── CLOSED ──\n`  + closed.map(fmtRow).join('\n')   + '\n\n';
-  if (watching.length) sections += `── WATCHING ──\n` + watching.map(fmtRow).join('\n') + '\n\n';
-  if (warning.length)  sections += `── NEAR STOP ──\n`+ warning.map(fmtRow).join('\n')  + '\n\n';
-
-  const msg =
-    `⚡ *KALKI REPORT* · ${date}\n` +
-    `────────────\n` +
-    `💰 *${pnlStr}*  ·  Win *${winRate}%*  ·  *${filtered.length}* positions\n\n` +
-    sections +
-    `_$10,000 invested per position_\n` +
-    `────────────\n` +
-    `⚡ _Kalki Analysis Platform_`;
-
-  try {
-    const r = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})});
-    const d = await r.json();
-    if (d.ok) { btn.textContent='✅ Sent!'; setTimeout(()=>{btn.textContent='📤 Telegram';btn.disabled=false;},2500); }
-    else throw new Error(d.description);
-  } catch(e) { alert('Failed: '+e.message); btn.textContent='📤 Telegram'; btn.disabled=false; }
+  let sections='';
+  if (data.closed.length)   sections+=`── CLOSED ──\n`  +data.closed.map(fmtRow).join('\n')  +'\n\n';
+  if (data.watching.length) sections+=`── WATCHING ──\n`+data.watching.map(fmtRow).join('\n')+'\n\n';
+  if (data.warning.length)  sections+=`── NEAR STOP ──\n`+data.warning.map(fmtRow).join('\n')+'\n\n';
+  return `⚡ *KALKI REPORT* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}*  ·  Win *${data.winRate}%*  ·  *${data.filtered.length}* positions\n\n${sections}_$10,000 invested per position_\n────────────\n⚡ _Kalki Analysis Platform_`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -2160,185 +2410,6 @@ async function pfSaveAndSync(){ pfSave(); autoSync(); }
 async function saveSCAndSync(){ saveSc(); autoSync(); }
 async function sbSaveAndSync(){ sbSave(); autoSync(); }
 
-function rpShowScreenshot() {
-  const filtered = rpGetFiltered();
-  if (!filtered.length) return alert('No positions to show');
-
-  const stOrder = { 'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3 };
-  const sorted = [...filtered].sort((a,b)=>(stOrder[rpStatus2(a).rowCls]||0)-(stOrder[rpStatus2(b).rowCls]||0));
-
-  const withPnl  = filtered.filter(t=>(t.currentPrice||t.closedPrice)&&t.entryPrice);
-  const totalPnl = withPnl.reduce((a,t)=>a+(rpPct(t)/100)*(t.invest||10000),0);
-  const wins     = withPnl.filter(t=>rpPct(t)>0).length;
-  const winRate  = withPnl.length?Math.round(wins/withPnl.length*100):0;
-  const avgHold  = filtered.length?Math.round(filtered.reduce((a,t)=>a+rpDaysHeld(t),0)/filtered.length):0;
-  const pnlColor = totalPnl>=0?'#10b981':'#ef4444';
-  const pnlStr   = (totalPnl>=0?'+$':'-$')+Math.abs(Math.round(totalPnl)).toLocaleString();
-
-  // helpers
-  const fP = v => { if(!v) return '-'; if(v>=100) return '$'+Math.round(v); return '$'+parseFloat(v).toFixed(2); };
-  const padL = (s,n) => { s=String(s); while(s.length<n) s=' '+s; return s; };
-  const padR = (s,n) => { s=String(s); while(s.length<n) s=s+' '; return s; };
-
-  const closed   = sorted.filter(t=>t.state==='closed');
-  const watching = sorted.filter(t=>t.state!=='closed'&&rpStatus2(t).rowCls!=='rp2-warn'&&rpStatus2(t).rowCls!=='rp2-loss');
-  const warning  = sorted.filter(t=>t.state!=='closed'&&(rpStatus2(t).rowCls==='rp2-warn'||rpStatus2(t).rowCls==='rp2-loss'));
-
-  // card row
-  const cardRow = t => {
-    const pct      = rpPct(t);
-    const pctColor = pct==null?'#64748b':pct>=0?'#10b981':'#ef4444';
-    const emoji    = pct==null?'minus':pct>=0?'up':'down';
-    const emojiHtml= pct==null?'<span>-</span>':pct>=0?'<span style="color:#10b981">📈</span>':'<span style="color:#ef4444">📉</span>';
-    const curr     = t.state==='closed'?t.closedPrice:t.currentPrice;
-    const days     = rpDaysHeld(t);
-    const res      = t.resistances||t.res||[];
-    const p        = curr||0;
-    const nextR    = res.find(r=>p<r);
-    const allHit   = res.length>0&&res.every(r=>p>=r);
-    const tpStr    = allHit?'ALL 🎉':nextR?'TP'+(res.indexOf(nextR)+1):'--';
-    const pctStr   = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
-    const amt      = pct!=null?(pct>=0?'+$':'-$')+Math.abs(Math.round(pct/100*(t.invest||10000))).toLocaleString():'';
-    const tpBar    = res.map(r=>{ const hit=p>=r; const isNext=!hit&&res.find(x=>p<x)===r; return '<div style="flex:1;height:2px;border-radius:1px;background:'+(hit?'#10b981':isNext?'#f59e0b':'#1f2d45')+'"></div>'; }).join('');
-    const bColor   = {'rp2-win':'#10b981','rp2-open':'#f59e0b','rp2-warn':'#f97316','rp2-loss':'#ef4444'}[rpStatus2(t).rowCls]||'#f59e0b';
-    return '<div style="padding:7px 14px;border-bottom:1px solid rgba(31,45,69,0.4);border-left:3px solid '+bColor+'">'
-      +'<div style="display:flex;align-items:center;gap:6px;font-family:DM Mono,monospace;font-size:11px;">'
-      +'<span style="font-size:13px">'+emojiHtml+'</span>'
-      +'<span style="font-family:Bebas Neue,sans-serif;font-size:16px;color:#fff;min-width:48px">'+t.sym+'</span>'
-      +'<span style="color:#64748b;min-width:44px;text-align:right">'+fP(t.entryPrice)+'</span>'
-      +'<span style="color:#475569;width:16px;text-align:center">&#8594;</span>'
-      +'<span style="color:'+pctColor+';min-width:52px">'+fP(curr)+'</span>'
-      +'<span style="color:'+pctColor+';font-weight:700;min-width:52px">'+pctStr+'</span>'
-      +'<span style="color:'+pctColor+';min-width:68px">'+amt+'</span>'
-      +'<span style="color:#64748b;min-width:24px">'+days+'d</span>'
-      +'<span style="color:#f59e0b;font-size:10px">'+tpStr+'</span>'
-      +'</div>'
-      +(res.length?'<div style="display:flex;gap:2px;margin-top:3px;margin-left:26px">'+tpBar+'</div>':'')
-      +'</div>';
-  };
-
-  const cardSection = (lbl, rows) => rows.length
-    ? '<div style="padding:4px 14px;font-size:9px;font-family:DM Mono,monospace;color:#475569;background:rgba(6,8,16,0.4);border-bottom:1px solid rgba(31,45,69,0.4)">'+lbl+'</div>'+rows.map(cardRow).join('')
-    : '';
-
-  const statsHtml = '<div style="display:flex;border-bottom:1px solid #1f2d45;">'
-    +'<div style="flex:1;text-align:center;padding:8px 2px;border-right:1px solid #1f2d45"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:'+pnlColor+'">'+pnlStr+'</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">P&L</div></div>'
-    +'<div style="flex:1;text-align:center;padding:8px 2px;border-right:1px solid #1f2d45"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:#f59e0b">'+filtered.length+'</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">Positions</div></div>'
-    +'<div style="flex:1;text-align:center;padding:8px 2px;border-right:1px solid #1f2d45"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:#3b82f6">'+winRate+'%</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">Win Rate</div></div>'
-    +'<div style="flex:1;text-align:center;padding:8px 2px"><div style="font-family:Bebas Neue,sans-serif;font-size:18px;color:#a78bfa">'+avgHold+'d</div><div style="font-size:8px;color:#64748b;text-transform:uppercase;letter-spacing:1px">Avg Hold</div></div>'
-    +'</div>';
-
-  document.getElementById('ssCard').innerHTML =
-    '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #1f2d45">'
-    +'<div style="font-family:Bebas Neue,sans-serif;font-size:15px;letter-spacing:2px;color:#f59e0b">&#9889; Alert Performance</div>'
-    +'<div style="font-family:DM Mono,monospace;font-size:9px;color:#64748b">'+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})+'</div>'
-    +'</div>'
-    +statsHtml
-    +'<div style="padding:4px 14px;font-size:9px;color:#475569;font-family:DM Mono,monospace;background:rgba(6,8,16,0.5);border-bottom:1px solid #1f2d45;text-align:center">$10,000 invested per position</div>'
-    +cardSection('&#8212;&#8212; &#10003; CLOSED &#8212;&#8212;', closed)
-    +cardSection('&#8212;&#8212; &#128200; WATCHING &#8212;&#8212;', watching)
-    +cardSection('&#8212;&#8212; &#9888;&#65039; NEAR STOP &#8212;&#8212;', warning)
-    +'<div style="padding:6px 14px;font-size:9px;color:#334155;font-family:DM Mono,monospace;border-top:1px solid #1f2d45;text-align:center">&#9889; Kalki Analysis Platform</div>';
-
-  // tg row — all black except profit/loss amounts
-  const tgRow = t => {
-    const pct    = rpPct(t);
-    const emoji  = pct==null?'- ':pct>=0?'📈':'📉';
-    const curr   = t.state==='closed'?t.closedPrice:t.currentPrice;
-    const days   = rpDaysHeld(t);
-    const res    = t.resistances||t.res||[];
-    const p      = curr||0;
-    const nextR  = res.find(r=>p<r);
-    const allHit = res.length>0&&res.every(r=>p>=r);
-    const tpStr  = allHit?'ALL 🎉':nextR?'TP'+(res.indexOf(nextR)+1):'';
-    const pctStr = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
-    const amtPos = pct!=null&&pct>=0;
-    const amt    = pct!=null?(amtPos?'(+$':'(-$')+Math.abs(Math.round(pct/100*(t.invest||10000))).toLocaleString()+')':'';
-    const amtColor = amtPos?'#16a34a':'#dc2626';
-    const symCol = padR(t.sym,5);
-    const epCol  = padL(fP(t.entryPrice),7);
-    const cpCol  = padL(fP(curr),8);
-    const ppCol  = padL(pctStr,7);
-    const apCol  = padR(amt,11);
-    const dpCol  = padL(days+'d',3);
-    return '<div style="font-family:Courier New,monospace;font-size:12.5px;line-height:1.9;white-space:nowrap;color:#1a1a1a;">'
-      +'<span>'+emoji+'</span>'
-      +'<b> '+symCol+'</b>'
-      +'<span style="color:#555"> '+epCol+' &#8594; '+cpCol+'</span>'
-      +'<b> '+ppCol+'</b>'
-      +'<span style="color:'+amtColor+'"> '+apCol+'</span>'
-      +'<span style="color:#888"> '+dpCol+'</span>'
-      +(tpStr?'<span style="color:#555"> '+tpStr+'</span>':'')
-      +'</div>';
-  };
-
-  const tgSection = (lbl, rows) => rows.length
-    ? '<div style="font-size:11px;color:#555;font-family:Courier New,monospace;margin:5px 0 2px">'+lbl+'</div>'+rows.map(tgRow).join('')
-    : '';
-
-  const dateStr = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-  const timeStr = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-
-  document.getElementById('ssBubble').innerHTML =
-    '<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:14px;color:#1a1a1a;margin-bottom:6px">&#9889; <b>KALKI REPORT</b> &middot; '+dateStr+'</div>'
-    +'<div style="border-top:1px solid #ddd;margin-bottom:6px"></div>'
-    +'<div style="font-family:-apple-system,sans-serif;font-size:13px;color:#1a1a1a;margin-bottom:2px">&#128176; <b>'+pnlStr+'</b> &middot; Win <b>'+winRate+'%</b> &middot; <b>'+filtered.length+'</b> positions</div>'
-    +'<div style="font-family:Courier New,monospace;font-size:10px;color:#999;margin-bottom:6px">$10,000 invested per position</div>'
-    +tgSection('&#8212;&#8212; &#10003; CLOSED &#8212;&#8212;', closed)
-    +(watching.length?tgSection('&#8212;&#8212; &#128200; WATCHING &#8212;&#8212;', watching):'')
-    +(warning.length?tgSection('&#8212;&#8212; &#9888; NEAR STOP &#8212;&#8212;', warning):'')
-    +'<div style="border-top:1px solid #ddd;margin:6px 0"></div>'
-    +'<div style="font-family:-apple-system,sans-serif;font-size:11px;font-style:italic;color:#999">&#9889; Kalki Analysis Platform</div>'
-    +'<div style="font-size:10px;color:#aaa;text-align:right;margin-top:4px">'+timeStr+' &#10003;&#10003;</div>';
-
-  // shared plain text row builder
-  const buildTxt = () => {
-    const rowTxt = t => {
-      const pct    = rpPct(t);
-      const curr   = t.state==='closed'?t.closedPrice:t.currentPrice;
-      const pctStr = pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
-      const emoji  = pct==null?'-':pct>=0?'📈':'📉';
-      const sym    = padR(t.sym, 5);
-      const ep     = padL(fP(t.entryPrice), 7);
-      const cp     = padL(fP(curr), 7);
-      const pp     = padL(pctStr, 7);
-      return `${emoji} ${sym} ${ep}  →  ${cp}  ${pp}`;
-    };
-    const secTxt = (lbl, rows) => rows.length?'\n'+lbl+'\n'+rows.map(rowTxt).join('\n'):'';
-    return '⚡ KALKI REPORT · '+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'\n'
-      +'────────────\n'
-      +'💰 '+pnlStr+'  Win '+winRate+'%  '+filtered.length+' positions\n'
-      +secTxt('── ✓ CLOSED ──', closed)
-      +secTxt('── 📈 WATCHING ──', watching)
-      +secTxt('── ⚠️ NEAR STOP ──', warning)
-      +'\n\n$10,000 invested per position'
-      +'\n────────────\n⚡ Kalki Analysis Platform';
-  };
-
-  const doCopy = async (el) => {
-    try {
-      await navigator.clipboard.writeText(buildTxt());
-      el.style.outline = '2px solid #10b981';
-      const prev = el.title;
-      el.title = '✅ Copied!';
-      setTimeout(()=>{ el.style.outline=''; el.title=prev; }, 2000);
-    } catch(e) { alert('Copy failed — select text manually'); }
-  };
-
-  // click BUBBLE to copy
-  const bubble = document.getElementById('ssBubble');
-  bubble.style.cursor = 'pointer';
-  bubble.title = 'Click to copy text to clipboard';
-  bubble.onclick = () => doCopy(bubble);
-
-  // click CARD to copy
-  const card = document.getElementById('ssCard');
-  card.style.cursor = 'pointer';
-  card.title = 'Click to copy text to clipboard';
-  card.onclick = () => doCopy(card);
-
-  document.getElementById('ssOverlay').style.display = 'block';
-}
 
 
 // ── INIT ─────────────────────────────────────────────
