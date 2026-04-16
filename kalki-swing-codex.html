@@ -16,9 +16,26 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .topnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--border);}
 .kalki-logo{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:3px;color:var(--accent);display:flex;align-items:center;gap:10px;}
 .kalki-logo .sub{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;border-left:1px solid var(--border);padding-left:10px;line-height:1.4;}
+.top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
 .sdot{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-family:'DM Mono',monospace;color:var(--dim);}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--dim2);flex-shrink:0;}
 .dot.on{background:var(--green);box-shadow:0 0 6px var(--green);}
+.status-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;background:rgba(255,255,255,0.02);}
+.status-pill strong{color:var(--text);font-weight:500;}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;transition:all .15s;}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent);}
+.market-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:-8px 0 20px;}
+.market-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.market-card .lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.market-card .val{font-family:'DM Mono',monospace;font-size:18px;color:#fff;}
+.market-card .subv{font-family:'DM Mono',monospace;font-size:11px;margin-top:4px;color:var(--dim);}
+.market-card .subv.pos{color:var(--green);}
+.market-card .subv.neg{color:var(--red);}
+.market-card.go .val{color:var(--green);}
+.market-card.caution .val{color:var(--warn);}
+.market-card.no .val{color:var(--red);}
+@media(max-width:900px){.market-strip{grid-template-columns:1fr 1fr;}}
+@media(max-width:560px){.market-strip{grid-template-columns:1fr;}}
 
 /* TABS */
 .tab-bar{display:flex;gap:6px;margin-bottom:20px;}
@@ -152,6 +169,8 @@ canvas{width:100%!important;display:block;}
 label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dim);}
 input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s;width:100%;}
 input:focus{border-color:var(--accent);}
+textarea{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-family:'DM Mono',monospace;font-size:12px;line-height:1.6;resize:vertical;outline:none;width:100%;}
+textarea:focus{border-color:var(--accent);}
 .add-grid{display:grid;grid-template-columns:90px 1fr 1fr 1fr auto;gap:8px;align-items:end;}
 @media(max-width:600px){.add-grid{grid-template-columns:1fr 1fr;}}
 .btn{font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 14px;border-radius:6px;border:none;cursor:pointer;transition:all 0.15s;}
@@ -171,16 +190,28 @@ input:focus{border-color:var(--accent);}
 .tc-zones{display:flex;flex-direction:column;gap:3px;}
 .zrow{display:flex;gap:6px;font-size:11px;font-family:'DM Mono',monospace;}
 .zlbl{color:var(--dim);width:76px;flex-shrink:0;}
+.tc-flags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.mini-flag{font-size:9px;padding:2px 7px;border-radius:999px;font-family:'DM Mono',monospace;border:1px solid var(--border);color:var(--dim);}
+.mini-flag.on{border-color:rgba(16,185,129,0.35);color:var(--green);background:rgba(16,185,129,0.08);}
+.mini-flag.own{border-color:rgba(59,130,246,0.35);color:var(--accent2);background:rgba(59,130,246,0.08);}
 .tc-price{text-align:right;}
 .tc-p{font-family:'DM Mono',monospace;font-size:17px;font-weight:700;color:#fff;}
 .tc-s{font-size:10px;margin-top:2px;}
 .tc-s.iz{color:var(--green);}.tc-s.bd{color:var(--red);}.tc-s.ar2{color:var(--warn);}.tc-s.nt{color:var(--dim);}
-.scan-bar{display:flex;gap:10px;margin-bottom:16px;align-items:center;}
-.scan-btn-big{flex:1;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;padding:12px 20px;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--warn));color:#000;transition:all 0.2s;}
+.tc-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.scan-bar,.scanner-toolbar{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;}
+.scan-btn-big{flex:1;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1.4px;padding:10px 16px;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--warn));color:#000;transition:all 0.2s;}
 .scan-btn-big:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,158,11,0.25);}
 .scan-btn-big:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
-.auto-btn{font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all 0.2s;text-transform:uppercase;letter-spacing:1px;}
+.auto-btn{font-family:'DM Sans',sans-serif;font-weight:700;font-size:9px;padding:10px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all 0.2s;text-transform:uppercase;letter-spacing:0.6px;}
 .auto-btn.on{border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.08);}
+.scanner-toolbar{flex-wrap:nowrap;overflow:hidden;padding-bottom:2px;}
+.scanner-toolbar .scan-btn-big{flex:0 0 178px;min-width:178px;}
+.scanner-toolbar .btn{height:40px;}
+.scanner-toolbar .auto-btn{height:40px;white-space:nowrap;flex:0 0 auto;}
+.toolbar-select{height:40px;min-width:92px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:0 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.2px;outline:none;flex:0 0 auto;}
+.toolbar-status{margin-left:auto;height:40px;display:flex;align-items:center;flex:0 0 auto;}
+.toolbar-toggle{height:40px;white-space:nowrap;}
 .spill{font-family:'DM Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);color:var(--dim);display:flex;align-items:center;gap:6px;}
 .spill.active{border-color:rgba(16,185,129,0.3);color:var(--green);}
 .spill.active .dot{background:var(--green);box-shadow:0 0 6px var(--green);}
@@ -210,6 +241,20 @@ input:focus{border-color:var(--accent);}
   .best-meta{grid-column:1/-1;grid-template-columns:1fr 1fr;}
   .best-cta{grid-column:1/-1;align-items:stretch;}
 }
+
+/* SETTINGS PANEL */
+.settings-overlay{position:fixed;inset:0;background:rgba(2,6,23,0.64);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:1200;}
+.settings-overlay.open{opacity:1;pointer-events:auto;}
+.settings-panel{position:fixed;top:0;right:0;height:100vh;width:min(430px,100vw);background:linear-gradient(180deg,#0d1120,#070b16);border-left:1px solid var(--border);box-shadow:-24px 0 60px rgba(0,0,0,.35);transform:translateX(100%);transition:transform .22s ease;z-index:1201;display:flex;flex-direction:column;}
+.settings-panel.open{transform:translateX(0);}
+.settings-head{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+.settings-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#fff;}
+.settings-body{padding:18px 20px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;}
+.settings-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.settings-section .sec-title{margin-bottom:12px;}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+@media(max-width:640px){.settings-grid{grid-template-columns:1fr;}}
 
 /* KALKI ANALYSIS TAB (3rd tab) */
 .ka-empty{text-align:center;padding:60px 20px;}
@@ -320,21 +365,33 @@ input:focus{border-color:var(--accent);}
 <!-- NAV -->
 <div class="topnav">
   <div class="kalki-logo">⚡ KALKI<span class="sub">Swing V2 Platform<br>Swing Engine · Entry Filter</span></div>
-  <div class="sdot"><div class="dot" id="navDot"></div><span id="navStatus">SCANNER IDLE</span></div>
+  <div class="top-actions">
+    <div class="status-pill" id="tgPill"><div class="dot" id="tgDot"></div><strong id="tgPillText">TG OFF</strong></div>
+    <button class="icon-btn" onclick="openAdminTab()">🔒 Admin</button>
+    <div class="sdot"><div class="dot" id="navDot"></div><span id="navStatus">SCANNER IDLE</span></div>
+    <button class="icon-btn" onclick="openSettingsPanel()">⚙ Settings</button>
+  </div>
+</div>
+
+<div class="market-strip">
+  <div class="market-card" id="spyCard"><div class="lbl">SPY</div><div class="val" id="spyVal">--</div><div class="subv" id="spySub">Loading...</div></div>
+  <div class="market-card" id="qqqCard"><div class="lbl">QQQ</div><div class="val" id="qqqVal">--</div><div class="subv" id="qqqSub">Loading...</div></div>
+  <div class="market-card" id="vixCard"><div class="lbl">VIX</div><div class="val" id="vixVal">--</div><div class="subv" id="vixSub">Loading...</div></div>
+  <div class="market-card" id="regimeCard"><div class="lbl">Go / No Go</div><div class="val" id="regimeVal">--</div><div class="subv" id="regimeSub">Checking market regime...</div></div>
 </div>
 
 <!-- TABS -->
 <div class="tab-bar">
-  <button class="tab active" id="t-an" onclick="switchTab('an')">📊 Swing Analysis</button>
-  <button class="tab" id="t-sc" onclick="switchTab('sc')">🔔 Zone Scanner</button>
-  <button class="tab" id="t-ka" onclick="switchTab('ka')">⚡ Swing Workspace</button>
+  <button class="tab active" id="t-sc" onclick="switchTab('sc')">🔔 Scanner</button>
+  <button class="tab" id="t-an" onclick="switchTab('an')">📊 Analysis</button>
+  <button class="tab" id="t-ka" onclick="switchTab('ka')" style="display:none;">⚡ Swing Workspace</button>
   <button class="tab" id="t-pf" onclick="switchTab('pf')">💼 Portfolio</button>
-  <button class="tab" id="t-sb" onclick="switchTab('sb')">👥 Subscribers</button>
+  <button class="tab" id="t-sb" onclick="switchTab('sb')" style="display:none;">👥 Subscribers</button>
   <button class="tab" id="t-rp" onclick="switchTab('rp')">📋 Report</button>
 </div>
 
 <!-- ══ TAB 1: LIVE ANALYSIS ══ -->
-<div id="anTab">
+<div id="anTab" style="display:none;">
   <div class="search-card">
     <div class="search-label">🔍 Analyze Any Stock — Live Yahoo Finance Data</div>
     <div class="search-row">
@@ -379,31 +436,9 @@ input:focus{border-color:var(--accent);}
 </div>
 
 <!-- ══ TAB 2: ZONE SCANNER ══ -->
-<div id="scTab" style="display:none;">
+<div id="scTab">
   <div class="scanner-section">
-    <div class="sec-title">⚙ Telegram Config</div>
-    <div class="cfg-grid">
-      <div class="field"><label>Bot Token</label><input id="botToken" placeholder="8570415382:AAF7…"/></div>
-      <div class="field"><label>Chat ID</label><input id="chatId" placeholder="1026720092"/></div>
-      <div class="field full"><label>Yahoo Proxy URL</label><input id="proxyUrl" value="https://yahoo-proxy.srimanthgada87.workers.dev"/><span class="hint">Used for Analysis + Scanner · format: ?url=YAHOO_URL</span></div>
-      <div class="field full">
-        <label>JSONBin Bin ID</label>
-        <input id="jbBinId" placeholder="65f3a8c2266ccd473adc1234"/>
-        <span class="hint">From jsonbin.io → your bin → Bin ID</span>
-      </div>
-      <div class="field full">
-        <label>JSONBin API Key (Master Key)</label>
-        <input id="jbApiKey" placeholder="$2a$10$..." type="password"/>
-        <span class="hint">From jsonbin.io → Account → API Keys &nbsp; <span id="gsSyncStatus" style="color:var(--green)"></span></span>
-      </div>
-      <div class="field full" style="display:flex;gap:8px;">
-        <button class="btn btn-p btn-sm" onclick="gsSyncAll()">☁ Sync to JSONBin</button>
-        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text);" onclick="gsLoadAll()">⬇ Load from JSONBin</button>
-      </div>
-    </div>
-  </div>
-  <div class="scanner-section">
-    <div class="sec-title">+ Add Ticker — Click a card to open Swing Workspace for it</div>
+    <div class="sec-title">+ Add Ticker — Click a card to open Analysis for it</div>
     <div class="add-grid">
       <div class="field"><label>Ticker</label><input id="inTick" placeholder="AXTI" style="text-transform:uppercase"/></div>
       <div class="field"><label>Support (lo-hi)</label><input id="inSup" placeholder="38-40"/></div>
@@ -413,40 +448,42 @@ input:focus{border-color:var(--accent);}
     </div>
   </div>
   <div class="scanner-section">
-    <div class="sec-title">🔥 Best Setup Scanner</div>
-    <div class="field full">
-      <label>Universe (comma separated)</label>
-      <textarea id="bestUniverse" rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-family:'DM Mono',monospace;font-size:12px;line-height:1.6;resize:vertical;">IONQ, TSLA, MSFT, NVDA, META, AMD, AMZN, AAPL, GOOG, PLTR, SOFI, HOOD, COIN, MSTR, ARM, MU, AVGO, NFLX, CRM, SMCI</textarea>
-      <span class="hint">Scans this list, ranks the best 3–5 day setups, and can send the top names to Telegram.</span>
-    </div>
-    <div class="field full best-actions">
-      <button class="btn btn-o btn-sm" onclick="loadNDX100Universe()">Use NDX 100</button>
-      <button class="btn btn-p btn-sm" id="bestScanBtn" onclick="runBestSetupScan()">⚡ Scan Best Setups</button>
-      <button class="auto-btn" id="bestAutoBtn" onclick="toggleBestAuto()">A+ Auto: OFF</button>
-      <select id="bestScanMode" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;">
-        <option value="swing">Swing A+</option>
-        <option value="momentum">Momentum Breakout</option>
-        <option value="both">Both</option>
+    <div class="scanner-toolbar">
+      <button class="scan-btn-big" id="scanBtn" onclick="runBestSetupScan({source:'ndx100'})">▶ NDX100</button>
+      <button class="scan-btn-big" id="bestWatchScanBtn" onclick="runBestSetupScan({source:'watchlist'})">📋 Watchlist</button>
+      <button class="auto-btn" id="bestAutoBarBtn" onclick="toggleBestAuto()">⚡ Auto: OFF</button>
+      <select class="toolbar-select" id="bestAutoSourceBar" onchange="setBestAutoSourceFromBar(this.value)">
+        <option value="ndx100">A: NDX100</option>
+        <option value="watchlist">A: Watchlist</option>
+        <option value="both">A: Both</option>
       </select>
-      <select id="bestAutoInterval" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;">
+      <button class="auto-btn toolbar-toggle" id="watchExcludeBtn" onclick="toggleWatchExcludePortfolio()">Ex Portfolio: OFF</button>
+      <select class="toolbar-select" id="bestAutoIntervalBar" onchange="setBestAutoIntervalFromBar(this.value)">
         <option value="15">15m</option>
         <option value="30">30m</option>
         <option value="60">60m</option>
       </select>
-      <div class="spill" id="bestScanStatus"><div class="dot" id="bestScanDot"></div><span id="bestScanTxt">READY</span></div>
+      <select class="toolbar-select" id="bestScanModeBar" onchange="setBestScanModeFromBar(this.value)">
+        <option value="swing">Mode: Swing</option>
+        <option value="momentum">Mode: Momentum</option>
+        <option value="both">Mode: Both</option>
+      </select>
+      <div class="spill toolbar-status" id="spill"><div class="dot" id="spillDot"></div><span id="spillTxt">IDLE</span></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">⚡ Scan Results <span style="font-size:10px;color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0;">— top ideas from NDX100 or watchlist scan</span></div>
+      <button class="btn btn-d btn-sm" onclick="clearBestScanResults()">Clear All</button>
     </div>
     <div id="bestScanResults" class="hint">No best-setup scan run yet.</div>
     <div id="bestScanList" class="best-result-list"></div>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">📋 Watchlist <span style="font-size:10px;color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0;">— click a ticker to analyze it in Swing Workspace</span></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">📋 Watchlist <span style="font-size:10px;color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0;">— click a ticker to open it in Analysis</span></div>
     <button class="btn btn-d btn-sm" onclick="clearAll()">Clear All</button>
   </div>
   <div class="tc-list" id="tcList"></div>
   <div class="scan-bar">
-    <button class="scan-btn-big" id="scanBtn" onclick="runScan()">▶ Scan Now</button>
-    <button class="auto-btn" id="autoBtn" onclick="toggleAuto()">Auto: OFF</button>
-    <div class="spill" id="spill"><div class="dot" id="spillDot"></div><span id="spillTxt">IDLE</span></div>
+    <div class="spill" id="bestScanStatus"><div class="dot" id="bestScanDot"></div><span id="bestScanTxt">READY</span></div>
   </div>
   <div class="log-panel">
     <div class="log-hdr"><h3>🔔 Kalki Alert Log</h3><button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--dim);cursor:pointer" onclick="clearLog()">Clear</button></div>
@@ -454,15 +491,63 @@ input:focus{border-color:var(--accent);}
   </div>
 </div>
 
-<!-- ══ TAB 3: KALKI ANALYSIS (from scanner zones) ══ -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsPanel(event)"></div>
+<aside class="settings-panel" id="settingsPanel" aria-hidden="true">
+  <div class="settings-head">
+    <div>
+      <div class="settings-title">Settings</div>
+      <div class="hint">Connections, sync, and scanner defaults</div>
+    </div>
+    <button class="icon-btn" onclick="closeSettingsPanel()">✕</button>
+  </div>
+  <div class="settings-body">
+    <div class="settings-section">
+      <div class="sec-title">Connections</div>
+      <div class="settings-grid">
+        <div class="field"><label>Bot Token</label><input id="botToken" placeholder="8570415382:AAF7…"/></div>
+        <div class="field"><label>Chat ID</label><input id="chatId" placeholder="1026720092"/></div>
+      </div>
+      <div class="field" style="margin-top:10px;"><label>Yahoo Proxy URL</label><input id="proxyUrl" value="https://yahoo-proxy.srimanthgada87.workers.dev"/><span class="hint">Used for Analysis + Scanner · format: ?url=YAHOO_URL</span></div>
+      <div class="settings-actions">
+        <button class="auto-btn" id="tgEnableBtn" onclick="toggleTelegramEnabled()">Telegram Alerts: OFF</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="sec-title">Cloud Sync</div>
+      <div class="field"><label>JSONBin Bin ID</label><input id="jbBinId" placeholder="65f3a8c2266ccd473adc1234"/><span class="hint">From jsonbin.io → your bin → Bin ID</span></div>
+      <div class="field" style="margin-top:10px;"><label>JSONBin API Key (Master Key)</label><input id="jbApiKey" placeholder="$2a$10$..." type="password"/><span class="hint">From jsonbin.io → Account → API Keys &nbsp; <span id="gsSyncStatus" style="color:var(--green)"></span></span></div>
+      <div class="settings-actions">
+        <button class="btn btn-p btn-sm" onclick="gsSyncAll()">☁ Sync to JSONBin</button>
+        <button class="btn btn-o btn-sm" onclick="gsLoadAll()">⬇ Load from JSONBin</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="sec-title">Scanner Defaults</div>
+      <div class="field"><label>Universe (comma separated)</label><textarea id="bestUniverse" rows="4">IONQ, TSLA, MSFT, NVDA, META, AMD, AMZN, AAPL, GOOG, PLTR, SOFI, HOOD, COIN, MSTR, ARM, MU, AVGO, NFLX, CRM, SMCI</textarea><span class="hint">Scans this list, ranks the best 3–5 day setups, and can send the top names to Telegram.</span></div>
+      <div class="settings-grid" style="margin-top:10px;">
+        <div class="field"><label>Mode</label><select id="bestScanMode" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;"><option value="swing">Swing A+</option><option value="momentum">Momentum Breakout</option><option value="both">Both</option></select></div>
+        <div class="field"><label>Auto Interval</label><select id="bestAutoInterval" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;"><option value="15">15m</option><option value="30">30m</option><option value="60">60m</option></select></div>
+      </div>
+      <div class="settings-actions">
+        <button class="auto-btn" id="bestAutoBtn" onclick="toggleBestAuto()">A+ Auto: OFF</button>
+        <button class="btn btn-o btn-sm" onclick="loadNDX100Universe()">Load NDX 100 Universe</button>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ ANALYSIS TAB ══ -->
 <div id="kaTab" style="display:none;">
 
   <!-- Search bar for free ticker lookup -->
   <div class="search-card" style="margin-bottom:16px;">
-    <div class="search-label">🔍 Search Any Ticker — Kalki Swing V2 Auto Analysis</div>
+    <div class="search-label">🔍 Analysis — Search Any Ticker</div>
     <div class="search-row">
-      <input class="search-input" id="kaSearchInput" placeholder="NVDA, TSLA, AAPL…" maxlength="10" style="text-transform:uppercase"/>
-      <button class="analyze-btn" id="kaSearchBtn" onclick="runKalkiSearch()">ANALYZE</button>
+      <input class="search-input" id="kaSearchInput" placeholder="NVDA, TSLA, AAPL…" maxlength="10" style="text-transform:uppercase;flex:0 1 280px;min-width:180px;padding:10px 14px;font-size:18px;letter-spacing:2px"/>
+      <button class="analyze-btn" id="kaSearchBtn" onclick="runKalkiSearch()" style="padding:10px 18px;font-size:15px;letter-spacing:1.5px;">ANALYZE</button>
+      <button id="kaAddWatchBtn" onclick="addCurrentAnalysisToWatchlist()" style="display:none;font-family:'DM Sans',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.8px;padding:0 12px;border-radius:6px;border:1px solid rgba(16,185,129,0.35);background:rgba(16,185,129,0.1);color:#10b981;cursor:pointer;white-space:nowrap;height:42px;">+ Watchlist</button>
       <button id="sendZoneMapBtn" onclick="sendZoneMapToTelegram()" style="display:none;font-family:'DM Sans',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:0 14px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#f59e0b;cursor:pointer;white-space:nowrap;height:42px;">📤 Send to Telegram</button>
       <button id="alertFmtBtn" onclick="toggleAlertFormat()" style="display:none;font-family:'DM Mono',monospace;font-size:9px;padding:0 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;white-space:nowrap;height:42px;letter-spacing:0.5px;">📋 Compact</button>
     </div>
@@ -481,8 +566,8 @@ input:focus{border-color:var(--accent);}
 
   <!-- Empty state -->
   <div class="ka-empty" id="kaEmpty">
-    <div class="ke-title">⚡ Kalki Swing V2</div>
-    <div class="ke-sub">Use Kalki as the swing ranking engine for 3–5 day holds.<br><br>Then use the entry filter for 1H trend, 15m pullback, and 5m trigger timing.</div>
+    <div class="ke-title">⚡ Analysis</div>
+    <div class="ke-sub">Search any ticker for a full swing read.<br><br>Or click a watchlist name from Scanner to inspect its alert zones, score, chart, targets, and trade plan here.</div>
   </div>
 
   <!-- Search loading/error -->
@@ -497,7 +582,7 @@ input:focus{border-color:var(--accent);}
 
     <!-- Alert comparison banner -->
     <div class="compare-banner" id="kaCompareBanner">
-      <div class="compare-title">📡 Your Kalki Alert Values vs Live Swing Setup</div>
+      <div class="compare-title">📡 Watchlist Alert Values vs Live Setup</div>
       <div class="compare-grid" id="kaCompareGrid"></div>
     </div>
 
@@ -594,6 +679,11 @@ input:focus{border-color:var(--accent);}
 
 <!-- ══ TAB 5: SUBSCRIBERS ══ -->
 <div id="sbTab" style="display:none;">
+
+  <div class="scanner-section" style="margin-bottom:16px;">
+    <div class="sec-title">🔒 Admin Panel</div>
+    <div class="hint">Subscriber management lives here so the main trading flow can stay focused on Scanner, Analysis, Portfolio, and Report.</div>
+  </div>
 
   <!-- Summary bar -->
   <div class="score-banner" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:20px;">
@@ -705,22 +795,163 @@ const NDX100 = [
   'APP','MRVL','ARM','SMCI','TTD','EXPE','MTCH','LCID'
 ];
 let bestScanLatest = [];
+let bestScanLastCount = 0;
+let bestScanLastSource = localStorage.getItem('kalki_best_source') || 'ndx100';
+let bestAutoSource = localStorage.getItem('kalki_best_auto_source') || 'ndx100';
 let bestAutoIv = null;
 let bestAutoEnabled = localStorage.getItem('kalki_best_auto') === '1';
 let bestAutoRunning = false;
 let bestAlertMemory = JSON.parse(localStorage.getItem('kalki_best_alert_memory') || '{}');
+let telegramEnabled = localStorage.getItem('kalki_tg_enabled') === '1';
+let watchExcludePortfolio = localStorage.getItem('kalki_watch_ex_pf') === '1';
+const ADMIN_PASSWORD = '1515';
+let adminUnlocked = false;
 
 function proxy(){ return (document.getElementById('proxyUrl').value||'https://yahoo-proxy.srimanthgada87.workers.dev').trim(); }
+function ensureAdminAccess(){
+  if(adminUnlocked) return true;
+  const entered = prompt('Enter Admin password');
+  if(entered === null) return false;
+  if(entered !== ADMIN_PASSWORD){
+    alert('Wrong password');
+    return false;
+  }
+  adminUnlocked = true;
+  return true;
+}
+function openSettingsPanel(){
+  if(!ensureAdminAccess()) return;
+  document.getElementById('settingsOverlay')?.classList.add('open');
+  document.getElementById('settingsPanel')?.classList.add('open');
+  document.getElementById('settingsPanel')?.setAttribute('aria-hidden','false');
+}
+function openAdminTab(){
+  if(!ensureAdminAccess()) return;
+  switchTab('sb');
+}
+function closeSettingsPanel(e){
+  if(e && e.target && e.target.id !== 'settingsOverlay') return;
+  document.getElementById('settingsOverlay')?.classList.remove('open');
+  document.getElementById('settingsPanel')?.classList.remove('open');
+  document.getElementById('settingsPanel')?.setAttribute('aria-hidden','true');
+}
+function syncConnectionPill(){
+  const hasTG = !!((document.getElementById('botToken')?.value||'').trim() && (document.getElementById('chatId')?.value||'').trim());
+  const dot=document.getElementById('tgDot');
+  const txt=document.getElementById('tgPillText');
+  if(dot) dot.className='dot'+(hasTG&&telegramEnabled?' on':'');
+  if(txt) txt.textContent=hasTG ? (telegramEnabled ? 'TG ON' : 'TG OFF') : 'TG OFF';
+}
+function syncTelegramToggle(){
+  const btn=document.getElementById('tgEnableBtn');
+  if(!btn) return;
+  btn.textContent = `Telegram Alerts: ${telegramEnabled ? 'ON' : 'OFF'}`;
+  btn.classList.toggle('on', telegramEnabled);
+}
+function toggleTelegramEnabled(){
+  telegramEnabled = !telegramEnabled;
+  localStorage.setItem('kalki_tg_enabled', telegramEnabled ? '1' : '0');
+  syncTelegramToggle();
+  syncConnectionPill();
+}
+function setMarketCard(prefix, data){
+  const val=document.getElementById(prefix+'Val');
+  const sub=document.getElementById(prefix+'Sub');
+  const card=document.getElementById(prefix+'Card');
+  if(!val||!sub||!card) return;
+  if(!data){
+    val.textContent='--';
+    sub.textContent='Unavailable';
+    sub.className='subv';
+    return;
+  }
+  val.textContent = data.price.toFixed(2);
+  sub.textContent = `${data.changePct>=0?'+':''}${data.changePct.toFixed(2)}% · SMA20 ${data.aboveSma20?'above':'below'}`;
+  sub.className = 'subv ' + (data.changePct>=0 ? 'pos' : 'neg');
+}
+async function refreshMarketRegime(){
+  const refs = [
+    {ticker:'SPY', key:'spy'},
+    {ticker:'QQQ', key:'qqq'},
+    {ticker:'^VIX', key:'vix'}
+  ];
+  const results = await Promise.allSettled(refs.map(r => fetchYahoo(r.ticker,'1mo','1d')));
+  const data = {};
+  refs.forEach((ref, idx) => {
+    const res = results[idx];
+    if(res.status !== 'fulfilled') return;
+    const valid = buildValidSeries(res.value);
+    if(!valid.length) return;
+    const closes = valid.map(d=>d.c);
+    const price = closes[closes.length-1];
+    const prev = closes[closes.length-2] || price;
+    data[ref.key] = {
+      price,
+      changePct: prev ? ((price-prev)/prev)*100 : 0,
+      sma20: sma(closes,20),
+      aboveSma20: price > sma(closes,20)
+    };
+  });
+  setMarketCard('spy', data.spy);
+  setMarketCard('qqq', data.qqq);
+  const vixVal=document.getElementById('vixVal');
+  const vixSub=document.getElementById('vixSub');
+  if(vixVal && vixSub){
+    if(data.vix){
+      vixVal.textContent = data.vix.price.toFixed(2);
+      vixSub.textContent = `${data.vix.price<18?'calm':data.vix.price<22?'watchful':'risk elevated'} · ${data.vix.changePct>=0?'+':''}${data.vix.changePct.toFixed(2)}%`;
+      vixSub.className = 'subv ' + (data.vix.changePct<=0 ? 'pos' : 'neg');
+    } else {
+      vixVal.textContent='--';
+      vixSub.textContent='Unavailable';
+      vixSub.className='subv';
+    }
+  }
+  const regimeCard=document.getElementById('regimeCard');
+  const regimeVal=document.getElementById('regimeVal');
+  const regimeSub=document.getElementById('regimeSub');
+  if(regimeCard && regimeVal && regimeSub){
+    if(!data.spy || !data.qqq || !data.vix){
+      regimeCard.className='market-card';
+      regimeVal.textContent='WAIT';
+      regimeSub.textContent='Not enough data to judge regime';
+    } else {
+      const score =
+        (data.spy.aboveSma20 ? 1 : 0) +
+        (data.qqq.aboveSma20 ? 1 : 0) +
+        (data.spy.changePct >= 0 ? 1 : 0) +
+        (data.qqq.changePct >= 0 ? 1 : 0) +
+        (data.vix.price < 20 ? 1 : 0);
+      const state = score >= 4 ? 'GO' : score >= 3 ? 'CAUTION' : 'NO GO';
+      regimeCard.className='market-card ' + (state==='GO'?'go':state==='CAUTION'?'caution':'no');
+      regimeVal.textContent=state;
+      regimeSub.textContent = state==='GO'
+        ? 'Trend supportive and volatility contained'
+        : state==='CAUTION'
+        ? 'Mixed tape, prefer selective entries'
+        : 'Risk regime weak, avoid forcing entries';
+    }
+  }
+}
 
 // ══════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════
 function switchTab(t) {
-  ['an','sc','ka','pf','sb','rp'].forEach(id => {
-    document.getElementById('t-'+id).classList.toggle('active', t===id);
-    document.getElementById(id+'Tab').style.display = t===id ? 'block' : 'none';
+  const visibleTabs = ['an','sc','pf','sb','rp'];
+  const panelMap = {an:'ka', sc:'sc', pf:'pf', sb:'sb', rp:'rp', ka:'ka'};
+  const targetPanel = panelMap[t] || 'sc';
+
+  visibleTabs.forEach(id => {
+    const btn = document.getElementById('t-'+id);
+    if (btn) btn.classList.toggle('active', t===id);
   });
-  if (t === 'ka') refreshKaTab();
+  ['an','sc','ka','pf','sb','rp'].forEach(id => {
+    const panel = document.getElementById(id+'Tab');
+    if (panel) panel.style.display = id===targetPanel ? 'block' : 'none';
+  });
+
+  if (targetPanel === 'ka') refreshKaTab();
   if (t === 'pf') pfRender();
   if (t === 'sb') sbRender();
   if (t === 'rp') rpRender();
@@ -1207,7 +1438,7 @@ function renderLiveAnalysis(a) {
 }
 
 // ══════════════════════════════════════════════════════
-// TAB 3: KALKI ANALYSIS (from scanner zones)
+// ANALYSIS WORKSPACE
 // ══════════════════════════════════════════════════════
 function refreshKaTab() {
   const row = document.getElementById('kaSelectRow');
@@ -1348,17 +1579,137 @@ function addTicker(){
   if(!supLow||!supHigh)return alert('Enter support as e.g. 38-40');
   if(isNaN(brk))return alert('Enter breakdown level');
   const res=resRaw.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
-  scTickers.push({sym,supLow,supHigh,brk,res,price:null,status:'neutral'});
+  scTickers.push({sym,supLow,supHigh,brk,res,price:null,status:'neutral',monitorTrend:false});
   saveSc();renderSc();autoSync();
   ['inTick','inSup','inBrk','inRes'].forEach(id=>document.getElementById(id).value='');
 }
 
 function removeTicker(i,e){e.stopPropagation();scTickers.splice(i,1);if(kaSelected>=scTickers.length)kaSelected=scTickers.length-1;saveSc();renderSc();autoSync();}
 function clearAll(){if(!confirm('Remove all?'))return;scTickers=[];kaSelected=null;saveSc();renderSc();autoSync();}
+function isInPortfolio(sym){
+  return !!pfPositions.find(p=>p.sym===sym && p.state==='open');
+}
+function toggleWatchMonitor(i,e){
+  if(e) e.stopPropagation();
+  const t=scTickers[i];
+  if(!t) return;
+  t.monitorTrend = !t.monitorTrend;
+  saveSc(); renderSc(); autoSync();
+  sLog(`${t.sym} trend monitor ${t.monitorTrend?'enabled':'disabled'}`,'inf');
+}
+function addWatchlistToPortfolio(i,e){
+  if(e) e.stopPropagation();
+  const t=scTickers[i];
+  if(!t) return;
+  if(isInPortfolio(t.sym)){ renderSc(); return; }
+  const basePrice = t.price || ((t.supLow+t.supHigh)/2);
+  const entryRaw = prompt(`Entry price for ${t.sym}:`, basePrice ? basePrice.toFixed(2) : '');
+  if(entryRaw===null) return;
+  const entry=parseFloat(entryRaw);
+  if(isNaN(entry)) return alert('Enter a valid entry price');
+  pfPositions.unshift({
+    id:Date.now(), sym:t.sym, entryPrice:entry, entryDate:new Date().toISOString().split('T')[0], grade:'A', invest:10000,
+    currentPrice:t.price||entry, status:'Added from watchlist',
+    resistances:t.res||[], breakdown:t.brk||null,
+    supLow:t.supLow||null, supHigh:t.supHigh||null,
+    notes:'Watchlist → Portfolio', state:'open', closedPrice:null, closeDate:null,
+    addedAt:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+  });
+  pfSave(); pfRender(); autoSync(); renderSc();
+  sLog(`${t.sym} added to portfolio from watchlist`,'ea');
+}
 
 function openKalkiFromCard(i) {
   kaSelected = i;
-  switchTab('ka');
+  switchTab('an');
+  setTimeout(() => loadKalki(i), 0);
+}
+
+function primeTelegramZoneData(data){
+  _lastZoneData = {
+    ticker:data.ticker,
+    price:data.price,
+    supLow:data.supLow,
+    supHigh:data.supHigh,
+    breakdown:data.breakdown,
+    resistances:(data.resistances||[]).slice(0,5),
+    shortScore:data.shortScore,
+    longScore:data.longScore,
+    overall:data.overall,
+    stV:data.stV,
+    ovV:data.ovV,
+    sma20:data.sma20v ?? data.sma20 ?? null,
+    rsi14:data.rsi14 ?? null,
+    volRatio:data.volRatio ?? ((data.lastVol&&data.avgVol)?(data.lastVol/data.avgVol):null)
+  };
+  const sb=document.getElementById('sendZoneMapBtn');
+  if(sb){
+    sb.textContent='📤 Send to Telegram';
+    sb.style.opacity='1';
+    sb.style.pointerEvents='auto';
+    sb.style.display='';
+  }
+  const fb=document.getElementById('alertFmtBtn');
+  if(fb){
+    fb.style.display='';
+    _syncAlertFmtBtn();
+  }
+  const wb=document.getElementById('kaAddWatchBtn');
+  if(wb){
+    wb.style.display='';
+    const exists = scTickers.some(t=>t.sym===data.ticker);
+    wb.textContent = exists ? 'Added' : '+ Watchlist';
+    wb.style.opacity = exists ? '0.7' : '1';
+    wb.style.pointerEvents = exists ? 'none' : 'auto';
+  }
+  const ss=document.getElementById('tgSendStatus');
+  if(ss) ss.style.display='none';
+}
+
+function addCurrentAnalysisToWatchlist(){
+  if(!_lastZoneData) return alert('Analyze a ticker first');
+  const d = _lastZoneData;
+  if(scTickers.some(t=>t.sym===d.ticker)){
+    alert(`${d.ticker} is already in your watchlist`);
+    return;
+  }
+  scTickers.push({
+    sym:d.ticker,
+    supLow:+(+d.supLow).toFixed(2),
+    supHigh:+(+d.supHigh).toFixed(2),
+    brk:+(+d.breakdown).toFixed(2),
+    res:(d.resistances||[]).slice(0,5).map(v=>+v.toFixed(2)),
+    price:d.price || null,
+    status:'neutral',
+    monitorTrend:false
+  });
+  saveSc();
+  renderSc();
+  autoSync();
+  sLog(`${d.ticker} added to watchlist from Analysis`,'ea');
+  const wb=document.getElementById('kaAddWatchBtn');
+  if(wb){
+    wb.textContent='Added';
+    wb.style.opacity='0.7';
+    wb.style.pointerEvents='none';
+  }
+}
+
+async function sendPreparedTickerToTelegram(data, e){
+  if(e) e.stopPropagation();
+  if(!data.price || !data.shortScore || !data.longScore || !data.overall){
+    try{
+      const r = await fetchYahoo(data.ticker, '3mo', '1d');
+      const manualZones = (data.supLow!=null && data.supHigh!=null && data.breakdown!=null)
+        ? {supLow:data.supLow, supHigh:data.supHigh, breakdown:data.breakdown, resistances:(data.resistances||[]).slice(0,5)}
+        : null;
+      data = await buildFromYahoo(data.ticker, r, manualZones);
+    }catch(err){
+      sLog(`Telegram send prep failed for ${data.ticker}: ${err.message}`,'inf');
+    }
+  }
+  primeTelegramZoneData(data);
+  await sendZoneMapToTelegram();
 }
 
 // ── KALKI ANALYSIS FREE SEARCH ────────────────────────
@@ -1426,10 +1777,8 @@ async function runKalkiSearch() {
     renderTargets(document.getElementById('kaTargetsCard'), a.price, a.stStop, a.stT1, a.stT2, a.stT3, a.resistances, a.breakdown);
     renderStrategy(document.getElementById('kaStratCard'),  a.price, a.supLow, a.supHigh, a.breakdown, a.resistances, a.stStop, a.stT1, a.stT2, a.stT3, a.atr);
 
-    // Hide zone map telegram button (no alert zones)
-    document.getElementById('sendZoneMapBtn').style.display = 'none';
-    const fb2=document.getElementById('alertFmtBtn');
-    if(fb2) fb2.style.display='none';
+    // Enable Telegram send for any analyzed ticker using auto-calculated zones
+    primeTelegramZoneData(a);
 
   } catch(e) {
     document.getElementById('kaLoadingPanel').style.display = 'none';
@@ -1445,18 +1794,28 @@ const _origRefreshKaTab = refreshKaTab;
 
 function renderSc(){
   const el=document.getElementById('tcList');
-  if(!scTickers.length){el.innerHTML='<div class="empty-s">Add a ticker above ↑ · Click any card to open Kalki Analysis</div>';return;}
+  if(!scTickers.length){el.innerHTML='<div class="empty-s">Add a ticker above ↑ · Click any card to open Analysis</div>';return;}
   el.innerHTML=scTickers.map((t,i)=>{
     const pd=t.price!=null?'$'+t.price.toFixed(2):'—';
+    const inPf=isInPortfolio(t.sym);
     const sc=t.status==='entry'?'ae':t.status==='stoploss'?'ab':t.status==='tp1'?'ar':t.status==='resistance'?'ar':'';
     const sl=t.status==='entry'?'✅ IN SUPPORT':t.status==='stoploss'?'🚨 STOP LOSS HIT':t.status==='tp1'?'🎯 TP1 HIT':t.status==='resistance'?'⚠ AT RESIST':'— Watching';
     const ss=t.status==='entry'?'iz':t.status==='stoploss'?'bd':t.status==='tp1'?'ar2':t.status==='resistance'?'ar2':'nt';
-    return `<div class="tc-card ${sc}" onclick="openKalkiFromCard(${i})" title="Click to open Kalki Analysis">
+    return `<div class="tc-card ${sc}" onclick="openKalkiFromCard(${i})" title="Click to open Analysis">
       <div class="tc-sym">${t.sym}</div>
       <div class="tc-zones">
         <div class="zrow"><span class="zlbl">Support:</span><span>${t.supLow}–${t.supHigh}</span></div>
         <div class="zrow"><span class="zlbl">Breakdown:</span><span>&lt; ${t.brk}</span></div>
         <div class="zrow"><span class="zlbl">Resistance:</span><span>${t.res.join(', ')||'—'}</span></div>
+        <div class="tc-flags">
+          <span class="mini-flag ${t.monitorTrend?'on':''}">${t.monitorTrend?'Trend Monitor ON':'Trend Monitor OFF'}</span>
+          ${inPf?'<span class="mini-flag own">In Portfolio</span>':''}
+        </div>
+        <div class="tc-actions">
+          <button class="btn btn-sm ${t.monitorTrend?'btn-o':'btn-p'}" onclick="toggleWatchMonitor(${i},event)">${t.monitorTrend?'Monitoring':'Monitor Trend'}</button>
+          <button class="btn btn-sm ${inPf?'btn-o':'btn-p'}" ${inPf?'disabled':''} onclick="addWatchlistToPortfolio(${i},event)">${inPf?'In Portfolio':'Add to Portfolio'}</button>
+          <button class="btn btn-sm btn-o" onclick="sendPreparedTickerToTelegram({ticker:'${t.sym}',price:${t.price!=null?t.price:'null'},supLow:${t.supLow},supHigh:${t.supHigh},breakdown:${t.brk},resistances:[${t.res.join(',')}],shortScore:0,longScore:0,overall:0},event)">Send TG</button>
+        </div>
       </div>
       <div class="tc-price"><div class="tc-p">${pd}</div><div class="tc-s ${ss}">${sl}</div></div>
       <div><button class="btn btn-d btn-sm" onclick="removeTicker(${i},event)">✕</button></div>
@@ -1479,9 +1838,47 @@ function evalStatus(t){
 }
 async function sendTG(msg){
   const tok=document.getElementById('botToken').value.trim(),cid=document.getElementById('chatId').value.trim();
-  if(!tok||!cid)return;
+  if(!telegramEnabled||!tok||!cid)return;
   try{await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})});}
   catch(e){sLog('TG failed','inf');}
+}
+function buildTrendBuyAlert(a){
+  const entryRef = (a.supLow + a.supHigh) / 2;
+  const pct = v => {
+    const p = ((v - entryRef) / entryRef) * 100;
+    return `${p>=0?'+':''}${p.toFixed(1)}%`;
+  };
+  return [
+    `⚡ *${a.ticker}* 〔TREND BUY ALERT〕`,
+    `📊 Grade: *${a.grade}*  ·  Setup *${a.overall}%*`,
+    ``,
+    `💰 Price: $${a.price.toFixed(2)}`,
+    `📈 Entry: *$${a.supLow.toFixed(2)}–$${a.supHigh.toFixed(2)}*`,
+    `🛑 Stop: $${a.stStop.toFixed(2)} (${pct(a.stStop)})`,
+    `🎯 T1: $${a.stT1.toFixed(2)} (${pct(a.stT1)})`,
+    `🎯 T2: $${a.stT2.toFixed(2)} (${pct(a.stT2)})`,
+    `🎯 T3: $${a.stT3.toFixed(2)} (${pct(a.stT3)})`,
+    ``,
+    `Why: trend above SMA20/50 · timing filter ready · strong setup score`,
+    `⚡ _Kalki Swing V2_`
+  ].join('\n');
+}
+async function checkTrendBuyMonitor(t){
+  if(!t.monitorTrend) return;
+  try{
+    const r=await fetchYahoo(t.sym,'3mo','1d');
+    const manualZones = {supLow:t.supLow, supHigh:t.supHigh, breakdown:t.brk, resistances:t.res};
+    const a=await buildFromYahoo(t.sym,r,manualZones);
+    const qualified = a.overall>=72 && a.longScore>=75 && a.price>a.sma20v && a.price>(a.sma50v||0);
+    const prev = alertSt[t.sym]?.trendBuy;
+    if(qualified && !prev){
+      await sendTG(buildTrendBuyAlert(a));
+      sLog(`${t.sym} trend-buy alert fired (${a.overall}%)`,'ea');
+    }
+    alertSt[t.sym] = {...(alertSt[t.sym]||{}), trendBuy: qualified};
+  }catch(e){
+    sLog(`Trend monitor skipped ${t.sym}: ${e.message}`,'inf');
+  }
 }
 async function runScan(){
   if(!scTickers.length)return sLog('No tickers','inf');
@@ -1491,9 +1888,14 @@ async function runScan(){
     scTickers[i].price=await fetchScanPrice(t.sym);
     const ns=evalStatus(scTickers[i]);
     scTickers[i].status=ns;
+    await checkTrendBuyMonitor(scTickers[i]);
 
     if(ns==='neutral'){
-      delete alertSt[t.sym];
+      if(alertSt[t.sym]?.trendBuy!==undefined){
+        alertSt[t.sym] = {trendBuy: alertSt[t.sym].trendBuy};
+      } else {
+        delete alertSt[t.sym];
+      }
       continue;
     }
 
@@ -1581,6 +1983,17 @@ function bestUniverseList(){
     return true;
   }).slice(0,120);
 }
+function bestWatchlistList(){
+  const seen=new Set();
+  return scTickers.map(t=>t.sym).filter(Boolean).filter(sym=>{
+    if(seen.has(sym)) return false;
+    seen.add(sym);
+    return true;
+  }).slice(0,120);
+}
+function ndx100List(){
+  return [...NDX100];
+}
 function loadNDX100Universe(){
   const val = NDX100.join(', ');
   const el = document.getElementById('bestUniverse');
@@ -1594,8 +2007,58 @@ function saveBestAlertMemory(){
 function bestAlertDateKey(){
   return new Date().toLocaleDateString('en-CA');
 }
+function currentScanSource(){
+  return bestScanLastSource || 'ndx100';
+}
+function currentAutoSource(){
+  return bestAutoSource || 'ndx100';
+}
 function currentBestMode(){
   return document.getElementById('bestScanMode')?.value || 'swing';
+}
+function syncScannerToolbarControls(){
+  const mode = document.getElementById('bestScanMode')?.value || 'swing';
+  const interval = document.getElementById('bestAutoInterval')?.value || '15';
+  const autoSourceBar = document.getElementById('bestAutoSourceBar');
+  const modeBar = document.getElementById('bestScanModeBar');
+  const intervalBar = document.getElementById('bestAutoIntervalBar');
+  if(autoSourceBar) autoSourceBar.value = currentAutoSource();
+  if(modeBar) modeBar.value = mode;
+  if(intervalBar) intervalBar.value = interval;
+}
+function setBestAutoSourceFromBar(value){
+  bestAutoSource = value;
+  localStorage.setItem('kalki_best_auto_source', value);
+  syncScannerToolbarControls();
+  scheduleBestAutoFromSettings();
+}
+function setBestScanModeFromBar(value){
+  const el = document.getElementById('bestScanMode');
+  if(el){
+    el.value = value;
+    localStorage.setItem('kalki_best_scan_mode', value);
+  }
+  syncScannerToolbarControls();
+}
+function setBestAutoIntervalFromBar(value){
+  const el = document.getElementById('bestAutoInterval');
+  if(el){
+    el.value = value;
+    localStorage.setItem('kalki_best_auto_interval', value);
+  }
+  scheduleBestAutoFromSettings();
+  syncScannerToolbarControls();
+}
+function syncWatchExcludeUi(){
+  const btn = document.getElementById('watchExcludeBtn');
+  if(!btn) return;
+  btn.textContent = `Ex Portfolio: ${watchExcludePortfolio ? 'ON' : 'OFF'}`;
+  btn.classList.toggle('on', watchExcludePortfolio);
+}
+function toggleWatchExcludePortfolio(){
+  watchExcludePortfolio = !watchExcludePortfolio;
+  localStorage.setItem('kalki_watch_ex_pf', watchExcludePortfolio ? '1' : '0');
+  syncWatchExcludeUi();
 }
 function bestAutoIntervalMs(){
   const mins = +(document.getElementById('bestAutoInterval')?.value || 15);
@@ -1606,6 +2069,26 @@ function syncBestAutoUi(){
   if(!btn) return;
   btn.textContent = `A+ Auto: ${bestAutoEnabled ? 'ON' : 'OFF'}`;
   btn.classList.toggle('on', bestAutoEnabled);
+  const barBtn=document.getElementById('bestAutoBarBtn');
+  if(barBtn){
+    barBtn.textContent = `⚡ Auto: ${bestAutoEnabled ? 'ON' : 'OFF'}`;
+    barBtn.classList.toggle('on', bestAutoEnabled);
+  }
+}
+async function runBestAutoCycle(){
+  const source = currentAutoSource();
+  if(source === 'both'){
+    const ndx = await runBestSetupScan({mode:'auto', source:'ndx100', skipRender:true});
+    const watch = await runBestSetupScan({mode:'auto', source:'watchlist', skipRender:true});
+    const combined = [...(ndx?.top||[]), ...(watch?.top||[])].sort((a,b)=>(b.scanMode==='both')-(a.scanMode==='both') || b.overall-a.overall || b.shortScore-a.shortScore || b.longScore-a.longScore).slice(0,10);
+    bestScanLastSource = 'both';
+    bestScanLastCount = (ndx?.scanned||0) + (watch?.scanned||0);
+    bestScanLatest = combined;
+    renderBestSetupResults(combined, bestScanLastCount);
+    setBestScanStatus(combined.length?`TOP ${combined.length}`:'NO SETUPS', false);
+    return;
+  }
+  await runBestSetupScan({mode:'auto', source});
 }
 async function toggleBestAuto(){
   bestAutoEnabled = !bestAutoEnabled;
@@ -1613,19 +2096,19 @@ async function toggleBestAuto(){
   syncBestAutoUi();
   if(bestAutoEnabled){
     if(bestAutoIv) clearInterval(bestAutoIv);
-    await runBestSetupScan({mode:'auto'});
-    bestAutoIv = setInterval(() => runBestSetupScan({mode:'auto'}), bestAutoIntervalMs());
-    sLog('A+ auto scanner enabled','ea');
+    await runBestAutoCycle();
+    bestAutoIv = setInterval(() => runBestAutoCycle(), bestAutoIntervalMs());
+    sLog(`${currentAutoSource()==='both'?'NDX100 + Watchlist':currentAutoSource()==='watchlist'?'Watchlist':'NDX100'} auto scanner enabled`,'ea');
   }else{
     if(bestAutoIv) clearInterval(bestAutoIv);
     bestAutoIv = null;
-    sLog('A+ auto scanner disabled','inf');
+    sLog('Auto scanner disabled','inf');
   }
 }
 function scheduleBestAutoFromSettings(){
   if(bestAutoIv) clearInterval(bestAutoIv);
   if(bestAutoEnabled){
-    bestAutoIv = setInterval(() => runBestSetupScan({mode:'auto'}), bestAutoIntervalMs());
+    bestAutoIv = setInterval(() => runBestAutoCycle(), bestAutoIntervalMs());
   }
 }
 function bestReasonText(r){
@@ -1668,6 +2151,9 @@ function qualifyScanMode(r, mode){
 function alertReasonText(r){
   return r.scanMode === 'momentum' ? momentumReasonText(r) : r.scanMode === 'both' ? `${bestReasonText(r)} · ${momentumReasonText(r)}` : bestReasonText(r);
 }
+function scoreOutOf8(v){
+  return Math.max(1, Math.min(8, Math.round((v / 100) * 8)));
+}
 function buildAPlusAlertMessage(r){
   const entryRef = (r.supLow + r.supHigh) / 2;
   const pct = v => {
@@ -1678,7 +2164,7 @@ function buildAPlusAlertMessage(r){
   const title = r.scanMode === 'momentum' ? 'MOMENTUM BREAKOUT ALERT' : r.scanMode === 'both' ? 'SWING + MOMO ALERT' : 'A+ SWING ALERT';
   return [
     `⚡ *${r.ticker}* 〔${title}〕`,
-    `📊 Grade: *${r.grade}*  ·  Setup *${r.overall}%*`,
+    `📊 Grade: *${r.grade}*  ·  Setup *${scoreOutOf8(r.overall)}/8*`,
     ``,
     `💰 Price: $${r.price.toFixed(2)}`,
     `📈 Entry: *$${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}*`,
@@ -1701,23 +2187,27 @@ function setBestScanStatus(txt, active=false){
   if(box) box.className='spill'+(active?' active':'');
   if(dot) dot.className='dot'+(active?' on':'');
 }
+function sourceLabelFor(source){
+  return source === 'watchlist' ? 'WATCHLIST' : source === 'ndx100' ? 'NDX100' : source === 'both' ? 'BOTH' : 'UNIVERSE';
+}
 function renderBestSetupResults(rows, scanned){
   const el=document.getElementById('bestScanResults');
   const list=document.getElementById('bestScanList');
   if(!el||!list) return;
+  const sourceLabel = bestScanLastSource === 'watchlist' ? 'watchlist' : bestScanLastSource === 'ndx100' ? 'NDX100' : bestScanLastSource === 'both' ? 'combined' : 'universe';
   if(!rows.length){
-    el.innerHTML=`Scanned ${scanned} symbols. No setups met the current mode filter right now.`;
+    el.innerHTML=`Scanned ${scanned} ${sourceLabel} symbol(s). No setups met the current mode filter right now.`;
     list.innerHTML='';
     return;
   }
-  el.innerHTML=`Scanned ${scanned} symbols. Showing top ${rows.length} ${currentBestMode()==='momentum'?'momentum breakout':currentBestMode()==='both'?'swing + momentum':'swing'} setups.`;
+  el.innerHTML=`Scanned ${scanned} ${sourceLabel} symbol(s). Showing top ${rows.length} ${currentBestMode()==='momentum'?'momentum breakout':currentBestMode()==='both'?'swing + momentum':'swing'} setups.`;
   list.innerHTML = rows.map((r,i)=>{
     const added = scTickers.some(t=>t.sym===r.ticker);
     return `<div class="best-card">
       <div class="best-rank">#${i+1}</div>
       <div class="best-sym">
         <strong>${r.ticker}</strong>
-        <div class="best-grade">Grade ${r.grade} · ${r.scanMode.toUpperCase()}</div>
+        <div class="best-grade">Grade ${r.grade} · ${r.scanMode.toUpperCase()} · ${sourceLabelFor(r.source || bestScanLastSource)}</div>
       </div>
       <div class="best-meta">
         <div class="best-stat"><div class="lbl">Setup</div><div class="val">${r.overall}%</div></div>
@@ -1727,12 +2217,20 @@ function renderBestSetupResults(rows, scanned){
       </div>
       <div class="best-cta">
         <button class="btn ${added?'btn-d':'btn-p'} btn-sm" ${added?'disabled':''} onclick="addBestSetupToWatchlist('${r.ticker}')">${added?'Added':'Add'}</button>
+        <button class="btn btn-o btn-sm" onclick="sendPreparedTickerToTelegram({ticker:'${r.ticker}',price:${r.price},supLow:${r.supLow},supHigh:${r.supHigh},breakdown:${r.breakdown},resistances:[${r.resistances.slice(0,5).join(',')}],shortScore:${r.shortScore},longScore:${r.longScore},overall:${r.overall},stV:'Best setup scanner',ovV:'Top scanner candidate',sma20:${r.sma20v ?? 'null'},rsi14:${r.rsi14 ?? 'null'},volRatio:${r.metrics?.volRatio ?? 'null'}},event)">Send TG</button>
         <div class="hint">Entry $${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}</div>
         <div class="hint">Stop $${r.stStop.toFixed(2)} · T1 $${r.stT1.toFixed(2)}</div>
         <div class="hint">${alertReasonText(r)}</div>
       </div>
     </div>`;
   }).join('');
+}
+function clearBestScanResults(){
+  bestScanLatest = [];
+  bestScanLastCount = 0;
+  document.getElementById('bestScanResults').innerHTML = 'No best-setup scan run yet.';
+  document.getElementById('bestScanList').innerHTML = '';
+  setBestScanStatus('READY', false);
 }
 function buildBestSetupTelegramMessage(rows, scanned){
   const datePart = new Date().toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
@@ -1741,7 +2239,7 @@ function buildBestSetupTelegramMessage(rows, scanned){
     const trigger=r.timingSignals.filter(s=>s.ok).map(s=>s.label.replace(' + VWAP','')).join(', ') || 'wait for trigger';
     return [
       `${i+1}. *${r.ticker}*  ·  Grade *${r.grade}*  ·  ${r.scanMode.toUpperCase()}`,
-      `Setup *${r.overall}%*  ·  Swing ${r.shortScore}%  ·  Timing ${r.longScore}%`,
+      `Setup *${scoreOutOf8(r.overall)}/8*  ·  Swing ${r.shortScore}%  ·  Timing ${r.longScore}%`,
       `Price $${r.price.toFixed(2)}  ·  Entry ${entry}`,
       `Trigger: ${trigger}`
     ].join('\n');
@@ -1760,7 +2258,7 @@ function addBestSetupToWatchlist(sym){
   const hit = bestScanLatest.find(r=>r.ticker===sym);
   if(!hit) return;
   if(scTickers.some(t=>t.sym===sym)){
-    renderBestSetupResults(bestScanLatest, bestUniverseList().length);
+    renderBestSetupResults(bestScanLatest, bestScanLastCount);
     return;
   }
   scTickers.push({
@@ -1770,29 +2268,44 @@ function addBestSetupToWatchlist(sym){
     brk:+hit.breakdown.toFixed(2),
     res:hit.resistances.slice(0,5).map(v=>+v.toFixed(2)),
     price:hit.price,
-    status:'neutral'
+    status:'neutral',
+    monitorTrend:false
   });
   saveSc();
   renderSc();
   autoSync();
-  renderBestSetupResults(bestScanLatest, bestUniverseList().length);
+  renderBestSetupResults(bestScanLatest, bestScanLastCount);
   sLog(`${sym} added to watchlist from best setups`,'ea');
 }
 async function runBestSetupScan(opts={}){
   const mode = opts.mode || 'manual';
   const scanMode = currentBestMode();
+  const source = opts.source || currentScanSource();
+  const skipRender = !!opts.skipRender;
   if(bestAutoRunning) return;
   bestAutoRunning = true;
-  const universe=bestUniverseList();
+  let universe = source === 'watchlist' ? bestWatchlistList() : source === 'ndx100' ? ndx100List() : bestUniverseList();
+  if(source === 'watchlist' && watchExcludePortfolio){
+    universe = universe.filter(sym => !isInPortfolio(sym));
+  }
+  bestScanLastSource = source;
+  localStorage.setItem('kalki_best_source', source);
+  bestScanLastCount = universe.length;
   if(!universe.length){
     bestAutoRunning = false;
-    return alert('Enter at least one ticker in Best Setup Scanner');
+    return alert(source === 'watchlist'
+      ? (watchExcludePortfolio ? 'No watchlist tickers left after excluding portfolio names' : 'Add at least one ticker to the watchlist first')
+      : source === 'ndx100'
+        ? 'NDX100 list is empty'
+        : 'Enter at least one ticker in Best Setup Scanner');
   }
-  const btn=document.getElementById('bestScanBtn');
+  const btn=document.getElementById('scanBtn');
+  const watchBtn=document.getElementById('bestWatchScanBtn');
   if(btn) btn.disabled=true;
-  setBestScanStatus(mode==='auto' ? 'AUTO SCANNING' : 'SCANNING', true);
-  if(mode !== 'auto') renderBestSetupResults([], universe.length);
-  sLog(`${mode==='auto'?'A+ auto':'Best-setup'} scan started — ${universe.length} symbol(s) [${scanMode}]`,'inf');
+  if(watchBtn) watchBtn.disabled=true;
+  setBestScanStatus(mode==='auto' ? `AUTO ${source==='watchlist'?'WATCHLIST':'NDX100'}` : source === 'watchlist' ? 'WATCHLIST SCAN' : source === 'ndx100' ? 'NDX100 SCAN' : 'SCANNING', true);
+  if(mode !== 'auto' && !skipRender) renderBestSetupResults([], universe.length);
+  sLog(`${mode==='auto'?'Auto':source==='watchlist'?'Watchlist':'NDX100'} best-setup scan started — ${universe.length} symbol(s) [${scanMode}]${source==='watchlist'&&watchExcludePortfolio?' · excluding portfolio':''}`,'inf');
   const winners=[];
   const batchSize = 5;
   try{
@@ -1813,6 +2326,7 @@ async function runBestSetupScan(opts={}){
         const qualifiedMode = qualifyScanMode(a, scanMode);
         if(qualifiedMode){
           a.scanMode = qualifiedMode;
+          a.source = source;
           winners.push(a);
         }
       });
@@ -1820,7 +2334,7 @@ async function runBestSetupScan(opts={}){
     winners.sort((a,b)=>(b.scanMode==='both')-(a.scanMode==='both') || b.overall-a.overall || b.shortScore-a.shortScore || b.longScore-a.longScore);
     const top=winners.slice(0,10);
     bestScanLatest = top;
-    renderBestSetupResults(top, universe.length);
+    if(!skipRender) renderBestSetupResults(top, universe.length);
 
     const today = bestAlertDateKey();
     const aPlus = top.filter(r => r.grade === 'A+' && (r.overall >= 80 || r.scanMode === 'momentum' || r.scanMode === 'both'));
@@ -1844,9 +2358,11 @@ async function runBestSetupScan(opts={}){
     }else{
       sLog('Best-setup scan found no qualifying candidates','inf');
     }
-    setBestScanStatus(top.length?`TOP ${top.length}`:'NO SETUPS', false);
+    if(!skipRender) setBestScanStatus(top.length?`TOP ${top.length}`:'NO SETUPS', false);
+    return {top, scanned: universe.length, source};
   } finally {
     if(btn) btn.disabled=false;
+    if(watchBtn) watchBtn.disabled=false;
     bestAutoRunning = false;
   }
 }
@@ -1863,8 +2379,14 @@ function _syncAlertFmtBtn() {
 }
 function toggleAuto(){
   isAuto=!isAuto;const b=document.getElementById('autoBtn');
-  if(isAuto){b.textContent='Auto: ON';b.classList.add('on');runScan();autoIv=setInterval(runScan,SCAN_IV);setStat('AUTO',true);}
-  else{b.textContent='Auto: OFF';b.classList.remove('on');clearInterval(autoIv);setStat('IDLE',false);}
+  if(isAuto){
+    if(b){b.textContent='Auto: ON';b.classList.add('on');}
+    runScan();autoIv=setInterval(runScan,SCAN_IV);setStat('AUTO',true);
+  }
+  else{
+    if(b){b.textContent='Auto: OFF';b.classList.remove('on');}
+    clearInterval(autoIv);setStat('IDLE',false);
+  }
 }
 function setStat(txt,active){
   document.getElementById('spillTxt').textContent=txt;
@@ -2654,8 +3176,9 @@ async function rpSendTelegram() {
     const svg = rpBuildTelegramCardSvg(data);
     const pngBlob = await rpSvgToPngBlob(svg, 3);
     const form = new FormData();
+    const dateStamp = new Date().toLocaleDateString('en-CA').replace(/-/g,'');
     form.append('chat_id', cid);
-    form.append('document', pngBlob, `kalki-report-${Date.now()}@3x.png`);
+    form.append('document', pngBlob, `kalki-report-${dateStamp}.png`);
     form.append('caption', `Kalki Report · ${data.dateShort}`);
     const r = await fetch(`https://api.telegram.org/bot${tok}/sendDocument`, { method:'POST', body:form });
     const d = await r.json();
@@ -2685,7 +3208,10 @@ function rpTelegramReportData() {
   const filtered = rpGetFiltered();
   const withPnl  = filtered.filter(t=>(t.currentPrice||t.closedPrice)&&t.entryPrice);
   const totalPnl = withPnl.reduce((a,t)=>a+(rpPct(t)/100)*(t.invest||10000),0);
+  const totalInvested = withPnl.reduce((a,t)=>a+(t.invest||10000),0);
+  const totalPct = totalInvested ? (totalPnl/totalInvested)*100 : 0;
   const wins     = withPnl.filter(t=>rpPct(t)>0).length;
+  const losses   = withPnl.filter(t=>rpPct(t)<0).length;
   const winRate  = withPnl.length ? Math.round(wins/withPnl.length*100) : 0;
   const avgHold  = filtered.length ? Math.round(filtered.reduce((a,t)=>a+rpDaysHeld(t),0)/filtered.length) : 0;
   const stOrder  = {'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3};
@@ -2696,8 +3222,11 @@ function rpTelegramReportData() {
     watching: sorted.filter(t=>t.state!=='closed'&&rpStatus2(t).rowCls!=='rp2-warn'&&rpStatus2(t).rowCls!=='rp2-loss'),
     warning:  sorted.filter(t=>t.state!=='closed'&&(rpStatus2(t).rowCls==='rp2-warn'||rpStatus2(t).rowCls==='rp2-loss')),
     totalPnl,
+    totalPct,
     pnlStr:   (totalPnl>=0?'+$':'-$')+Math.abs(Math.round(totalPnl)).toLocaleString(),
     winRate,
+    wins,
+    losses,
     avgHold,
     dateShort: new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),
     dateLong:  new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})
@@ -2766,15 +3295,16 @@ function rpBuildTelegramCardSvg(data) {
   const profitColor = data.totalPnl>=0?'#4ade80':'#ff6b6b';
 
   const summaryBoxes = [
-    {x:30,  label:'PROFIT',    value:data.pnlStr,                color:profitColor,    glow:'rgba(34,197,94,0.28)'},
-    {x:292, label:'WIN RATE',  value:data.winRate+'%',            color:'#8bb3ff',      glow:'rgba(96,165,250,0.24)'},
-    {x:554, label:'POSITIONS', value:String(data.filtered.length),color:'#b38cff',      glow:'rgba(168,85,247,0.24)'}
+    {x:30,  label:'PROFIT',    value:data.pnlStr,                 sub:(data.totalPct>=0?'+':'')+data.totalPct.toFixed(1)+'%', color:profitColor, glow:'rgba(34,197,94,0.28)'},
+    {x:292, label:'WIN RATE',  value:data.winRate+'%',            sub:data.avgHold+'d avg hold',                                color:'#8bb3ff',   glow:'rgba(96,165,250,0.24)'},
+    {x:554, label:'POSITIONS', value:String(data.filtered.length),sub:`${data.wins}W / ${data.losses}L`,                        color:'#b38cff',   glow:'rgba(168,85,247,0.24)'}
   ].map(b=>`
     <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="#0f1628" stroke="#22314a" stroke-width="1.2"/>
     <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="${b.glow}" fill-opacity="0.22"/>
     <rect x="${b.x+1}" y="93" width="234" height="18" rx="15" fill="rgba(255,255,255,0.035)"/>
     <text x="${b.x+26}" y="125" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="#8796ad" letter-spacing="1.6">${b.label}</text>
-    <text x="${b.x+26}" y="156" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="800" fill="${b.color}">${rpXmlEsc(b.value)}</text>`).join('');
+    <text x="${b.x+26}" y="151" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="800" fill="${b.color}">${rpXmlEsc(b.value)}</text>
+    <text x="${b.x+26}" y="169" font-family="DM Sans, Arial, sans-serif" font-size="12" font-weight="600" fill="#9fb0c9">${rpXmlEsc(b.sub)}</text>`).join('');
 
   let sectionsMarkup='', y=headerH+summaryH;
   const cb=rpSvgSection('CLOSED',    '#57d26f', data.closed,   y, width); sectionsMarkup+=cb.markup; y=cb.nextY;
@@ -2853,7 +3383,8 @@ function rpBuildTelegramFallbackText(data) {
   if (data.closed.length)   sections+=`── CLOSED ──\n`  +data.closed.map(fmtRow).join('\n')  +'\n\n';
   if (data.watching.length) sections+=`── WATCHING ──\n`+data.watching.map(fmtRow).join('\n')+'\n\n';
   if (data.warning.length)  sections+=`── NEAR STOP ──\n`+data.warning.map(fmtRow).join('\n')+'\n\n';
-  return `⚡ *KALKI REPORT* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}*  ·  Win *${data.winRate}%*  ·  *${data.filtered.length}* positions\n\n${sections}_$10,000 invested per position_\n────────────\n⚡ _Kalki Analysis Platform_`;
+  const totalPct = (data.totalPct>=0?'+':'')+data.totalPct.toFixed(1)+'%';
+  return `⚡ *KALKI REPORT* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}* (${totalPct})\n🎯 Win *${data.winRate}%*\n📦 *${data.filtered.length}* positions · ${data.wins}W / ${data.losses}L\n\n${sections}_$10,000 invested per position_\n────────────\n⚡ _Kalki Analysis Platform_`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -2939,8 +3470,8 @@ async function sbSaveAndSync(){ sbSave(); autoSync(); }
 const st=localStorage.getItem('kalki_tok'),sc=localStorage.getItem('kalki_cid');
 if(st)document.getElementById('botToken').value=st;
 if(sc)document.getElementById('chatId').value=sc;
-document.getElementById('botToken').addEventListener('change',e=>localStorage.setItem('kalki_tok',e.target.value));
-document.getElementById('chatId').addEventListener('change',e=>localStorage.setItem('kalki_cid',e.target.value));
+document.getElementById('botToken').addEventListener('change',e=>{localStorage.setItem('kalki_tok',e.target.value);syncConnectionPill();});
+document.getElementById('chatId').addEventListener('change',e=>{localStorage.setItem('kalki_cid',e.target.value);syncConnectionPill();});
 const savedBestUniverse = localStorage.getItem('kalki_best_universe');
 if (savedBestUniverse) document.getElementById('bestUniverse').value = savedBestUniverse;
 document.getElementById('bestUniverse').addEventListener('change', e => localStorage.setItem('kalki_best_universe', e.target.value));
@@ -2949,17 +3480,22 @@ const savedBestScanMode = localStorage.getItem('kalki_best_scan_mode');
 if (savedBestScanMode) document.getElementById('bestScanMode').value = savedBestScanMode;
 document.getElementById('bestScanMode').addEventListener('change', e => {
   localStorage.setItem('kalki_best_scan_mode', e.target.value);
+  syncScannerToolbarControls();
 });
 const savedBestAutoInterval = localStorage.getItem('kalki_best_auto_interval');
 if (savedBestAutoInterval) document.getElementById('bestAutoInterval').value = savedBestAutoInterval;
 document.getElementById('bestAutoInterval').addEventListener('change', e => {
   localStorage.setItem('kalki_best_auto_interval', e.target.value);
   scheduleBestAutoFromSettings();
+  syncScannerToolbarControls();
 });
 syncBestAutoUi();
+syncScannerToolbarControls();
+syncWatchExcludeUi();
+syncTelegramToggle();
 scheduleBestAutoFromSettings();
 if (bestAutoEnabled) {
-  setTimeout(() => runBestSetupScan({mode:'auto'}), 600);
+  setTimeout(() => runBestAutoCycle(), 600);
 }
 
 // Restore JSONBin credentials and auto-load on start
@@ -2967,6 +3503,13 @@ const savedBinId  = localStorage.getItem('kalki_jb_bin');
 const savedApiKey = localStorage.getItem('kalki_jb_key');
 if (savedBinId)  document.getElementById('jbBinId').value  = savedBinId;
 if (savedApiKey) document.getElementById('jbApiKey').value = savedApiKey;
+syncConnectionPill();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSettingsPanel();
+});
+switchTab('sc');
+refreshMarketRegime().catch(()=>{});
+setInterval(() => refreshMarketRegime().catch(()=>{}), 10 * 60 * 1000);
 
 if (savedBinId && savedApiKey) {
   gsStatus('Loading from JSONBin...', 'var(--accent)');
