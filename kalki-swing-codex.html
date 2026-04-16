@@ -422,6 +422,17 @@ input:focus{border-color:var(--accent);}
     <div class="field full best-actions">
       <button class="btn btn-o btn-sm" onclick="loadNDX100Universe()">Use NDX 100</button>
       <button class="btn btn-p btn-sm" id="bestScanBtn" onclick="runBestSetupScan()">⚡ Scan Best Setups</button>
+      <button class="auto-btn" id="bestAutoBtn" onclick="toggleBestAuto()">A+ Auto: OFF</button>
+      <select id="bestScanMode" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;">
+        <option value="swing">Swing A+</option>
+        <option value="momentum">Momentum Breakout</option>
+        <option value="both">Both</option>
+      </select>
+      <select id="bestAutoInterval" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;">
+        <option value="15">15m</option>
+        <option value="30">30m</option>
+        <option value="60">60m</option>
+      </select>
       <div class="spill" id="bestScanStatus"><div class="dot" id="bestScanDot"></div><span id="bestScanTxt">READY</span></div>
     </div>
     <div id="bestScanResults" class="hint">No best-setup scan run yet.</div>
@@ -694,6 +705,10 @@ const NDX100 = [
   'APP','MRVL','ARM','SMCI','TTD','EXPE','MTCH','LCID'
 ];
 let bestScanLatest = [];
+let bestAutoIv = null;
+let bestAutoEnabled = localStorage.getItem('kalki_best_auto') === '1';
+let bestAutoRunning = false;
+let bestAlertMemory = JSON.parse(localStorage.getItem('kalki_best_alert_memory') || '{}');
 
 function proxy(){ return (document.getElementById('proxyUrl').value||'https://yahoo-proxy.srimanthgada87.workers.dev').trim(); }
 
@@ -1573,6 +1588,111 @@ function loadNDX100Universe(){
   localStorage.setItem('kalki_best_universe', val);
   sLog('Best-setup universe loaded with NDX 100','inf');
 }
+function saveBestAlertMemory(){
+  localStorage.setItem('kalki_best_alert_memory', JSON.stringify(bestAlertMemory));
+}
+function bestAlertDateKey(){
+  return new Date().toLocaleDateString('en-CA');
+}
+function currentBestMode(){
+  return document.getElementById('bestScanMode')?.value || 'swing';
+}
+function bestAutoIntervalMs(){
+  const mins = +(document.getElementById('bestAutoInterval')?.value || 15);
+  return mins * 60000;
+}
+function syncBestAutoUi(){
+  const btn=document.getElementById('bestAutoBtn');
+  if(!btn) return;
+  btn.textContent = `A+ Auto: ${bestAutoEnabled ? 'ON' : 'OFF'}`;
+  btn.classList.toggle('on', bestAutoEnabled);
+}
+async function toggleBestAuto(){
+  bestAutoEnabled = !bestAutoEnabled;
+  localStorage.setItem('kalki_best_auto', bestAutoEnabled ? '1' : '0');
+  syncBestAutoUi();
+  if(bestAutoEnabled){
+    if(bestAutoIv) clearInterval(bestAutoIv);
+    await runBestSetupScan({mode:'auto'});
+    bestAutoIv = setInterval(() => runBestSetupScan({mode:'auto'}), bestAutoIntervalMs());
+    sLog('A+ auto scanner enabled','ea');
+  }else{
+    if(bestAutoIv) clearInterval(bestAutoIv);
+    bestAutoIv = null;
+    sLog('A+ auto scanner disabled','inf');
+  }
+}
+function scheduleBestAutoFromSettings(){
+  if(bestAutoIv) clearInterval(bestAutoIv);
+  if(bestAutoEnabled){
+    bestAutoIv = setInterval(() => runBestSetupScan({mode:'auto'}), bestAutoIntervalMs());
+  }
+}
+function bestReasonText(r){
+  const reasons=[];
+  if(r.price > r.sma20v && r.price > (r.sma50v || 0)) reasons.push('trend above SMA20/50');
+  if(r.rsi14 >= 50 && r.rsi14 <= 68) reasons.push(`RSI ${r.rsi14.toFixed(0)} in sweet spot`);
+  if(r.timingSignals[0]?.ok && r.timingSignals[1]?.ok) reasons.push('1H + 15m aligned');
+  if(r.timingSignals[2]?.ok) reasons.push('5m trigger active');
+  return reasons.slice(0,3).join(' · ') || 'clean swing structure';
+}
+function momentumReasonText(r){
+  const reasons=[];
+  if(r.changePct >= 2) reasons.push(`day momentum +${r.changePct.toFixed(1)}%`);
+  if(r.metrics?.volRatio >= 1.2) reasons.push(`volume ${r.metrics.volRatio.toFixed(2)}x`);
+  if(r.rsi14 >= 58 && r.rsi14 <= 82) reasons.push(`RSI ${r.rsi14.toFixed(0)} expanding`);
+  if(r.timingSignals[2]?.ok) reasons.push('5m trigger above VWAP');
+  if(r.timingSignals[0]?.ok) reasons.push('1H trend support');
+  return reasons.slice(0,3).join(' · ') || 'fresh breakout expansion';
+}
+function qualifyScanMode(r, mode){
+  const swingQualified = r.price > r.sma20v &&
+    r.price > (r.sma50v || 0) &&
+    r.rsi14 >= 50 && r.rsi14 <= 68 &&
+    r.overall >= 70;
+  const momentumQualified = r.price > r.sma20v &&
+    r.price > (r.sma50v || 0) &&
+    r.rsi14 >= 58 && r.rsi14 <= 82 &&
+    (r.metrics?.volRatio || 0) >= 1.2 &&
+    (r.changePct >= 2 || r.timingSignals[2]?.ok) &&
+    (r.metrics?.roomPct || 0) >= 2 &&
+    (r.atr14 / Math.max(r.price, 0.01)) <= 0.10 &&
+    r.overall >= 72;
+  if(mode === 'swing') return swingQualified ? 'swing' : '';
+  if(mode === 'momentum') return momentumQualified ? 'momentum' : '';
+  if(swingQualified && momentumQualified) return 'both';
+  if(swingQualified) return 'swing';
+  if(momentumQualified) return 'momentum';
+  return '';
+}
+function alertReasonText(r){
+  return r.scanMode === 'momentum' ? momentumReasonText(r) : r.scanMode === 'both' ? `${bestReasonText(r)} · ${momentumReasonText(r)}` : bestReasonText(r);
+}
+function buildAPlusAlertMessage(r){
+  const entryRef = (r.supLow + r.supHigh) / 2;
+  const pct = v => {
+    const p = ((v - entryRef) / entryRef) * 100;
+    return `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`;
+  };
+  const trigger = r.timingSignals.filter(s=>s.ok).map(s=>s.label.replace(' + VWAP','')).join(', ') || 'Wait for full trigger';
+  const title = r.scanMode === 'momentum' ? 'MOMENTUM BREAKOUT ALERT' : r.scanMode === 'both' ? 'SWING + MOMO ALERT' : 'A+ SWING ALERT';
+  return [
+    `⚡ *${r.ticker}* 〔${title}〕`,
+    `📊 Grade: *${r.grade}*  ·  Setup *${r.overall}%*`,
+    ``,
+    `💰 Price: $${r.price.toFixed(2)}`,
+    `📈 Entry: *$${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}*`,
+    `🛑 Stop: $${r.stStop.toFixed(2)} (${pct(r.stStop)})`,
+    `🎯 T1: $${r.stT1.toFixed(2)} (${pct(r.stT1)})`,
+    `🎯 T2: $${r.stT2.toFixed(2)} (${pct(r.stT2)})`,
+    `🎯 T3: $${r.stT3.toFixed(2)} (${pct(r.stT3)})`,
+    ``,
+    `Why: ${alertReasonText(r)}`,
+    `Trigger: ${trigger}`,
+    ``,
+    `⚡ _Kalki Swing V2_`
+  ].join('\n');
+}
 function setBestScanStatus(txt, active=false){
   const box=document.getElementById('bestScanStatus');
   const dot=document.getElementById('bestScanDot');
@@ -1586,18 +1706,18 @@ function renderBestSetupResults(rows, scanned){
   const list=document.getElementById('bestScanList');
   if(!el||!list) return;
   if(!rows.length){
-    el.innerHTML=`Scanned ${scanned} symbols. No setups met the swing threshold right now.`;
+    el.innerHTML=`Scanned ${scanned} symbols. No setups met the current mode filter right now.`;
     list.innerHTML='';
     return;
   }
-  el.innerHTML=`Scanned ${scanned} symbols. Showing top ${rows.length} swing setups.`;
+  el.innerHTML=`Scanned ${scanned} symbols. Showing top ${rows.length} ${currentBestMode()==='momentum'?'momentum breakout':currentBestMode()==='both'?'swing + momentum':'swing'} setups.`;
   list.innerHTML = rows.map((r,i)=>{
     const added = scTickers.some(t=>t.sym===r.ticker);
     return `<div class="best-card">
       <div class="best-rank">#${i+1}</div>
       <div class="best-sym">
         <strong>${r.ticker}</strong>
-        <div class="best-grade">Grade ${r.grade}</div>
+        <div class="best-grade">Grade ${r.grade} · ${r.scanMode.toUpperCase()}</div>
       </div>
       <div class="best-meta">
         <div class="best-stat"><div class="lbl">Setup</div><div class="val">${r.overall}%</div></div>
@@ -1608,6 +1728,8 @@ function renderBestSetupResults(rows, scanned){
       <div class="best-cta">
         <button class="btn ${added?'btn-d':'btn-p'} btn-sm" ${added?'disabled':''} onclick="addBestSetupToWatchlist('${r.ticker}')">${added?'Added':'Add'}</button>
         <div class="hint">Entry $${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}</div>
+        <div class="hint">Stop $${r.stStop.toFixed(2)} · T1 $${r.stT1.toFixed(2)}</div>
+        <div class="hint">${alertReasonText(r)}</div>
       </div>
     </div>`;
   }).join('');
@@ -1618,7 +1740,7 @@ function buildBestSetupTelegramMessage(rows, scanned){
     const entry=`$${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}`;
     const trigger=r.timingSignals.filter(s=>s.ok).map(s=>s.label.replace(' + VWAP','')).join(', ') || 'wait for trigger';
     return [
-      `${i+1}. *${r.ticker}*  ·  Grade *${r.grade}*`,
+      `${i+1}. *${r.ticker}*  ·  Grade *${r.grade}*  ·  ${r.scanMode.toUpperCase()}`,
       `Setup *${r.overall}%*  ·  Swing ${r.shortScore}%  ·  Timing ${r.longScore}%`,
       `Price $${r.price.toFixed(2)}  ·  Entry ${entry}`,
       `Trigger: ${trigger}`
@@ -1656,48 +1778,77 @@ function addBestSetupToWatchlist(sym){
   renderBestSetupResults(bestScanLatest, bestUniverseList().length);
   sLog(`${sym} added to watchlist from best setups`,'ea');
 }
-async function runBestSetupScan(){
+async function runBestSetupScan(opts={}){
+  const mode = opts.mode || 'manual';
+  const scanMode = currentBestMode();
+  if(bestAutoRunning) return;
+  bestAutoRunning = true;
   const universe=bestUniverseList();
-  if(!universe.length) return alert('Enter at least one ticker in Best Setup Scanner');
+  if(!universe.length){
+    bestAutoRunning = false;
+    return alert('Enter at least one ticker in Best Setup Scanner');
+  }
   const btn=document.getElementById('bestScanBtn');
   if(btn) btn.disabled=true;
-  setBestScanStatus('SCANNING', true);
-  renderBestSetupResults([], universe.length);
-  sLog(`Best-setup scan started — ${universe.length} symbol(s)`,'inf');
+  setBestScanStatus(mode==='auto' ? 'AUTO SCANNING' : 'SCANNING', true);
+  if(mode !== 'auto') renderBestSetupResults([], universe.length);
+  sLog(`${mode==='auto'?'A+ auto':'Best-setup'} scan started — ${universe.length} symbol(s) [${scanMode}]`,'inf');
   const winners=[];
   const batchSize = 5;
-  for(let i=0;i<universe.length;i+=batchSize){
-    const batch = universe.slice(i, i + batchSize);
-    setBestScanStatus(`SCANNING ${Math.min(i + batch.length, universe.length)}/${universe.length}`, true);
-    const results = await Promise.allSettled(batch.map(async sym => {
-      const r=await fetchYahoo(sym,'3mo','1d');
-      return buildFromYahoo(sym,r,null);
-    }));
-    results.forEach((res, idx) => {
-      const sym = batch[idx];
-      if(res.status !== 'fulfilled'){
-        sLog(`Best-scan skipped ${sym}: ${res.reason?.message||'Error'}`,'inf');
-        return;
-      }
-      const a = res.value;
-      const passTrend=a.price>a.sma20v && a.price>(a.sma50v||0);
-      const passRsi=a.rsi14>=50 && a.rsi14<=68;
-      const passScore=a.overall>=70;
-      if(passTrend && passRsi && passScore) winners.push(a);
+  try{
+    for(let i=0;i<universe.length;i+=batchSize){
+      const batch = universe.slice(i, i + batchSize);
+      setBestScanStatus(`${mode==='auto'?'AUTO':'SCAN'} ${Math.min(i + batch.length, universe.length)}/${universe.length}`, true);
+      const results = await Promise.allSettled(batch.map(async sym => {
+        const r=await fetchYahoo(sym,'3mo','1d');
+        return buildFromYahoo(sym,r,null);
+      }));
+      results.forEach((res, idx) => {
+        const sym = batch[idx];
+        if(res.status !== 'fulfilled'){
+          sLog(`Best-scan skipped ${sym}: ${res.reason?.message||'Error'}`,'inf');
+          return;
+        }
+        const a = res.value;
+        const qualifiedMode = qualifyScanMode(a, scanMode);
+        if(qualifiedMode){
+          a.scanMode = qualifiedMode;
+          winners.push(a);
+        }
+      });
+    }
+    winners.sort((a,b)=>(b.scanMode==='both')-(a.scanMode==='both') || b.overall-a.overall || b.shortScore-a.shortScore || b.longScore-a.longScore);
+    const top=winners.slice(0,10);
+    bestScanLatest = top;
+    renderBestSetupResults(top, universe.length);
+
+    const today = bestAlertDateKey();
+    const aPlus = top.filter(r => r.grade === 'A+' && (r.overall >= 80 || r.scanMode === 'momentum' || r.scanMode === 'both'));
+    const freshAlerts = aPlus.filter(r => {
+      const prev = bestAlertMemory[`${r.ticker}:${r.scanMode}`];
+      return !prev || prev.date !== today || r.overall >= (prev.score || 0) + 4;
     });
+
+    if(mode !== 'auto' && top.length){
+      await sendTG(buildBestSetupTelegramMessage(top, universe.length));
+    }
+    for(const r of freshAlerts){
+      await sendTG(buildAPlusAlertMessage(r));
+      bestAlertMemory[`${r.ticker}:${r.scanMode}`] = {date: today, score: r.overall};
+      saveBestAlertMemory();
+      sLog(`${r.scanMode.toUpperCase()} alert sent for ${r.ticker} (${r.overall}%)`,'ea');
+    }
+
+    if(top.length){
+      sLog(`Best-setup scan found ${top.length} candidate(s)`,'ea');
+    }else{
+      sLog('Best-setup scan found no qualifying candidates','inf');
+    }
+    setBestScanStatus(top.length?`TOP ${top.length}`:'NO SETUPS', false);
+  } finally {
+    if(btn) btn.disabled=false;
+    bestAutoRunning = false;
   }
-  winners.sort((a,b)=>b.overall-a.overall || b.shortScore-a.shortScore || b.longScore-a.longScore);
-  const top=winners.slice(0,10);
-  bestScanLatest = top;
-  renderBestSetupResults(top, universe.length);
-  if(top.length){
-    await sendTG(buildBestSetupTelegramMessage(top, universe.length));
-    sLog(`Best-setup scan found ${top.length} candidate(s)`,'ea');
-  }else{
-    sLog('Best-setup scan found no qualifying candidates','inf');
-  }
-  setBestScanStatus(top.length?`TOP ${top.length}`:'NO SETUPS', false);
-  if(btn) btn.disabled=false;
 }
 function toggleAlertFormat() {
   _alertFormat = _alertFormat === 'compact' ? 'detailed' : 'compact';
@@ -2794,6 +2945,22 @@ const savedBestUniverse = localStorage.getItem('kalki_best_universe');
 if (savedBestUniverse) document.getElementById('bestUniverse').value = savedBestUniverse;
 document.getElementById('bestUniverse').addEventListener('change', e => localStorage.setItem('kalki_best_universe', e.target.value));
 document.getElementById('bestUniverse').addEventListener('keyup', e => localStorage.setItem('kalki_best_universe', e.target.value));
+const savedBestScanMode = localStorage.getItem('kalki_best_scan_mode');
+if (savedBestScanMode) document.getElementById('bestScanMode').value = savedBestScanMode;
+document.getElementById('bestScanMode').addEventListener('change', e => {
+  localStorage.setItem('kalki_best_scan_mode', e.target.value);
+});
+const savedBestAutoInterval = localStorage.getItem('kalki_best_auto_interval');
+if (savedBestAutoInterval) document.getElementById('bestAutoInterval').value = savedBestAutoInterval;
+document.getElementById('bestAutoInterval').addEventListener('change', e => {
+  localStorage.setItem('kalki_best_auto_interval', e.target.value);
+  scheduleBestAutoFromSettings();
+});
+syncBestAutoUi();
+scheduleBestAutoFromSettings();
+if (bestAutoEnabled) {
+  setTimeout(() => runBestSetupScan({mode:'auto'}), 600);
+}
 
 // Restore JSONBin credentials and auto-load on start
 const savedBinId  = localStorage.getItem('kalki_jb_bin');
