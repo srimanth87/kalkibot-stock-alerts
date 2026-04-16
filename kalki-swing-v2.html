@@ -1,0 +1,2822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalki Swing V2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root{--bg:#060810;--surface:#0d1120;--card:#111827;--border:#1f2d45;--accent:#f59e0b;--accent2:#3b82f6;--green:#10b981;--red:#ef4444;--warn:#f97316;--text:#e2e8f0;--dim:#64748b;--dim2:#334155;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:999;}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 18px 60px;}
+
+/* NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.kalki-logo{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:3px;color:var(--accent);display:flex;align-items:center;gap:10px;}
+.kalki-logo .sub{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;border-left:1px solid var(--border);padding-left:10px;line-height:1.4;}
+.sdot{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-family:'DM Mono',monospace;color:var(--dim);}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--dim2);flex-shrink:0;}
+.dot.on{background:var(--green);box-shadow:0 0 6px var(--green);}
+
+/* TABS */
+.tab-bar{display:flex;gap:6px;margin-bottom:20px;}
+.tab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:all 0.15s;}
+.tab.active{background:var(--accent);color:#000;border-color:var(--accent);}
+.tab:hover:not(.active){color:var(--text);border-color:var(--dim);}
+
+/* SEARCH */
+.search-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px;}
+.search-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:10px;}
+.search-row{display:flex;gap:10px;}
+.search-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 16px;color:#fff;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;outline:none;text-transform:uppercase;transition:border-color 0.2s;}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--dim2);}
+.analyze-btn{background:linear-gradient(135deg,var(--accent),#e08600);border:none;border-radius:8px;padding:11px 26px;color:#000;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.analyze-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,158,11,0.3);}
+.analyze-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none;}
+.quick-picks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.qp{font-family:'DM Mono',monospace;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--dim);cursor:pointer;transition:all 0.15s;}
+.qp:hover,.qp.active{border-color:var(--accent);color:var(--accent);}
+
+/* ERROR/LOADING */
+.error-panel{display:none;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:14px;margin-bottom:18px;font-size:13px;color:var(--red);}
+.error-panel.show{display:block;}
+.loading-panel{display:none;text-align:center;padding:60px 20px;}
+.loading-panel.show{display:block;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 14px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-msg{font-family:'DM Mono',monospace;font-size:13px;color:var(--dim);}
+
+/* STOCK HEADER */
+.stock-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);animation:fadeUp 0.4s ease both;}
+.ticker-name{font-family:'Bebas Neue',sans-serif;font-size:58px;letter-spacing:2px;line-height:1;color:#fff;}
+.kalki-badge{display:inline-block;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:var(--accent);font-size:9px;padding:2px 8px;border-radius:20px;letter-spacing:1.5px;text-transform:uppercase;margin-left:8px;vertical-align:middle;font-family:'DM Sans',sans-serif;}
+.ticker-full{font-size:12px;color:var(--dim);margin-top:3px;}
+.price-block{text-align:right;}
+.price-big{font-family:'DM Mono',monospace;font-size:40px;font-weight:500;color:#fff;}
+.price-change{font-family:'DM Mono',monospace;font-size:14px;margin-top:4px;}
+.price-change.up{color:var(--green);}.price-change.dn{color:var(--red);}
+.as-of{font-size:11px;color:var(--dim);margin-top:3px;}
+
+/* BUY SCORES */
+.score-banner{background:linear-gradient(135deg,#0f1f10,#0d1a20);border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:20px 24px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;animation:fadeUp 0.4s 0.06s ease both;}
+.score-item{text-align:center;}
+.score-lbl{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:6px;}
+.score-val{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:1px;line-height:1;}
+.score-val.st{color:var(--warn);}.score-val.lt{color:var(--green);}.score-val.ov{color:var(--accent);}
+.score-sub{font-size:11px;color:var(--dim);margin-top:3px;}
+
+/* INSIGHT */
+.insight-box{background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.18);border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:12px;line-height:1.75;color:#94a3b8;animation:fadeUp 0.4s 0.1s ease both;}
+.insight-box strong{color:var(--accent2);}
+
+/* CHART */
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:18px;animation:fadeUp 0.4s 0.12s ease both;}
+.chart-title{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.badge{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:20px;letter-spacing:1px;}
+canvas{width:100%!important;display:block;}
+
+/* ZONE STRIP — AXTI style */
+.zone-strip{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:18px;animation:fadeUp 0.4s 0.14s ease both;}
+.zone-title{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.zone-title .zt-badge{font-size:9px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);color:var(--accent);padding:2px 8px;border-radius:12px;}
+.zone-line{position:relative;height:32px;border-radius:6px;overflow:visible;margin-bottom:10px;background:var(--card);}
+.zone-seg{position:absolute;top:0;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.zone-seg.danger{background:rgba(239,68,68,0.5);color:rgba(255,180,180,0.95);border-radius:4px 0 0 4px;}
+.zone-seg.support{background:rgba(249,115,22,0.4);color:rgba(255,210,140,0.95);}
+.zone-seg.gap{background:rgba(100,116,139,0.15);color:#475569;}
+.zone-seg.r1{background:rgba(245,158,11,0.25);color:rgba(255,220,100,0.9);}
+.zone-seg.r2{background:rgba(245,158,11,0.33);color:rgba(255,220,100,0.9);}
+.zone-seg.r3{background:rgba(245,158,11,0.42);color:rgba(255,220,100,0.9);}
+.zone-seg.r4{background:rgba(59,130,246,0.35);color:rgba(160,210,255,0.95);}
+.zone-seg.r5{background:rgba(59,130,246,0.45);color:rgba(160,210,255,0.95);}
+.zone-seg.target{background:rgba(16,185,129,0.3);color:rgba(100,255,190,0.95);border-radius:0 4px 4px 0;}
+.price-pin{position:absolute;top:-6px;transform:translateX(-50%);width:3px;height:calc(100% + 12px);background:#fff;border-radius:2px;z-index:20;box-shadow:0 0 6px rgba(255,255,255,0.4);}
+.price-pin::after{content:attr(data-p);position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-family:'DM Mono',monospace;font-size:10px;font-weight:700;white-space:nowrap;background:var(--accent);color:#000;padding:2px 7px;border-radius:4px;}
+.zone-labels-row{position:relative;height:28px;font-family:'DM Mono',monospace;font-size:10px;color:var(--dim);}
+
+/* GRID + CARDS */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
+@media(max-width:640px){.grid2{grid-template-columns:1fr;}}
+.acard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;animation:fadeUp 0.4s 0.16s ease both;}
+.acard h3{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.vpill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.vpill.buy{background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.28);}
+.vpill.caution{background:rgba(249,115,22,0.12);color:var(--warn);border:1px solid rgba(249,115,22,0.28);}
+.vpill.avoid{background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.28);}
+
+/* FACTORS */
+.factor{margin-bottom:12px;}
+.fhdr{display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;}
+.fname{color:var(--text);font-weight:500;}.fscore{font-family:'DM Mono',monospace;color:var(--dim);font-size:11px;}
+.fbar{height:5px;background:var(--dim2);border-radius:3px;overflow:hidden;}
+.ffill{height:100%;border-radius:3px;transition:width 1.2s cubic-bezier(0.25,1,0.5,1);}
+.ffill.bull{background:var(--green);}.ffill.bear{background:var(--red);}.ffill.neutral{background:var(--warn);}
+
+/* STATS */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.stat-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 11px;}
+.stat-item .sl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;}
+.stat-item .sv{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;margin-top:3px;}
+.sv.pos{color:var(--green);}.sv.neg{color:var(--red);}.sv.warn{color:var(--warn);}
+
+/* REV BARS */
+.rev-bars{display:flex;align-items:flex-end;gap:8px;height:80px;margin-top:10px;}
+.rb-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.rb{width:100%;border-radius:3px 3px 0 0;min-height:4px;}
+.rb-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--dim);}
+.rb-val{font-family:'DM Mono',monospace;font-size:9px;color:var(--text);margin-bottom:2px;}
+
+/* RISK */
+.risk-list{display:flex;flex-direction:column;gap:8px;}
+.risk-item{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.5;padding:8px 10px;background:var(--card);border-radius:7px;border-left:3px solid transparent;}
+.risk-item.hi{border-left-color:var(--red);}.risk-item.md{border-left-color:var(--warn);}.risk-item.lo{border-left-color:var(--green);}
+.ri{flex-shrink:0;font-size:14px;}.rt{color:var(--text);}
+.rl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:1px;}
+.rl.hi{color:var(--red);}.rl.md{color:var(--warn);}.rl.lo{color:var(--green);}
+
+/* TARGETS */
+.targets{display:flex;flex-direction:column;gap:5px;margin-top:4px;}
+.trow{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--card);border-radius:7px;font-size:12px;font-family:'DM Mono',monospace;}
+.tlbl{color:var(--dim);}
+.tprice.t1{color:var(--accent);}.tprice.t2{color:var(--warn);}.tprice.t3{color:var(--green);}.tprice.stop{color:var(--red);}
+.tpct{font-size:10px;color:var(--dim);}
+
+/* SCANNER */
+.scanner-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;}
+.sec-title{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);margin-bottom:14px;}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.field{display:flex;flex-direction:column;gap:4px;}.field.full{grid-column:1/-1;}
+label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dim);}
+input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s;width:100%;}
+input:focus{border-color:var(--accent);}
+.add-grid{display:grid;grid-template-columns:90px 1fr 1fr 1fr auto;gap:8px;align-items:end;}
+@media(max-width:600px){.add-grid{grid-template-columns:1fr 1fr;}}
+.btn{font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 14px;border-radius:6px;border:none;cursor:pointer;transition:all 0.15s;}
+.btn-p{background:var(--accent);color:#000;}.btn-p:hover{background:#fbbf24;}
+.btn-d{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.25);}.btn-d:hover{background:rgba(239,68,68,0.2);}
+.btn-sm{padding:5px 10px;font-size:10px;}
+.btn-o{background:transparent;color:var(--accent);border:1px solid rgba(245,158,11,0.3);}
+.btn-o:hover{background:rgba(245,158,11,0.08);}
+.tc-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.tc-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:80px 1fr auto auto;align-items:center;gap:10px;transition:border-color 0.2s;cursor:pointer;}
+.tc-card:hover{border-color:var(--accent);}
+.tc-card.ae{border-color:var(--green);background:rgba(16,185,129,0.04);}
+.tc-card.ab{border-color:var(--red);background:rgba(239,68,68,0.04);}
+.tc-card.ar{border-color:var(--warn);background:rgba(249,115,22,0.04);}
+.tc-card.selected{border-color:var(--accent);background:rgba(245,158,11,0.06);}
+.tc-sym{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:#fff;}
+.tc-zones{display:flex;flex-direction:column;gap:3px;}
+.zrow{display:flex;gap:6px;font-size:11px;font-family:'DM Mono',monospace;}
+.zlbl{color:var(--dim);width:76px;flex-shrink:0;}
+.tc-price{text-align:right;}
+.tc-p{font-family:'DM Mono',monospace;font-size:17px;font-weight:700;color:#fff;}
+.tc-s{font-size:10px;margin-top:2px;}
+.tc-s.iz{color:var(--green);}.tc-s.bd{color:var(--red);}.tc-s.ar2{color:var(--warn);}.tc-s.nt{color:var(--dim);}
+.scan-bar{display:flex;gap:10px;margin-bottom:16px;align-items:center;}
+.scan-btn-big{flex:1;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;padding:12px 20px;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--warn));color:#000;transition:all 0.2s;}
+.scan-btn-big:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,158,11,0.25);}
+.scan-btn-big:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.auto-btn{font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;transition:all 0.2s;text-transform:uppercase;letter-spacing:1px;}
+.auto-btn.on{border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.08);}
+.spill{font-family:'DM Mono',monospace;font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);color:var(--dim);display:flex;align-items:center;gap:6px;}
+.spill.active{border-color:rgba(16,185,129,0.3);color:var(--green);}
+.spill.active .dot{background:var(--green);box-shadow:0 0 6px var(--green);}
+.log-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.log-hdr{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.log-hdr h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);}
+.log-body{max-height:180px;overflow-y:auto;padding:4px 0;}
+.log-row{padding:6px 14px;font-family:'DM Mono',monospace;font-size:11px;display:flex;gap:10px;border-bottom:1px solid rgba(30,37,53,0.4);}
+.log-row .ts{color:var(--dim);flex-shrink:0;}
+.log-row.ea{color:var(--green);}.log-row.ba{color:var(--red);}.log-row.ra{color:var(--warn);}.log-row.inf{color:var(--dim);}
+.empty-s{text-align:center;padding:24px;color:var(--dim);font-size:12px;}
+.hint{font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;}
+.best-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.best-result-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.best-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;display:grid;grid-template-columns:44px 96px 1fr auto;gap:10px;align-items:center;}
+.best-rank{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;color:var(--accent);text-align:center;}
+.best-sym{display:flex;flex-direction:column;gap:2px;}
+.best-sym strong{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;}
+.best-grade{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;}
+.best-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.best-stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+.best-stat .lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
+.best-stat .val{font-family:'DM Mono',monospace;font-size:12px;color:#fff;}
+.best-cta{display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
+@media(max-width:800px){
+  .best-card{grid-template-columns:36px 1fr;align-items:start;}
+  .best-meta{grid-column:1/-1;grid-template-columns:1fr 1fr;}
+  .best-cta{grid-column:1/-1;align-items:stretch;}
+}
+
+/* KALKI ANALYSIS TAB (3rd tab) */
+.ka-empty{text-align:center;padding:60px 20px;}
+.ka-empty .ke-title{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--dim);letter-spacing:3px;}
+.ka-empty .ke-sub{font-size:13px;color:var(--dim2);margin-top:8px;line-height:1.6;}
+.ka-select-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.ka-ticker-btn{font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:8px;}
+.ka-ticker-btn:hover{border-color:var(--accent);color:var(--accent);}
+.ka-ticker-btn.active{border-color:var(--accent);background:rgba(245,158,11,0.1);color:var(--accent);}
+.ka-ticker-btn .kt-price{font-size:10px;color:var(--dim);}
+.ka-ticker-btn.active .kt-price{color:var(--accent2);}
+.compare-banner{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:18px;}
+.compare-title{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);margin-bottom:12px;}
+.compare-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+@media(max-width:640px){.compare-grid{grid-template-columns:1fr 1fr;}}
+.cmp-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+.cmp-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;}
+.cmp-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;margin-top:3px;}
+.cmp-val.alert-match{color:var(--green);}.cmp-val.alert-diff{color:var(--warn);}
+.alert-source{background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.18);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12px;line-height:1.7;color:#94a3b8;}
+.alert-source strong{color:var(--accent2);}
+
+/* SUBSCRIBERS TAB */
+.sb-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;transition:border-color 0.2s;}
+.sb-card.active{border-left:3px solid var(--green);}
+.sb-card.expiring{border-left:3px solid var(--warn);}
+.sb-card.expired{border-left:3px solid var(--red);opacity:0.65;}
+.sb-name{font-size:16px;font-weight:600;color:#fff;display:flex;align-items:center;gap:8px;}
+.sb-handle{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);}
+.sb-meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:12px;font-family:'DM Mono',monospace;}
+.sb-meta-item{display:flex;flex-direction:column;gap:2px;}
+.sb-meta-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);}
+.sb-meta-val{color:var(--text);}
+.sb-notes{font-size:11px;color:var(--dim);margin-top:5px;font-style:italic;}
+.sb-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;}
+.sb-badge.active{background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.sb-badge.expiring{background:rgba(249,115,22,0.12);color:var(--warn);border:1px solid rgba(249,115,22,0.3);}
+.sb-badge.expired{background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.sb-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.sb-amount{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--accent);}
+.sb-expiry{font-size:11px;color:var(--dim);font-family:'DM Mono',monospace;}
+.sb-actions{display:flex;gap:6px;margin-top:4px;}
+.pf-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;transition:border-color 0.2s;}
+.pf-card.win{border-left:3px solid var(--green);}.pf-card.loss{border-left:3px solid var(--red);}.pf-card.closed{opacity:0.55;}
+.pf-sym{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:#fff;}
+.pf-grade{font-size:10px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:20px;display:inline-block;margin-top:2px;}
+.pf-grade.ap{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.pf-grade.a{background:rgba(59,130,246,0.15);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);}
+.pf-grade.b{background:rgba(245,158,11,0.15);color:var(--accent);border:1px solid rgba(245,158,11,0.3);}
+.pf-grade.c{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.pf-meta{display:flex;flex-direction:column;gap:4px;}
+.pf-row{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;font-family:'DM Mono',monospace;}
+.pf-lbl{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px;}
+.pf-val{color:var(--text);font-weight:500;}
+.pf-status{font-size:11px;margin-top:3px;color:var(--dim);}
+.pf-pnl{text-align:right;}
+.pf-pnl-amt{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;}
+.pf-pnl-pct{font-family:'DM Mono',monospace;font-size:12px;margin-top:2px;}
+.pf-pnl-amt.pos,.pf-pnl-pct.pos{color:var(--green);}
+.pf-pnl-amt.neg,.pf-pnl-pct.neg{color:var(--red);}
+.pf-actions{display:flex;gap:6px;margin-top:8px;}
+.pf-tp-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+.pf-tp{font-size:10px;padding:2px 7px;border-radius:12px;font-family:'DM Mono',monospace;border:1px solid var(--border);color:var(--dim);}
+.pf-tp.hit{background:rgba(16,185,129,0.12);color:var(--green);border-color:rgba(16,185,129,0.3);}
+.pf-tp.next{background:rgba(245,158,11,0.12);color:var(--accent);border-color:rgba(245,158,11,0.3);}
+
+/* REPORT TAB */
+.rp-filter-btn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.rp-filter-btn.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700;}
+.rp-filter-btn:hover:not(.active){border-color:var(--dim);color:var(--text);}
+.rp-stat{flex:1;min-width:70px;text-align:center;padding:10px 4px;border-right:1px solid var(--border);flex-shrink:0;}
+.rp-stat:last-child{border-right:none;}
+.rp-stat-num{font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;}
+.rp-stat-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.rp-row2{padding:12px 16px;border-bottom:1px solid rgba(31,45,69,0.5);position:relative;}
+.rp-row2:last-child{border-bottom:none;}
+.rp-row2::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;}
+.rp-row2.rp2-win::before{background:var(--green);}
+.rp-row2.rp2-open::before{background:var(--accent);}
+.rp-row2.rp2-warn::before{background:var(--warn);}
+.rp-row2.rp2-loss::before{background:var(--red);}
+.rp2-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.rp2-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.rp2-sym{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;line-height:1;}
+.rp2-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;}
+.rp2-days{font-size:9px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:8px;background:rgba(100,116,139,0.08);color:var(--dim);border:1px solid var(--border);}
+.rp2-right{text-align:right;flex-shrink:0;}
+.rp2-pct{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;}
+.rp2-amt{font-family:'DM Mono',monospace;font-size:9px;color:var(--dim);margin-top:1px;}
+.rp2-price{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:12px;margin-bottom:6px;flex-wrap:wrap;}
+.rp2-bar{display:flex;gap:2px;margin-bottom:6px;}
+.rp2-seg{flex:1;height:3px;border-radius:2px;background:var(--dim2);}
+.rp2-seg.hit{background:var(--green);}
+.rp2-seg.nxt{background:var(--accent);animation:rp2blink 1.2s ease infinite;}
+.rp2-seg.wrn{background:var(--warn);}
+.rp2-seg.los{background:var(--red);}
+@keyframes rp2blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.rp2-meta{display:flex;gap:10px;flex-wrap:wrap;}
+.rp2-meta-item{font-size:10px;font-family:'DM Mono',monospace;color:var(--dim2);}
+.rp2-meta-item span{color:var(--dim);}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- NAV -->
+<div class="topnav">
+  <div class="kalki-logo">⚡ KALKI<span class="sub">Swing V2 Platform<br>Swing Engine · Entry Filter</span></div>
+  <div class="sdot"><div class="dot" id="navDot"></div><span id="navStatus">SCANNER IDLE</span></div>
+</div>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <button class="tab active" id="t-an" onclick="switchTab('an')">📊 Swing Analysis</button>
+  <button class="tab" id="t-sc" onclick="switchTab('sc')">🔔 Zone Scanner</button>
+  <button class="tab" id="t-ka" onclick="switchTab('ka')">⚡ Swing Workspace</button>
+  <button class="tab" id="t-pf" onclick="switchTab('pf')">💼 Portfolio</button>
+  <button class="tab" id="t-sb" onclick="switchTab('sb')">👥 Subscribers</button>
+  <button class="tab" id="t-rp" onclick="switchTab('rp')">📋 Report</button>
+</div>
+
+<!-- ══ TAB 1: LIVE ANALYSIS ══ -->
+<div id="anTab">
+  <div class="search-card">
+    <div class="search-label">🔍 Analyze Any Stock — Live Yahoo Finance Data</div>
+    <div class="search-row">
+      <input class="search-input" id="searchInput" placeholder="GOOG" maxlength="10"/>
+      <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">ANALYZE</button>
+    </div>
+    <div class="quick-picks">
+      <span style="font-size:10px;color:var(--dim);align-self:center;margin-right:4px;">Quick:</span>
+      <span class="qp" onclick="quickPick('AXTI')">AXTI</span>
+      <span class="qp" onclick="quickPick('GOOG')">GOOG</span>
+      <span class="qp" onclick="quickPick('NVDA')">NVDA</span>
+      <span class="qp" onclick="quickPick('TSLA')">TSLA</span>
+      <span class="qp" onclick="quickPick('AAPL')">AAPL</span>
+      <span class="qp" onclick="quickPick('AMD')">AMD</span>
+      <span class="qp" onclick="quickPick('MSTR')">MSTR</span>
+      <span class="qp" onclick="quickPick('META')">META</span>
+    </div>
+  </div>
+  <div class="error-panel" id="errPanel"></div>
+  <div class="loading-panel" id="loadingPanel"><div class="spinner"></div><div class="loading-msg" id="loadingMsg">Fetching…</div></div>
+  <div id="resultsArea" style="display:none;">
+    <div class="stock-header" id="stockHeader"></div>
+    <div class="score-banner" id="scoreBanner"></div>
+    <div class="insight-box" id="insightBox"></div>
+    <div class="chart-card">
+      <div class="chart-title"><span>📈 Price History + Kalki Zones</span><span class="badge" id="chartBadge">LIVE</span></div>
+      <canvas id="priceChart" height="260"></canvas>
+    </div>
+    <div class="zone-strip" id="zoneStripLive">
+      <div class="zone-title">📍 Kalki Zone Map<span class="zt-badge" id="zoneTickerBadge">—</span></div>
+      <div class="zone-line" id="zoneLineLive"></div>
+      <div class="zone-labels-row" id="zoneLabelRowLive"></div>
+    </div>
+    <div class="grid2">
+      <div class="acard"><h3>💰 Key Technicals</h3><div class="stat-grid" id="statGrid"></div><div style="margin-top:10px;"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Monthly Avg Price</div><div class="rev-bars" id="revBars"></div></div></div>
+      <div class="acard"><h3>📊 Kalki Scored Factors</h3><div id="factorBars"></div></div>
+    </div>
+    <div class="grid2"><div class="acard" id="stCard"></div><div class="acard" id="ltCard"></div></div>
+    <div class="acard" style="margin-bottom:18px;" id="targetsCard"></div>
+    <div class="acard" id="stratCard"></div>
+  </div>
+</div>
+
+<!-- ══ TAB 2: ZONE SCANNER ══ -->
+<div id="scTab" style="display:none;">
+  <div class="scanner-section">
+    <div class="sec-title">⚙ Telegram Config</div>
+    <div class="cfg-grid">
+      <div class="field"><label>Bot Token</label><input id="botToken" placeholder="8570415382:AAF7…"/></div>
+      <div class="field"><label>Chat ID</label><input id="chatId" placeholder="1026720092"/></div>
+      <div class="field full"><label>Yahoo Proxy URL</label><input id="proxyUrl" value="https://yahoo-proxy.srimanthgada87.workers.dev"/><span class="hint">Used for Analysis + Scanner · format: ?url=YAHOO_URL</span></div>
+      <div class="field full">
+        <label>JSONBin Bin ID</label>
+        <input id="jbBinId" placeholder="65f3a8c2266ccd473adc1234"/>
+        <span class="hint">From jsonbin.io → your bin → Bin ID</span>
+      </div>
+      <div class="field full">
+        <label>JSONBin API Key (Master Key)</label>
+        <input id="jbApiKey" placeholder="$2a$10$..." type="password"/>
+        <span class="hint">From jsonbin.io → Account → API Keys &nbsp; <span id="gsSyncStatus" style="color:var(--green)"></span></span>
+      </div>
+      <div class="field full" style="display:flex;gap:8px;">
+        <button class="btn btn-p btn-sm" onclick="gsSyncAll()">☁ Sync to JSONBin</button>
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--text);" onclick="gsLoadAll()">⬇ Load from JSONBin</button>
+      </div>
+    </div>
+  </div>
+  <div class="scanner-section">
+    <div class="sec-title">+ Add Ticker — Click a card to open Swing Workspace for it</div>
+    <div class="add-grid">
+      <div class="field"><label>Ticker</label><input id="inTick" placeholder="AXTI" style="text-transform:uppercase"/></div>
+      <div class="field"><label>Support (lo-hi)</label><input id="inSup" placeholder="38-40"/></div>
+      <div class="field"><label>Breakdown</label><input id="inBrk" type="number" placeholder="37" step="0.5"/></div>
+      <div class="field"><label>Resistance (csv)</label><input id="inRes" placeholder="42,44,46,50"/></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-p" onclick="addTicker()">Add</button></div>
+    </div>
+  </div>
+  <div class="scanner-section">
+    <div class="sec-title">🔥 Best Setup Scanner</div>
+    <div class="field full">
+      <label>Universe (comma separated)</label>
+      <textarea id="bestUniverse" rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-family:'DM Mono',monospace;font-size:12px;line-height:1.6;resize:vertical;">IONQ, TSLA, MSFT, NVDA, META, AMD, AMZN, AAPL, GOOG, PLTR, SOFI, HOOD, COIN, MSTR, ARM, MU, AVGO, NFLX, CRM, SMCI</textarea>
+      <span class="hint">Scans this list, ranks the best 3–5 day setups, and can send the top names to Telegram.</span>
+    </div>
+    <div class="field full best-actions">
+      <button class="btn btn-o btn-sm" onclick="loadNDX100Universe()">Use NDX 100</button>
+      <button class="btn btn-p btn-sm" id="bestScanBtn" onclick="runBestSetupScan()">⚡ Scan Best Setups</button>
+      <div class="spill" id="bestScanStatus"><div class="dot" id="bestScanDot"></div><span id="bestScanTxt">READY</span></div>
+    </div>
+    <div id="bestScanResults" class="hint">No best-setup scan run yet.</div>
+    <div id="bestScanList" class="best-result-list"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">📋 Watchlist <span style="font-size:10px;color:var(--dim);font-weight:400;text-transform:none;letter-spacing:0;">— click a ticker to analyze it in Swing Workspace</span></div>
+    <button class="btn btn-d btn-sm" onclick="clearAll()">Clear All</button>
+  </div>
+  <div class="tc-list" id="tcList"></div>
+  <div class="scan-bar">
+    <button class="scan-btn-big" id="scanBtn" onclick="runScan()">▶ Scan Now</button>
+    <button class="auto-btn" id="autoBtn" onclick="toggleAuto()">Auto: OFF</button>
+    <div class="spill" id="spill"><div class="dot" id="spillDot"></div><span id="spillTxt">IDLE</span></div>
+  </div>
+  <div class="log-panel">
+    <div class="log-hdr"><h3>🔔 Kalki Alert Log</h3><button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--dim);cursor:pointer" onclick="clearLog()">Clear</button></div>
+    <div class="log-body" id="logBody"><div class="empty-s">No alerts yet</div></div>
+  </div>
+</div>
+
+<!-- ══ TAB 3: KALKI ANALYSIS (from scanner zones) ══ -->
+<div id="kaTab" style="display:none;">
+
+  <!-- Search bar for free ticker lookup -->
+  <div class="search-card" style="margin-bottom:16px;">
+    <div class="search-label">🔍 Search Any Ticker — Kalki Swing V2 Auto Analysis</div>
+    <div class="search-row">
+      <input class="search-input" id="kaSearchInput" placeholder="NVDA, TSLA, AAPL…" maxlength="10" style="text-transform:uppercase"/>
+      <button class="analyze-btn" id="kaSearchBtn" onclick="runKalkiSearch()">ANALYZE</button>
+      <button id="sendZoneMapBtn" onclick="sendZoneMapToTelegram()" style="display:none;font-family:'DM Sans',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:0 14px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#f59e0b;cursor:pointer;white-space:nowrap;height:42px;">📤 Send to Telegram</button>
+      <button id="alertFmtBtn" onclick="toggleAlertFormat()" style="display:none;font-family:'DM Mono',monospace;font-size:9px;padding:0 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;white-space:nowrap;height:42px;letter-spacing:0.5px;">📋 Compact</button>
+    </div>
+    <div class="quick-picks">
+      <span style="font-size:10px;color:var(--dim);align-self:center;margin-right:4px;">Quick:</span>
+      <span class="qp" onclick="kaQuickPick('NVDA')">NVDA</span>
+      <span class="qp" onclick="kaQuickPick('TSLA')">TSLA</span>
+      <span class="qp" onclick="kaQuickPick('AAPL')">AAPL</span>
+      <span class="qp" onclick="kaQuickPick('META')">META</span>
+      <span class="qp" onclick="kaQuickPick('AMD')">AMD</span>
+      <span class="qp" onclick="kaQuickPick('AMZN')">AMZN</span>
+      <span class="qp" onclick="kaQuickPick('GOOG')">GOOG</span>
+      <span class="qp" onclick="kaQuickPick('MSFT')">MSFT</span>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="ka-empty" id="kaEmpty">
+    <div class="ke-title">⚡ Kalki Swing V2</div>
+    <div class="ke-sub">Use Kalki as the swing ranking engine for 3–5 day holds.<br><br>Then use the entry filter for 1H trend, 15m pullback, and 5m trigger timing.</div>
+  </div>
+
+  <!-- Search loading/error -->
+  <div class="error-panel"   id="kaErrPanel"     style="display:none;"></div>
+  <div class="loading-panel" id="kaLoadingPanel"  style="display:none;"><div class="spinner"></div><div class="loading-msg" id="kaLoadingMsg">Fetching…</div></div>
+
+  <!-- Analysis content (hidden until ticker selected) -->
+  <div id="kaContent" style="display:none;">
+
+    <!-- Ticker selector buttons -->
+    <div class="ka-select-row" id="kaSelectRow"></div>
+
+    <!-- Alert comparison banner -->
+    <div class="compare-banner" id="kaCompareBanner">
+      <div class="compare-title">📡 Your Kalki Alert Values vs Live Swing Setup</div>
+      <div class="compare-grid" id="kaCompareGrid"></div>
+    </div>
+
+    <!-- Stock header -->
+    <div class="stock-header" id="kaStockHeader"></div>
+
+    <!-- Scores -->
+    <div class="score-banner" id="kaScoreBanner"></div>
+
+    <!-- Insight -->
+    <div class="insight-box" id="kaInsightBox"></div>
+
+    <!-- Chart -->
+    <div class="chart-card">
+      <div class="chart-title"><span>📈 Price History — Swing Zones Overlaid</span><span class="badge" id="kaChartBadge">LIVE</span></div>
+      <canvas id="kaChart" height="260"></canvas>
+    </div>
+
+    <!-- AXTI-style Zone Strip -->
+    <div class="zone-strip">
+      <div class="zone-title">
+        <span>📍 Kalki Zone Map — From Your Alert<span class="zt-badge" id="kaZoneBadge">—</span></span>
+      </div>
+      <div class="zone-line" id="kaZoneLine"></div>
+      <div class="zone-labels-row" id="kaZoneLabelRow"></div>
+      <div id="tgSendStatus" style="font-family:'DM Mono',monospace;font-size:11px;margin-top:8px;display:none;padding:6px 10px;border-radius:6px;"></div>
+    </div>
+
+    <!-- Factors + Stats -->
+    <div class="grid2">
+      <div class="acard"><h3>💰 Key Technicals vs Alert Zones</h3><div class="stat-grid" id="kaStatGrid"></div></div>
+      <div class="acard"><h3>📊 Kalki Scored Factors</h3><div id="kaFactorBars"></div></div>
+    </div>
+
+    <!-- ST/LT -->
+    <div class="grid2"><div class="acard" id="kaStCard"></div><div class="acard" id="kaLtCard"></div></div>
+
+    <!-- Targets -->
+    <div class="acard" style="margin-bottom:18px;" id="kaTargetsCard"></div>
+
+    <!-- Strategy -->
+    <div class="acard" id="kaStratCard"></div>
+
+  </div><!-- /kaContent -->
+</div><!-- /kaTab -->
+
+<!-- ══ TAB 4: PORTFOLIO TRACKER ══ -->
+<div id="pfTab" style="display:none;">
+
+  <!-- Summary bar -->
+  <div class="score-banner" id="pfSummary" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:20px;">
+    <div class="score-item"><div class="score-lbl">Invested</div><div class="score-val" id="pfTotalInvested" style="font-size:28px;color:var(--accent);">$0</div><div class="score-sub">total deployed</div></div>
+    <div class="score-item"><div class="score-lbl">Current Value</div><div class="score-val" id="pfCurrentVal" style="font-size:28px;color:var(--green);">$0</div><div class="score-sub">live estimate</div></div>
+    <div class="score-item"><div class="score-lbl">Total P&L</div><div class="score-val" id="pfTotalPnl" style="font-size:28px;">$0</div><div class="score-sub" id="pfTotalPct">0.0%</div></div>
+    <div class="score-item"><div class="score-lbl">Positions</div><div class="score-val" id="pfCount" style="font-size:28px;color:var(--accent2);">0</div><div class="score-sub" id="pfWinLoss">0W / 0L</div></div>
+  </div>
+
+  <!-- Manual add -->
+  <div class="scanner-section">
+    <div class="sec-title">+ Add Position Manually</div>
+    <div style="display:grid;grid-template-columns:80px 90px 90px 90px 70px 1fr auto;gap:8px;align-items:end;flex-wrap:wrap;">
+      <div class="field"><label>Ticker</label><input id="pfTick" placeholder="AXTI" style="text-transform:uppercase"/></div>
+      <div class="field"><label>Entry $</label><input id="pfEntry" type="number" placeholder="39.50" step="0.01"/></div>
+      <div class="field"><label>Entry Date</label><input id="pfEntryDate" type="date"/></div>
+      <div class="field"><label>Invest $</label><input id="pfAmt" type="number" placeholder="10000" step="100"/></div>
+      <div class="field"><label>Grade</label>
+        <select id="pfGrade" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%;">
+          <option>A+</option><option>A</option><option selected>B</option><option>C</option>
+        </select>
+      </div>
+      <div class="field"><label>Notes</label><input id="pfNotes" placeholder="Entry at support zone"/></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-p" onclick="pfAdd()">Add</button></div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">💼 Positions</span>
+    <button class="btn btn-sm" id="pfFilterAll" onclick="pfSetFilter('all')" style="background:var(--accent);color:#000;border:none;">All</button>
+    <button class="btn btn-sm" id="pfFilterOpen" onclick="pfSetFilter('open')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Open</button>
+    <button class="btn btn-sm" id="pfFilterClosed" onclick="pfSetFilter('closed')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Closed</button>
+    <button class="btn btn-sm" id="pfFilterWin" onclick="pfSetFilter('win')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Winners</button>
+    <button class="btn btn-sm" id="pfFilterLoss" onclick="pfSetFilter('loss')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Losers</button>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="pfRefreshAll()" style="background:transparent;border:1px solid var(--border);color:var(--text);">🔄 Refresh Prices</button>
+      <button class="btn btn-d btn-sm" onclick="pfClearClosed()">Clear Closed</button>
+    </div>
+  </div>
+
+  <!-- Positions list -->
+  <div id="pfList"><div class="empty-s">No positions yet — add one above or alerts auto-log here</div></div>
+
+</div><!-- /pfTab -->
+
+<!-- ══ TAB 5: SUBSCRIBERS ══ -->
+<div id="sbTab" style="display:none;">
+
+  <!-- Summary bar -->
+  <div class="score-banner" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:20px;">
+    <div class="score-item"><div class="score-lbl">Active</div><div class="score-val" id="sbActiveCount" style="font-size:28px;color:var(--green);">0</div><div class="score-sub">subscribers</div></div>
+    <div class="score-item"><div class="score-lbl">Monthly Revenue</div><div class="score-val" id="sbMonthlyRev" style="font-size:28px;color:var(--accent);">$0</div><div class="score-sub">recurring</div></div>
+    <div class="score-item"><div class="score-lbl">Expiring Soon</div><div class="score-val" id="sbExpiringSoon" style="font-size:28px;color:var(--warn);">0</div><div class="score-sub">within 7 days</div></div>
+    <div class="score-item"><div class="score-lbl">Expired</div><div class="score-val" id="sbExpiredCount" style="font-size:28px;color:var(--red);">0</div><div class="score-sub">need renewal</div></div>
+  </div>
+
+  <!-- Add subscriber -->
+  <div class="scanner-section">
+    <div class="sec-title">+ Add Subscriber</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 120px 120px auto;gap:8px;align-items:end;">
+      <div class="field"><label>Name</label><input id="sbName" placeholder="John Smith"/></div>
+      <div class="field"><label>Telegram Handle</label><input id="sbHandle" placeholder="@johnsmith"/></div>
+      <div class="field"><label>Payment Method</label><input id="sbMethod" placeholder="Venmo / Zelle / PayPal"/></div>
+      <div class="field"><label>Amount / mo</label><input id="sbAmount" type="number" placeholder="99" step="1"/></div>
+      <div class="field"><label>Paid Date</label><input id="sbPaidDate" type="date"/></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-p" onclick="sbAdd()">Add</button></div>
+    </div>
+    <div style="margin-top:8px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+      <div class="field"><label>Notes</label><input id="sbNotes" placeholder="Referred by AXTI alert · 3 month plan"/></div>
+    </div>
+  </div>
+
+  <!-- Filter + actions -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);">👥 Members</span>
+    <button class="btn btn-sm" id="sbFilterAll"    onclick="sbSetFilter('all')"     style="background:var(--accent);color:#000;border:none;">All</button>
+    <button class="btn btn-sm" id="sbFilterActive" onclick="sbSetFilter('active')"  style="background:transparent;border:1px solid var(--border);color:var(--dim);">Active</button>
+    <button class="btn btn-sm" id="sbFilterExpiring" onclick="sbSetFilter('expiring')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Expiring</button>
+    <button class="btn btn-sm" id="sbFilterExpired" onclick="sbSetFilter('expired')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Expired</button>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="sbExportCSV()" style="background:transparent;border:1px solid var(--border);color:var(--text);">📥 Export CSV</button>
+      <button class="btn btn-d btn-sm" onclick="sbClearExpired()">Clear Expired</button>
+    </div>
+  </div>
+
+  <!-- Subscribers list -->
+  <div id="sbList"><div class="empty-s">No subscribers yet — add one above</div></div>
+
+</div><!-- /sbTab -->
+
+<!-- ══ TAB 6: REPORT ══ -->
+<div id="rpTab" style="display:none;">
+
+  <!-- Card wrapper -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;max-width:600px;">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--accent);">⚡ Alert Performance</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-sm" onclick="rpRefresh()" id="rpRefreshBtn" style="background:transparent;border:1px solid var(--border);color:var(--text);">🔄 Refresh</button>
+        <button class="btn btn-p btn-sm" onclick="rpSendTelegram()" id="rpTgBtn">📤 Telegram</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div style="display:flex;gap:4px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;background:rgba(6,8,16,0.4);">
+      <button class="rp-filter-btn active" id="rpf-all"       onclick="rpSetFilter('all')">All</button>
+      <button class="rp-filter-btn"        id="rpf-open"      onclick="rpSetFilter('open')">Open</button>
+      <button class="rp-filter-btn"        id="rpf-closed"    onclick="rpSetFilter('closed')">Closed</button>
+      <button class="rp-filter-btn"        id="rpf-thismonth" onclick="rpSetFilter('thismonth')">This Month</button>
+      <button class="rp-filter-btn"        id="rpf-lastmonth" onclick="rpSetFilter('lastmonth')">Last Month</button>
+      <input id="rpSearch" placeholder="Search ticker…" oninput="rpRender()"
+        style="flex:1;min-width:80px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:10px;outline:none;"/>
+    </div>
+
+    <!-- Stats bar -->
+    <div style="display:flex;border-bottom:1px solid var(--border);overflow-x:auto;" id="rpStats"></div>
+
+    <!-- Rows -->
+    <div id="rpList"><div class="empty-s">No tickers — add some in Zone Scanner tab</div></div>
+
+    <!-- Footer -->
+    <div style="padding:8px 14px;font-size:10px;color:var(--dim2);font-family:'DM Mono',monospace;border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+      <span>⚡ Kalki · srimanth87.github.io/ema_strategy</span>
+      <span id="rpFooterStats">—</span>
+    </div>
+
+  </div>
+
+</div><!-- /rpTab -->
+
+
+</div><!-- /wrap -->
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════
+// SHARED STATE
+// ══════════════════════════════════════════════════════
+let scTickers = JSON.parse(localStorage.getItem('kalki_sc')||'[]');
+let kaSelected = null; // currently selected ticker in Kalki Analysis tab
+// alertSt[sym] = { status } — tracks last fired status per ticker
+let alertSt = {}, autoIv = null, isAuto = false;
+const SCAN_IV = 60000, RES_TOL = 0.015;
+const NDX100 = [
+  'AAPL','MSFT','NVDA','AMZN','META','GOOGL','TSLA','AVGO','COST','NFLX',
+  'ASML','AMD','PEP','ADBE','CSCO','QCOM','TMUS','INTU','LIN','AMAT',
+  'TXN','ISRG','AMGN','HON','BKNG','VRTX','REGN','ADP','PANW','SBUX',
+  'MDLZ','GILD','ADI','LRCX','MU','KLAC','SNPS','CDNS','MELI','PYPL',
+  'CTAS','ORLY','CEG','DASH','WDAY','FTNT','MRNA','ABNB','MAR','PCAR',
+  'ROST','ODFL','DXCM','KDP','PAYX','CPRT','MCHP','IDXX','BIIB','FAST',
+  'ON','EXC','GEHC','CTSH','VRSK','XEL','ZS','CRWD','TEAM','MNST',
+  'FANG','NXPI','DLTR','WBD','ANSS','ALGN','SWKS','VRSN','TTWO','WBA',
+  'OKTA','ZM','DOCU','DDOG','NET','SNOW','PLTR','RBLX','COIN','MDB',
+  'APP','MRVL','ARM','SMCI','TTD','EXPE','MTCH','LCID'
+];
+let bestScanLatest = [];
+
+function proxy(){ return (document.getElementById('proxyUrl').value||'https://yahoo-proxy.srimanthgada87.workers.dev').trim(); }
+
+// ══════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════
+function switchTab(t) {
+  ['an','sc','ka','pf','sb','rp'].forEach(id => {
+    document.getElementById('t-'+id).classList.toggle('active', t===id);
+    document.getElementById(id+'Tab').style.display = t===id ? 'block' : 'none';
+  });
+  if (t === 'ka') refreshKaTab();
+  if (t === 'pf') pfRender();
+  if (t === 'sb') sbRender();
+  if (t === 'rp') rpRender();
+}
+function quickPick(s){ document.getElementById('searchInput').value=s; document.querySelectorAll('.qp').forEach(el=>el.classList.toggle('active',el.textContent===s)); runAnalysis(); }
+document.getElementById('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runAnalysis(); });
+document.getElementById('kaSearchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runKalkiSearch(); });
+
+// ══════════════════════════════════════════════════════
+// FETCH YAHOO (via ?url= proxy format)
+// ══════════════════════════════════════════════════════
+async function fetchYahoo(ticker, range, interval) {
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`;
+  const url = `${proxy()}?url=${encodeURIComponent(yahooUrl)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} — check proxy`);
+  const data = await res.json();
+  if (data.chart?.error) throw new Error(data.chart.error.description || 'Yahoo error');
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error('No data for ' + ticker);
+  return result;
+}
+
+// ══════════════════════════════════════════════════════
+// MATH HELPERS
+// ══════════════════════════════════════════════════════
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function sma(arr,n){if(arr.length<n)return arr[arr.length-1]||0; return arr.slice(-n).reduce((a,b)=>a+b,0)/n;}
+function ema(arr,n){
+  if(!arr.length)return 0;
+  const k=2/(n+1);
+  let out=arr[0];
+  for(let i=1;i<arr.length;i++) out=arr[i]*k+out*(1-k);
+  return out;
+}
+function rsi(prices,p=14){
+  if(prices.length<p+1)return 50;
+  let g=0,l=0;
+  for(let i=prices.length-p;i<prices.length;i++){const d=prices[i]-prices[i-1];d>0?g+=d:l+=Math.abs(d);}
+  return l===0?100:100-(100/(1+(g/l)));
+}
+function calcATR(valid,p=14){
+  if(valid.length<2)return 0;
+  const trs=valid.slice(1).map((d,i)=>Math.max(d.h-d.l,Math.abs(d.h-valid[i].c),Math.abs(d.l-valid[i].c)));
+  return trs.slice(-p).reduce((a,b)=>a+b,0)/Math.min(p,trs.length);
+}
+function calcZonesAuto(valid,price){
+  const recent=valid.slice(-20);
+  const recentL=Math.min(...recent.map(d=>d.l||d.c));
+  const supLow=+(recentL*0.98).toFixed(2), supHigh=+(recentL*1.02).toFixed(2);
+  const breakdown=+(supLow*0.97).toFixed(2);
+  const step=price<5?0.5:price<20?1:price<50?2:price<100?5:price<500?10:price<2000?50:100;
+  const resistances=[]; let r=Math.ceil((price*1.02)/step)*step;
+  for(let i=0;i<5;i++){resistances.push(+r.toFixed(2));r+=step;}
+  return{supLow,supHigh,breakdown,resistances};
+}
+function buildValidSeries(result){
+  const q=result?.indicators?.quote?.[0]||{}, ts=result?.timestamp||[];
+  const closes=q.close||[], highs=q.high||[], lows=q.low||[], vols=q.volume||[];
+  return ts.map((t,i)=>({ts:t,date:new Date(t*1000),c:closes[i],h:highs[i]||closes[i],l:lows[i]||closes[i],v:vols[i]||0}))
+    .filter(d=>d.c!=null&&!isNaN(d.c));
+}
+function calcVWAP(valid){
+  let pv=0, vv=0;
+  valid.forEach(d=>{const tp=((d.h||d.c)+(d.l||d.c)+d.c)/3; const vol=d.v||0; pv+=tp*vol; vv+=vol;});
+  return vv?pv/vv:(valid[valid.length-1]?.c||0);
+}
+function calcReturn(prices, lookback){
+  if(prices.length<lookback+1)return 0;
+  const then=prices[prices.length-1-lookback], now=prices[prices.length-1];
+  return then ? ((now-then)/then)*100 : 0;
+}
+function calcRelativeStrengthScore(stock20, spy20, qqq20){
+  const spread=stock20-((spy20+qqq20)/2);
+  return {spread, score:clamp(5+spread/2,0,10)};
+}
+function calcTimingSignal(valid, mode){
+  const closes=valid.map(d=>d.c);
+  if(!closes.length)return {ok:false,label:'No data',detail:'Unavailable'};
+  const last=closes[closes.length-1], prev=closes[closes.length-2]||last;
+  const ema8v=ema(closes,8), ema20v=ema(closes,20), ema21v=ema(closes,21), ema50v=ema(closes,50);
+  const vwap=calcVWAP(valid);
+  if(mode==='1h'){
+    const ok=last>ema20v&&ema20v>ema50v&&ema20v>(ema(closes.slice(0,-1),20)||ema20v);
+    return {ok,label:'1H Trend Stack',detail:ok?'Bullish stack active':'Trend stack not fully bullish',value:`$${last.toFixed(2)} vs EMA20 $${ema20v.toFixed(2)}`};
+  }
+  if(mode==='15m'){
+    const dist=Math.abs(last-ema20v)/(ema20v||last||1);
+    const ok=last>=ema20v&&ema20v>ema50v&&dist<=0.012;
+    return {ok,label:'15m Pullback',detail:ok?'Pullback near EMA20 is live':'Not in ideal pullback zone',value:`${(dist*100).toFixed(1)}% from EMA20`};
+  }
+  const ok=last>ema8v&&ema8v>ema21v&&last>prev&&last>vwap;
+  return {ok,label:'5m BUY + VWAP',detail:ok?'Micro trigger confirmed above VWAP':'No clean 5m trigger yet',value:`VWAP $${vwap.toFixed(2)}`};
+}
+async function fetchTimingData(ticker){
+  const [spyRes,qqqRes,h1Res,m15Res,m5Res]=await Promise.allSettled([
+    fetchYahoo('SPY','3mo','1d'),
+    fetchYahoo('QQQ','3mo','1d'),
+    fetchYahoo(ticker,'1mo','60m'),
+    fetchYahoo(ticker,'5d','15m'),
+    fetchYahoo(ticker,'5d','5m')
+  ]);
+  const safe = res => res.status==='fulfilled' ? buildValidSeries(res.value) : [];
+  return {
+    spy: safe(spyRes),
+    qqq: safe(qqqRes),
+    h1: safe(h1Res),
+    m15: safe(m15Res),
+    m5: safe(m5Res)
+  };
+}
+function calcScores({price,high52,low52,sma20,sma50,rsi14,atr14,changePct,avgVol,lastVol,supLow,supHigh,breakdown,resistances,stock20,spy20,qqq20,timingSignals}){
+  const volRatio=avgVol?lastVol/avgVol:1;
+  const atrPct=price?atr14/price:0;
+  const fromHigh=(high52-price)/(high52||price||1);
+  const rangePos=(price-low52)/((high52-low52)||1);
+  const r1=resistances?.[0]||price*1.04;
+  const roomPct=((r1-price)/(price||1))*100;
+
+  let trend=3;
+  if(sma20&&price>sma20)trend+=3;
+  if(sma50&&price>sma50)trend+=2;
+  if(sma20&&sma50&&sma20>sma50)trend+=2;
+  if(sma20&&sma50&&(price-sma20)>(sma20-sma50)*0.15)trend+=1;
+  trend=clamp(trend,0,10);
+
+  let momentum=2;
+  if(rsi14>=50&&rsi14<=68)momentum+=5;
+  else if(rsi14>=45&&rsi14<50)momentum+=3;
+  else if(rsi14>68&&rsi14<=72)momentum+=2;
+  else if(rsi14<40||rsi14>75)momentum-=1;
+  if(changePct>0&&changePct<4)momentum+=2;
+  else if(changePct>=4)momentum+=1;
+  else if(changePct<-2)momentum-=2;
+  if(price>=supLow&&price<=supHigh)momentum+=1;
+  momentum=clamp(momentum,0,10);
+
+  let volume=4;
+  if(volRatio>=1.5)volume+=4;
+  else if(volRatio>=1.15)volume+=3;
+  else if(volRatio>=0.9)volume+=1;
+  else if(volRatio<0.65)volume-=2;
+  volume=clamp(volume,0,10);
+
+  let risk=6;
+  if(atrPct<=0.015)risk+=2;
+  else if(atrPct<=0.03)risk+=3;
+  else if(atrPct<=0.045)risk+=1;
+  else if(atrPct>0.06)risk-=3;
+  if(price<breakdown)risk-=3;
+  risk=clamp(risk,0,10);
+
+  let room=4;
+  if(fromHigh>=0.05&&fromHigh<=0.18)room+=4;
+  else if(fromHigh>0.18&&fromHigh<=0.35)room+=2;
+  else if(fromHigh<0.03)room-=2;
+  if(rangePos>0.82)room-=2;
+  if(roomPct>=3&&roomPct<=12)room+=2;
+  else if(roomPct<2)room-=2;
+  room=clamp(room,0,10);
+
+  const rs=calcRelativeStrengthScore(stock20,spy20,qqq20);
+
+  const swing=Math.round((trend*0.30 + momentum*0.25 + volume*0.15 + risk*0.10 + room*0.10 + rs.score*0.10) * 10);
+  const timingPassed=timingSignals.filter(s=>s.ok).length;
+  const timingScore=Math.round((timingPassed / Math.max(1,timingSignals.length)) * 100);
+  const timingBonus=(timingSignals[0]?.ok&&timingSignals[1]?.ok)?10:0;
+  const setup=Math.round(clamp(swing + timingBonus, 0, 100));
+
+  return {
+    shortScore:swing,
+    longScore:timingScore,
+    overall:setup,
+    timingBonus,
+    grade:setup>=80?'A+':setup>=72?'A':setup>=64?'B':setup>=55?'C':'D',
+    factors:[
+      {name:'Trend (30%)',short:trend,long:trend,type:trend>=7?'bull':'bear'},
+      {name:'Momentum (25%)',short:momentum,long:momentum,type:momentum>=7?'bull':'neutral'},
+      {name:'Volume confirmation (15%)',short:volume,long:volume,type:volume>=7?'bull':'neutral'},
+      {name:'ATR risk (10%)',short:risk,long:risk,type:risk>=7?'bull':'bear'},
+      {name:'Breakout room (10%)',short:room,long:room,type:room>=7?'bull':'neutral'},
+      {name:'RS vs SPY/QQQ (10%)',short:Math.round(rs.score),long:Math.round(rs.score),type:rs.score>=6?'bull':'neutral'},
+    ],
+    metrics:{volRatio,atrPct,fromHigh,rangePos,roomPct,rsSpread:rs.spread}
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// ZONE STRIP RENDERER (AXTI-style, reusable)
+// ══════════════════════════════════════════════════════
+function renderZoneStrip(lineEl, labelEl, badgeEl, {price, supLow, supHigh, breakdown, resistances, ticker}) {
+  lineEl.innerHTML = '';
+  labelEl.innerHTML = '';
+  if (badgeEl) badgeEl.textContent = ticker || '—';
+
+  // build segments matching AXTI style exactly
+  const maxZ = (resistances.length ? resistances[resistances.length-1] : price) * 1.08;
+  const minZ = breakdown * 0.94;
+  const total = maxZ - minZ;
+  const pct  = p => Math.max(0,Math.min(100,((p-minZ)/total*100))).toFixed(2)+'%';
+  const pctW = (f,t) => Math.max(0,((t-f)/total*100)).toFixed(2)+'%';
+
+  // Segment definitions — mirrors AXTI exactly
+  const rClasses = ['r1','r2','r3','r4','r5','target'];
+  const segments = [
+    {from:minZ,      to:breakdown,   cls:'danger',  label:'DANGER'},
+    {from:breakdown, to:supHigh,     cls:'support', label:'SUPPORT'},
+    {from:supHigh,   to:resistances[0]||supHigh*1.04, cls:'gap', label:'—'},
+    ...resistances.map((r,i)=>({
+      from:r,
+      to: resistances[i+1] || maxZ,
+      cls: i < resistances.length-1 ? rClasses[i] : 'target',
+      label: i < resistances.length-1 ? 'R'+(i+1) : 'TARGET'
+    }))
+  ];
+
+  segments.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'zone-seg ' + s.cls;
+    d.style.left = pct(s.from);
+    d.style.width = pctW(s.from, s.to);
+    d.textContent = s.label;
+    lineEl.appendChild(d);
+  });
+
+  // Price pin
+  const pin = document.createElement('div');
+  pin.className = 'price-pin';
+  pin.style.left = pct(price);
+  pin.setAttribute('data-p', '$'+price.toFixed(2));
+  lineEl.appendChild(pin);
+
+  // FIX: Labels centered inside each segment box using (from+to)/2
+  // breakdown label at left edge of DANGER zone center
+  // support label centered in SUPPORT segment
+  // each R label centered in its resistance segment
+  const dangerCenter   = (minZ + breakdown) / 2;
+  const supportCenter  = (breakdown + supHigh) / 2;
+  const gapCenter      = (supHigh + (resistances[0]||supHigh*1.04)) / 2;
+  const rCenters       = resistances.map((r,i) => (r + (resistances[i+1]||maxZ)) / 2);
+
+  const lbls = [
+    {val:'$'+breakdown.toFixed(2), name:'break',   pos:dangerCenter},
+    {val:'$'+supLow.toFixed(2)+'\u2013$'+supHigh.toFixed(2), name:'support', pos:supportCenter},
+    ...resistances.map((r,i)=>({
+      val:'$'+r.toFixed(2),
+      name: i < resistances.length-1 ? 'R'+(i+1) : 'target',
+      pos: rCenters[i]
+    })),
+  ];
+  labelEl.innerHTML = lbls.map(l=>{
+    const leftPct = Math.max(1,Math.min(99,((l.pos-minZ)/total*100))).toFixed(2);
+    return `<span style="position:absolute;left:${leftPct}%;transform:translateX(-50%);text-align:center;white-space:nowrap;">` +
+           `<span style="display:block;color:var(--dim);">${l.val}</span>` +
+           `<span style="display:block;font-size:9px;color:var(--dim2);">${l.name}</span>` +
+           `</span>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// CHART DRAWING (shared)
+// ══════════════════════════════════════════════════════
+function drawPriceChart(canvasId, {priceHistory, supLow, supHigh, breakdown, resistances, price}) {
+  const cv = document.getElementById(canvasId);
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  cv.width = (cv.parentElement.offsetWidth||800)-36; cv.height=260;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const pts=priceHistory; if(pts.length<2)return;
+  const prices=pts.map(p=>p.p), labels=pts.map(p=>p.l);
+  const all=[...prices,supLow,supHigh,breakdown,...resistances];
+  const minP=Math.min(...all)*0.96, maxP=Math.max(...all)*1.04;
+  const W=cv.width,H=cv.height,PAD={top:28,right:16,bottom:32,left:58};
+  const CW=W-PAD.left-PAD.right,CH=H-PAD.top-PAD.bottom;
+  const px=i=>PAD.left+(i/(prices.length-1))*CW;
+  const py=p=>PAD.top+CH-((p-minP)/(maxP-minP))*CH;
+  ctx.strokeStyle='#1f2d45';ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){const p=minP+(maxP-minP)*(i/5);const y=py(p);ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);ctx.stroke();ctx.fillStyle='#334155';ctx.font='10px DM Mono,monospace';ctx.fillText('$'+(p<10?p.toFixed(2):p<1000?p.toFixed(0):(p/1000).toFixed(1)+'k'),2,y+4);}
+  // Support zone fill
+  ctx.fillStyle='rgba(16,185,129,0.09)';ctx.fillRect(PAD.left,py(supHigh),CW,py(supLow)-py(supHigh));
+  // Breakdown line
+  ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(239,68,68,0.65)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(PAD.left,py(breakdown));ctx.lineTo(W-PAD.right,py(breakdown));ctx.stroke();
+  ctx.fillStyle='rgba(239,68,68,0.85)';ctx.font='bold 9px DM Mono,monospace';
+  ctx.fillText('BREAKDOWN $'+breakdown,W-PAD.right-108,py(breakdown)-4);
+  // Resistances
+  ctx.strokeStyle='rgba(245,158,11,0.3)';ctx.lineWidth=1;
+  resistances.forEach(r=>{if(r<maxP){ctx.beginPath();ctx.moveTo(PAD.left,py(r));ctx.lineTo(W-PAD.right,py(r));ctx.stroke();}});
+  ctx.setLineDash([]);
+  // Area
+  const g=ctx.createLinearGradient(0,PAD.top,0,H-PAD.bottom);g.addColorStop(0,'rgba(245,158,11,0.25)');g.addColorStop(1,'rgba(245,158,11,0)');
+  ctx.beginPath();prices.forEach((p,i)=>i===0?ctx.moveTo(px(i),py(p)):ctx.lineTo(px(i),py(p)));ctx.lineTo(px(prices.length-1),H-PAD.bottom);ctx.lineTo(PAD.left,H-PAD.bottom);ctx.closePath();ctx.fillStyle=g;ctx.fill();
+  // Line
+  ctx.beginPath();ctx.strokeStyle='#f59e0b';ctx.lineWidth=2.5;prices.forEach((p,i)=>i===0?ctx.moveTo(px(i),py(p)):ctx.lineTo(px(i),py(p)));ctx.stroke();
+  // Labels
+  ctx.fillStyle='rgba(16,185,129,0.9)';ctx.font='bold 9px DM Mono,monospace';ctx.fillText('SUPPORT $'+supLow+'–$'+supHigh,PAD.left+4,py(supHigh)-4);
+  ctx.fillStyle='#334155';ctx.font='9px DM Mono,monospace';
+  const lstep=Math.max(1,Math.floor(labels.length/8));
+  labels.forEach((l,i)=>{if(i%lstep===0||i===labels.length-1)ctx.fillText(l,px(i)-14,H-6);});
+  const li=prices.length-1;ctx.beginPath();ctx.arc(px(li),py(prices[li]),5,0,Math.PI*2);ctx.fillStyle='#f59e0b';ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 10px DM Mono,monospace';ctx.fillText('$'+prices[li].toFixed(2),px(li)-32,py(prices[li])-10);
+  const maxP2=Math.max(...prices),peakI=prices.lastIndexOf(maxP2);
+  ctx.fillStyle='#ef4444';ctx.font='9px DM Mono,monospace';ctx.fillText('HIGH $'+maxP2.toFixed(2),px(peakI)-10,py(maxP2)-6);
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER SHARED ANALYSIS COMPONENTS
+// ══════════════════════════════════════════════════════
+function renderScoreBanner(el, shortScore, longScore, overall, stV, ltV, ovV) {
+  el.innerHTML = `
+    <div class="score-item"><div class="score-lbl">Swing Core (3–5 Days)</div><div class="score-val st">${shortScore}%</div><div class="score-sub">${stV}</div></div>
+    <div class="score-item"><div class="score-lbl">Entry Timing Filter</div><div class="score-val lt">${longScore}%</div><div class="score-sub">${ltV}</div></div>
+    <div class="score-item"><div class="score-lbl">Final Setup Score</div><div class="score-val ov">${overall}%</div><div class="score-sub">${ovV}</div></div>`;
+}
+function renderFactors(el, factors) {
+  el.innerHTML = '';
+  factors.forEach(f=>{el.innerHTML+=`<div class="factor"><div class="fhdr"><span class="fname">${f.name}</span><span class="fscore">${f.short}/10</span></div><div class="fbar" style="margin-top:6px;"><div class="ffill ${f.type}" style="width:${f.short*10}%"></div></div></div>`;});
+}
+function renderSTCard(el, shortScore, sBull, sBear) {
+  const p=shortScore>=65?'buy':shortScore<=40?'avoid':'caution';
+  el.innerHTML=`<h3>⚡ Swing Thesis <span class="vpill ${p}">${shortScore}%</span></h3><div class="risk-list">${sBull.map(b=>`<div class="risk-item lo"><span class="ri">✅</span><div class="rt"><span class="rl lo">WORKING</span>${b}</div></div>`).join('')}${sBear.map(b=>`<div class="risk-item hi"><span class="ri">🔴</span><div class="rt"><span class="rl hi">RISK</span>${b}</div></div>`).join('')}</div>`;
+}
+function renderLTCard(el, longScore, lBull, lBear) {
+  const p=longScore>=65?'buy':longScore<=40?'avoid':'caution';
+  el.innerHTML=`<h3>🎯 Entry Trigger Filter <span class="vpill ${p}">${longScore}%</span></h3><div class="risk-list">${lBull.map(b=>`<div class="risk-item lo"><span class="ri">✅</span><div class="rt"><span class="rl lo">READY</span>${b}</div></div>`).join('')}${lBear.map(b=>`<div class="risk-item md"><span class="ri">⚠️</span><div class="rt"><span class="rl md">WAIT</span>${b}</div></div>`).join('')}</div>`;
+}
+function renderTargets(el, price, stStop, stT1, stT2, stT3, resistances, breakdown) {
+  const pct=t=>((t-price)/price*100).toFixed(1)+'%';
+  el.innerHTML=`<h3>🎯 Kalki Price Targets</h3><div class="grid2" style="margin-top:4px;gap:10px;"><div><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Short-Term</div><div class="targets"><div class="trow"><span class="tlbl">Stop Loss</span><span class="tprice stop">$${stStop}</span><span class="tpct">${pct(stStop)}</span></div><div class="trow"><span class="tlbl">T1</span><span class="tprice t1">$${stT1}</span><span class="tpct">${pct(stT1)}</span></div><div class="trow"><span class="tlbl">T2</span><span class="tprice t2">$${stT2}</span><span class="tpct">${pct(stT2)}</span></div><div class="trow"><span class="tlbl">T3</span><span class="tprice t3">$${stT3}</span><span class="tpct">${pct(stT3)}</span></div></div></div><div><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Resistance Levels</div><div class="targets">${resistances.map((r,i)=>`<div class="trow"><span class="tlbl">R${i+1}</span><span class="tprice ${i<2?'t1':i<4?'t2':'t3'}">$${r}</span><span class="tpct">${pct(r)}</span></div>`).join('')}<div class="trow"><span class="tlbl">Breakdown</span><span class="tprice stop">$${breakdown}</span><span class="tpct">Invalidation</span></div></div></div></div>`;
+}
+function renderStrategy(el, price, supLow, supHigh, breakdown, resistances, stStop, stT1, stT2, stT3, atr) {
+  const inZ=price>=supLow&&price<=supHigh, belowBrk=price<breakdown;
+  el.innerHTML=`<h3>📋 Kalki Swing V2 Plan</h3><div class="risk-list"><div class="risk-item lo"><span class="ri">1️⃣</span><div class="rt"><span class="rl lo">WHAT TO BUY</span>${inZ?`Swing candidate is already inside the support zone ($${supLow}–$${supHigh}). Start with 30% size, add only if the trigger filter turns fully bullish.`:`Keep it on watch. Best risk/reward is a pullback into $${supLow}–$${supHigh}, not a chase above resistance.`}</div></div><div class="risk-item lo"><span class="ri">2️⃣</span><div class="rt"><span class="rl lo">WHEN TO BUY</span>Prefer entry only when 1H trend is stacked bullish, 15m is pulling into EMA20, and 5m reclaims above VWAP. Targets: $${stT1} → $${stT2} → $${stT3} over the next 3–5 sessions.</div></div><div class="risk-item hi"><span class="ri">⛔</span><div class="rt"><span class="rl hi">RISK RULE</span>${belowBrk?`Setup is broken right now because price is below $${breakdown}. Wait for reclaim before treating this as a swing.`:`Hard stop sits under structure at $${stStop}. A close below $${breakdown} invalidates the swing thesis.`}</div></div></div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// BUILD ANALYSIS DATA from Yahoo result
+// ══════════════════════════════════════════════════════
+async function buildFromYahoo(ticker, r, manualZones) {
+  const meta=r.meta||{}, q=r.indicators?.quote?.[0]||{}, ts=r.timestamp||[];
+  const closes=q.close||[], highs=q.high||[], lows=q.low||[], vols=q.volume||[];
+  const valid=ts.map((t,i)=>({ts:t,date:new Date(t*1000),c:closes[i],h:highs[i]||closes[i],l:lows[i]||closes[i],v:vols[i]||0})).filter(d=>d.c!=null&&!isNaN(d.c));
+  if(valid.length<5) throw new Error('Not enough data');
+  const price=valid[valid.length-1].c;
+  const prev=valid.length>1?valid[valid.length-2].c:price;
+  const change=price-prev, changePct=(change/prev)*100;
+  const high52=Math.max(...valid.map(d=>d.h));
+  const low52=Math.min(...valid.map(d=>d.l));
+  const cp=valid.map(d=>d.c);
+  const sma20v=sma(cp,20), sma50v=cp.length>=50?sma(cp,50):null;
+  const rsi14=rsi(cp,14), atr14=calcATR(valid,14);
+  const avgVol=vols.filter(Boolean).reduce((a,b)=>a+b,0)/(vols.filter(Boolean).length||1);
+  const lastVol=vols.filter(Boolean).pop()||0;
+
+  // Use manual zones if provided (from scanner), else auto-calculate
+  const zones = manualZones || calcZonesAuto(valid, price);
+  const {supLow, supHigh, breakdown, resistances} = zones;
+
+  const timingData = await fetchTimingData(ticker);
+  const stock20 = calcReturn(cp, 20);
+  const spy20 = calcReturn(timingData.spy.map(d=>d.c), 20);
+  const qqq20 = calcReturn(timingData.qqq.map(d=>d.c), 20);
+  const timingSignals = [
+    calcTimingSignal(timingData.h1,'1h'),
+    calcTimingSignal(timingData.m15,'15m'),
+    calcTimingSignal(timingData.m5,'5m')
+  ];
+
+  const scores = calcScores({price,high52,low52,sma20:sma20v,sma50:sma50v,rsi14,atr14,changePct,avgVol,lastVol,supLow,supHigh,breakdown,resistances,stock20,spy20,qqq20,timingSignals});
+  const {shortScore,longScore,overall,factors,metrics,timingBonus,grade} = scores;
+
+  const stV=shortScore>=75?'Primary swing engine says buy':shortScore>=65?'Good swing candidate':shortScore>=55?'Needs cleaner structure':'Avoid as core swing';
+  const ltV=longScore>=75?'Trigger is ready now':longScore>=45?'Candidate is good, wait for trigger':'Timing filter says wait';
+  const ovV=overall>=80?'A-grade swing + timing support':overall>=70?'Strong swing watchlist name':overall>=60?'Good candidate, be selective':'Low-conviction swing';
+
+  const atr=atr14||price*0.02;
+  const stStop=+(price-atr*1.5).toFixed(2);
+  const stT1=+(price+atr*1.0).toFixed(2);
+  const stT2=+(price+atr*2.0).toFixed(2);
+  const stT3=+(price+atr*3.5).toFixed(2);
+
+  const fH=((high52-price)/high52*100).toFixed(1);
+  const fL=((price-low52)/low52*100).toFixed(1);
+  const atrP=(atr14/price*100).toFixed(1);
+  const rsSpread=metrics.rsSpread.toFixed(1);
+  const volS=v=>v>1e6?(v/1e6).toFixed(1)+'M':v>1e3?(v/1e3).toFixed(0)+'K':v.toFixed(0);
+
+  const stats=[
+    {label:'Grade',value:grade,type:overall>=70?'pos':overall>=60?'warn':'neg'},
+    {label:'RS vs SPY/QQQ',value:(metrics.rsSpread>=0?'+':'')+rsSpread+'%',type:metrics.rsSpread>=0?'pos':'neg'},
+    {label:'Volume Ratio',value:metrics.volRatio.toFixed(2)+'x',type:metrics.volRatio>=1?'pos':'warn'},
+    {label:'Room to R1',value:metrics.roomPct.toFixed(1)+'%',type:metrics.roomPct>=3?'pos':'warn'},
+    {label:'RSI (14)',value:rsi14.toFixed(0),type:rsi14>=50&&rsi14<=68?'pos':rsi14>72?'neg':'warn'},
+    {label:'ATR % (14)',value:atrP+'%',type:+atrP>4.5?'neg':'warn'},
+    {label:'Above SMA20/50',value:(price>sma20v?'Y':'N')+' / '+(price>(sma50v||price+1)?'Y':'N'),type:price>sma20v&&price>(sma50v||0)?'pos':'warn'},
+    {label:'52W Position',value:(metrics.rangePos*100).toFixed(0)+'%',type:metrics.rangePos<0.8?'pos':'warn'},
+  ];
+
+  const mb={};
+  valid.forEach(d=>{const k=d.date.toLocaleDateString('en-US',{month:'short'});if(!mb[k])mb[k]=[];mb[k].push(d.c);});
+  const revBars=Object.entries(mb).map(([q,arr],i,all)=>{
+    const v=+(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2);
+    return{q,v,trend:i===0?'neutral':v>=all[i-1][1].reduce((a,b)=>a+b,0)/all[i-1][1].length?'up':'dn'};
+  }).slice(-4);
+
+  const step2=Math.max(1,Math.floor(valid.length/60));
+  const priceHistory=valid.filter((_,i)=>i%step2===0||i===valid.length-1).map(d=>({l:d.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}),p:+d.c.toFixed(2)}));
+
+  // Insight
+  const rsiTxt=rsi14>=50&&rsi14<=68?'in the swing sweet spot (RSI '+rsi14.toFixed(0)+')':rsi14>68?'getting extended (RSI '+rsi14.toFixed(0)+')':'not yet in the ideal continuation zone (RSI '+rsi14.toFixed(0)+')';
+  const trendTxt=price>(sma20v||price)&&price>(sma50v||price)?'above both 20-day and 50-day SMA — trend strength is intact':'not fully above the key swing moving averages';
+  const inZ=price>=supLow&&price<=supHigh;
+  const zoneTxt=inZ?`inside the Kalki support zone ($${supLow}–$${supHigh})`:price<supLow?`below support and at breakdown risk`:price<resistances[0]?`above support with room toward R1 at $${resistances[0]}`:`close to resistance`;
+  const timingTxt=timingSignals.map(s=>`${s.label}: ${s.ok?'yes':'no'}`).join(' · ');
+  const insight=`${ticker} has a swing-core score of ${shortScore}% and a final setup score of ${overall}% (${grade}). Trend is ${trendTxt}, RSI is ${rsiTxt}, and price is ${zoneTxt}. Relative strength is ${(metrics.rsSpread>=0?'+':'')+rsSpread}% vs SPY/QQQ. Timing filter: ${timingTxt}.${timingBonus?` Added +${timingBonus} points for 1H + 15m alignment.`:''} ${manualZones?'Zones loaded from your Kalki alert.':'Zones auto-calculated from price structure.'}`;
+
+  // Bullets
+  const sBull=[],sBear=[],lBull=[],lBear=[];
+  if(price>sma20v&&price>(sma50v||0))sBull.push('Price is above both SMA20 ($'+sma20v.toFixed(2)+') and SMA50 ('+(sma50v?sma50v.toFixed(2):'n/a')+') — trend structure supports a multi-day hold.');
+  else sBear.push('Swing trend is incomplete because price is not clearly above both SMA20 and SMA50.');
+  if(rsi14>=50&&rsi14<=68)sBull.push('RSI '+rsi14.toFixed(0)+' is in the preferred 50–68 continuation zone.');
+  else sBear.push('RSI '+rsi14.toFixed(0)+' is outside the ideal continuation band, so follow-through odds are lower.');
+  if(metrics.volRatio>=1.1)sBull.push('Volume is confirming with '+metrics.volRatio.toFixed(2)+'x average participation.');
+  else sBear.push('Volume is not expanding yet, so the move has less confirmation.');
+  if(metrics.rsSpread>=0)sBull.push('Relative strength is outperforming SPY/QQQ by '+(metrics.rsSpread>=0?'+':'')+rsSpread+'% over the last month.');
+  else sBear.push('Relative strength is trailing SPY/QQQ by '+rsSpread+'%, which weakens swing ranking.');
+  if(metrics.roomPct>=3)sBull.push('There is '+metrics.roomPct.toFixed(1)+'% room to R1 before the first major target.');
+  else sBear.push('Upside room to the first resistance is tight at only '+metrics.roomPct.toFixed(1)+'%.');
+  if(price<breakdown)sBear.push('Price is below breakdown $'+breakdown+' — invalid swing structure.');
+  if(!sBull.length)sBull.push('Defined support zone gives this ticker a workable risk box.');
+  timingSignals.forEach(s => {
+    if(s.ok) lBull.push(s.label+' passed: '+s.detail+'.');
+    else lBear.push(s.label+' failed: '+s.detail+'.');
+  });
+  lBull.push('Use Kalki to rank the ticker and the timing filter to decide whether today is the entry day.');
+  lBear.push('If 1H trend and 15m pullback are not aligned, treat it as a watchlist name, not an immediate swing entry.');
+
+  return {ticker,name:meta.longName||meta.shortName||ticker,exch:meta.exchangeName||'',
+    price,change,changePct,high52,low52,sma20v,sma50v,rsi14,atr14,atr,avgVol,lastVol,
+    shortScore,longScore,overall,stV,ltV,ovV,factors,stats,revBars,priceHistory,
+    supLow,supHigh,breakdown,resistances,stStop,stT1,stT2,stT3,sBull,sBear,lBull,lBear,insight,timingSignals,timingBonus,grade};
+}
+
+// ══════════════════════════════════════════════════════
+// TAB 1: LIVE ANALYSIS
+// ══════════════════════════════════════════════════════
+async function runAnalysis() {
+  const ticker=(document.getElementById('searchInput').value||'').trim().toUpperCase();
+  if(!ticker)return;
+  document.getElementById('errPanel').className='error-panel';
+  document.getElementById('resultsArea').style.display='none';
+  document.getElementById('loadingPanel').className='loading-panel show';
+  document.getElementById('loadingMsg').textContent=`Fetching live data for ${ticker}…`;
+  document.getElementById('analyzeBtn').disabled=true;
+  try{
+    const r=await fetchYahoo(ticker,'3mo','1d');
+    const a=await buildFromYahoo(ticker,r,null);
+    document.getElementById('loadingPanel').className='loading-panel';
+    renderLiveAnalysis(a);
+  }catch(err){
+    document.getElementById('loadingPanel').className='loading-panel';
+    const ep=document.getElementById('errPanel');ep.className='error-panel show';ep.textContent='⚠ '+err.message;
+  }finally{document.getElementById('analyzeBtn').disabled=false;}
+}
+
+function renderLiveAnalysis(a) {
+  document.getElementById('resultsArea').style.display='block';
+  const ud=a.change>=0?'up':'dn', sym=a.change>=0?'▲':'▼';
+  document.getElementById('stockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live swing read · 52W $${a.low52.toFixed(2)} – $${a.high52.toFixed(2)}</div></div>`;
+  renderScoreBanner(document.getElementById('scoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV);
+  document.getElementById('insightBox').innerHTML=`<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
+  document.getElementById('chartBadge').textContent=a.priceHistory.length+' DAYS';
+  drawPriceChart('priceChart',a);
+  renderZoneStrip(document.getElementById('zoneLineLive'),document.getElementById('zoneLabelRowLive'),document.getElementById('zoneTickerBadge'),a);
+  document.getElementById('statGrid').innerHTML=a.stats.map(s=>`<div class="stat-item"><div class="sl">${s.label}</div><div class="sv ${s.type||''}">${s.value}</div></div>`).join('');
+  const revEl=document.getElementById('revBars');revEl.innerHTML='';
+  const mx=Math.max(...a.revBars.map(r=>r.v))*1.1;
+  a.revBars.forEach(r=>{const bh=Math.max(4,Math.round((r.v/mx)*76));const col=r.trend==='up'?'#10b981':r.trend==='dn'?'#ef4444':'#f59e0b';revEl.innerHTML+=`<div class="rb-wrap"><div class="rb-val">$${r.v.toFixed(0)}</div><div class="rb" style="height:${bh}px;background:${col};width:100%"></div><div class="rb-lbl">${r.q}</div></div>`;});
+  renderFactors(document.getElementById('factorBars'),a.factors);
+  renderSTCard(document.getElementById('stCard'),a.shortScore,a.sBull,a.sBear);
+  renderLTCard(document.getElementById('ltCard'),a.longScore,a.lBull,a.lBear);
+  renderTargets(document.getElementById('targetsCard'),a.price,a.stStop,a.stT1,a.stT2,a.stT3,a.resistances,a.breakdown);
+  renderStrategy(document.getElementById('stratCard'),a.price,a.supLow,a.supHigh,a.breakdown,a.resistances,a.stStop,a.stT1,a.stT2,a.stT3,a.atr);
+}
+
+// ══════════════════════════════════════════════════════
+// TAB 3: KALKI ANALYSIS (from scanner zones)
+// ══════════════════════════════════════════════════════
+function refreshKaTab() {
+  const row = document.getElementById('kaSelectRow');
+  row.innerHTML = '';
+  if (!scTickers.length) {
+    document.getElementById('kaEmpty').style.display='block';
+    document.getElementById('kaContent').style.display='none';
+    return;
+  }
+  document.getElementById('kaEmpty').style.display='none';
+  document.getElementById('kaContent').style.display='block';
+
+  // Build selector buttons
+  scTickers.forEach((t,i) => {
+    const btn = document.createElement('button');
+    btn.className='ka-ticker-btn'+(kaSelected===i?' active':'');
+    btn.innerHTML=`<span>${t.sym}</span><span class="kt-price">${t.price!=null?'$'+t.price.toFixed(2):'—'}</span>`;
+    btn.onclick=()=>{ kaSelected=i; refreshKaTab(); loadKalki(i); };
+    row.appendChild(btn);
+  });
+
+  if (kaSelected === null && scTickers.length) { kaSelected=0; loadKalki(0); }
+}
+
+async function loadKalki(idx) {
+  const t = scTickers[idx];
+  if (!t) return;
+
+  // Restore compare banner + chart title (may have been hidden by search)
+  document.getElementById('kaCompareBanner').style.display = '';
+  document.getElementById('kaEmpty').style.display = 'none';
+  document.getElementById('kaErrPanel').style.display = 'none';
+  document.querySelector('#kaTab .chart-card .chart-title span:first-child').textContent = '📈 Price History — Swing Zones Overlaid';
+
+  // Update button styles
+  document.querySelectorAll('.ka-ticker-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+
+  // Show loading state in the stock header area
+  document.getElementById('kaStockHeader').innerHTML=`<div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--dim)">Loading ${t.sym}…</div>`;
+  document.getElementById('kaScoreBanner').innerHTML='';
+  document.getElementById('kaInsightBox').innerHTML='';
+  document.getElementById('kaZoneLine').innerHTML='';
+  document.getElementById('kaZoneLabelRow').innerHTML='';
+
+  try {
+    const r = await fetchYahoo(t.sym,'3mo','1d');
+
+    // Use EXACT zones from scanner (user's alert values)
+    const manualZones = {
+      supLow: t.supLow,
+      supHigh: t.supHigh,
+      breakdown: t.brk,
+      resistances: t.res
+    };
+
+    const a = await buildFromYahoo(t.sym, r, manualZones);
+
+    // Compare banner — alert values vs live
+    const pct=v=>((v-a.price)/a.price*100).toFixed(1)+'%';
+    const inSupport = a.price>=t.supLow&&a.price<=t.supHigh;
+    const belowBreak = a.price<t.brk;
+    const nearRes = t.res.find(rr=>Math.abs(a.price-rr)/rr<=RES_TOL);
+
+    document.getElementById('kaCompareGrid').innerHTML=`
+      <div class="cmp-item"><div class="cmp-lbl">Live Price</div><div class="cmp-val ${inSupport?'alert-match':belowBreak?'alert-diff':''}">\$${a.price.toFixed(2)}</div></div>
+      <div class="cmp-item"><div class="cmp-lbl">Support Zone</div><div class="cmp-val ${inSupport?'alert-match':''}">\$${t.supLow}–\$${t.supHigh}</div></div>
+      <div class="cmp-item"><div class="cmp-lbl">Breakdown</div><div class="cmp-val ${belowBreak?'alert-diff':''}">\$${t.brk} ${belowBreak?'⚠ BROKEN':''}</div></div>
+      <div class="cmp-item"><div class="cmp-lbl">Status</div><div class="cmp-val ${inSupport?'alert-match':belowBreak?'alert-diff':nearRes?'alert-diff':''}">${inSupport?'✅ IN ZONE':belowBreak?'🔴 BREAKDOWN':nearRes?'⚠ NEAR R$'+nearRes:'— Watching'}</div></div>
+      <div class="cmp-item"><div class="cmp-lbl">R1 Target</div><div class="cmp-val t1">\$${t.res[0]||'—'} (${t.res[0]?pct(t.res[0]):'—'})</div></div>
+      <div class="cmp-item"><div class="cmp-lbl">R2 Target</div><div class="cmp-val t1">\$${t.res[1]||'—'} (${t.res[1]?pct(t.res[1]):'—'})</div></div>
+      <div class="cmp-item"><div class="cmp-lbl">R3 Target</div><div class="cmp-val t1">\$${t.res[2]||'—'} (${t.res[2]?pct(t.res[2]):'—'})</div></div>
+      <div class="cmp-item"><div class="cmp-lbl">R4–R5</div><div class="cmp-val">\$${t.res[3]||'—'} / \$${t.res[4]||'—'}</div></div>`;
+
+    // Stock header
+    const ud=a.change>=0?'up':'dn', sym=a.change>=0?'▲':'▼';
+    document.getElementById('kaStockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Alert + Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live price · Alert zones: $${t.supLow}–$${t.supHigh} support · Break $${t.brk}</div></div>`;
+
+    renderScoreBanner(document.getElementById('kaScoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV);
+    document.getElementById('kaInsightBox').innerHTML=`<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
+    document.getElementById('kaChartBadge').textContent=a.priceHistory.length+' DAYS LIVE';
+    drawPriceChart('kaChart',a);
+
+    // AXTI-style zone strip with EXACT alert values
+    renderZoneStrip(
+      document.getElementById('kaZoneLine'),
+      document.getElementById('kaZoneLabelRow'),
+      document.getElementById('kaZoneBadge'),
+      {price:a.price, supLow:t.supLow, supHigh:t.supHigh, breakdown:t.brk, resistances:t.res, ticker:t.sym}
+    );
+
+    // Store zone data for Telegram send
+    _lastZoneData = {
+      ticker:t.sym, price:a.price, supLow:t.supLow, supHigh:t.supHigh,
+      breakdown:t.brk, resistances:t.res,
+      shortScore:a.shortScore, longScore:a.longScore, overall:a.overall,
+      stV:a.stV, ovV:a.ovV,
+      sma20:a.sma20v, rsi14:a.rsi14,
+      volRatio:a.lastVol&&a.avgVol?(a.lastVol/a.avgVol):null
+    };
+    // Reset send button state
+    const sb=document.getElementById('sendZoneMapBtn');
+    if(sb){sb.textContent='📤 Send to Telegram';sb.style.opacity='1';sb.style.pointerEvents='auto';sb.style.display='';}
+    const fb=document.getElementById('alertFmtBtn');
+    if(fb){fb.style.display='';_syncAlertFmtBtn();}
+    const ss=document.getElementById('tgSendStatus');
+    if(ss)ss.style.display='none';
+
+    // Stats — show alert zones as first items
+    document.getElementById('kaStatGrid').innerHTML=`
+      <div class="stat-item"><div class="sl">Alert Support</div><div class="sv pos">\$${t.supLow}–\$${t.supHigh}</div></div>
+      <div class="stat-item"><div class="sl">Alert Breakdown</div><div class="sv ${belowBreak?'neg':'warn'}">\$${t.brk}</div></div>
+      ${a.stats.slice(0,6).map(s=>`<div class="stat-item"><div class="sl">${s.label}</div><div class="sv ${s.type||''}">${s.value}</div></div>`).join('')}`;
+
+    renderFactors(document.getElementById('kaFactorBars'),a.factors);
+    renderSTCard(document.getElementById('kaStCard'),a.shortScore,a.sBull,a.sBear);
+    renderLTCard(document.getElementById('kaLtCard'),a.longScore,a.lBull,a.lBear);
+    renderTargets(document.getElementById('kaTargetsCard'),a.price,a.stStop,a.stT1,a.stT2,a.stT3,t.res,t.brk);
+    renderStrategy(document.getElementById('kaStratCard'),a.price,t.supLow,t.supHigh,t.brk,t.res,a.stStop,a.stT1,a.stT2,a.stT3,a.atr);
+
+  } catch(err) {
+    document.getElementById('kaStockHeader').innerHTML=`<div style="color:var(--red);font-size:14px;">⚠ Error loading ${t.sym}: ${err.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// ZONE SCANNER (TAB 2)
+// ══════════════════════════════════════════════════════
+function saveSc(){localStorage.setItem('kalki_sc',JSON.stringify(scTickers));}
+
+function addTicker(){
+  const sym=(document.getElementById('inTick').value||'').trim().toUpperCase();
+  const supRaw=document.getElementById('inSup').value.trim();
+  const brk=parseFloat(document.getElementById('inBrk').value);
+  const resRaw=document.getElementById('inRes').value.trim();
+  if(!sym)return alert('Enter a ticker');
+  const parts=supRaw.split('-').map(Number);
+  const supLow=parts[0],supHigh=parts[1]||parts[0];
+  if(!supLow||!supHigh)return alert('Enter support as e.g. 38-40');
+  if(isNaN(brk))return alert('Enter breakdown level');
+  const res=resRaw.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
+  scTickers.push({sym,supLow,supHigh,brk,res,price:null,status:'neutral'});
+  saveSc();renderSc();autoSync();
+  ['inTick','inSup','inBrk','inRes'].forEach(id=>document.getElementById(id).value='');
+}
+
+function removeTicker(i,e){e.stopPropagation();scTickers.splice(i,1);if(kaSelected>=scTickers.length)kaSelected=scTickers.length-1;saveSc();renderSc();autoSync();}
+function clearAll(){if(!confirm('Remove all?'))return;scTickers=[];kaSelected=null;saveSc();renderSc();autoSync();}
+
+function openKalkiFromCard(i) {
+  kaSelected = i;
+  switchTab('ka');
+}
+
+// ── KALKI ANALYSIS FREE SEARCH ────────────────────────
+function kaQuickPick(sym) {
+  document.getElementById('kaSearchInput').value = sym;
+  document.querySelectorAll('#kaTab .qp').forEach(el => el.classList.toggle('active', el.textContent === sym));
+  runKalkiSearch();
+}
+
+async function runKalkiSearch() {
+  const sym = (document.getElementById('kaSearchInput').value || '').trim().toUpperCase();
+  if (!sym) return;
+
+  // Hide empty state, show loading
+  document.getElementById('kaEmpty').style.display    = 'none';
+  document.getElementById('kaContent').style.display  = 'none';
+  document.getElementById('kaErrPanel').style.display  = 'none';
+  document.getElementById('kaLoadingPanel').style.display = 'flex';
+  document.getElementById('kaLoadingMsg').textContent  = `Fetching ${sym}…`;
+  document.getElementById('kaSearchBtn').disabled      = true;
+
+  // Hide the watchlist selector row + compare banner (search mode = auto zones)
+  document.getElementById('kaSelectRow').innerHTML     = '';
+  document.getElementById('kaCompareBanner').style.display = 'none';
+
+  try {
+    const r = await fetchYahoo(sym, '3mo', '1d');
+    const a = await buildFromYahoo(sym, r, null); // null = auto-calc zones
+
+    // Show content
+    document.getElementById('kaLoadingPanel').style.display = 'none';
+    document.getElementById('kaContent').style.display      = 'block';
+
+    // Stock header
+    const ud  = a.change >= 0 ? 'up' : 'dn';
+    const arr = a.change >= 0 ? '▲'  : '▼';
+    document.getElementById('kaStockHeader').innerHTML =
+      `<div><div class="ticker-name">${a.ticker}<span class="kalki-badge" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">Auto Swing V2</span></div>` +
+      `<div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div></div>` +
+      `<div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div>` +
+      `<div class="price-change ${ud}">${arr} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div>` +
+      `<div class="as-of">Auto-calculated zones · Support $${a.supLow?.toFixed(2)}–$${a.supHigh?.toFixed(2)} · Break $${a.breakdown?.toFixed(2)}</div></div>`;
+
+    renderScoreBanner(document.getElementById('kaScoreBanner'), a.shortScore, a.longScore, a.overall, a.stV, a.ltV, a.ovV);
+    document.getElementById('kaInsightBox').innerHTML = `<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
+    document.getElementById('kaChartBadge').textContent = a.priceHistory.length + ' DAYS LIVE';
+
+    drawPriceChart('kaChart', a);
+
+    renderZoneStrip(
+      document.getElementById('kaZoneLine'),
+      document.getElementById('kaZoneLabelRow'),
+      document.getElementById('kaZoneBadge'),
+      { price: a.price, supLow: a.supLow, supHigh: a.supHigh, breakdown: a.breakdown, resistances: a.resistances, ticker: a.ticker }
+    );
+
+    // Stats grid
+    document.getElementById('kaStatGrid').innerHTML = a.stats.map(s =>
+      `<div class="stat-item"><div class="sl">${s.label}</div><div class="sv ${s.type||''}">${s.value}</div></div>`
+    ).join('');
+
+    renderFactors(document.getElementById('kaFactorBars'), a.factors);
+    renderSTCard(document.getElementById('kaStCard'),  a.shortScore, a.sBull, a.sBear);
+    renderLTCard(document.getElementById('kaLtCard'),  a.longScore,  a.lBull, a.lBear);
+    renderTargets(document.getElementById('kaTargetsCard'), a.price, a.stStop, a.stT1, a.stT2, a.stT3, a.resistances, a.breakdown);
+    renderStrategy(document.getElementById('kaStratCard'),  a.price, a.supLow, a.supHigh, a.breakdown, a.resistances, a.stStop, a.stT1, a.stT2, a.stT3, a.atr);
+
+    // Hide zone map telegram button (no alert zones)
+    document.getElementById('sendZoneMapBtn').style.display = 'none';
+    const fb2=document.getElementById('alertFmtBtn');
+    if(fb2) fb2.style.display='none';
+
+  } catch(e) {
+    document.getElementById('kaLoadingPanel').style.display = 'none';
+    document.getElementById('kaErrPanel').style.display     = 'block';
+    document.getElementById('kaErrPanel').textContent       = `❌ Could not fetch ${sym}: ${e.message}`;
+  } finally {
+    document.getElementById('kaSearchBtn').disabled = false;
+  }
+}
+
+// restore zone map button when switching to watchlist ticker
+const _origRefreshKaTab = refreshKaTab;
+
+function renderSc(){
+  const el=document.getElementById('tcList');
+  if(!scTickers.length){el.innerHTML='<div class="empty-s">Add a ticker above ↑ · Click any card to open Kalki Analysis</div>';return;}
+  el.innerHTML=scTickers.map((t,i)=>{
+    const pd=t.price!=null?'$'+t.price.toFixed(2):'—';
+    const sc=t.status==='entry'?'ae':t.status==='stoploss'?'ab':t.status==='tp1'?'ar':t.status==='resistance'?'ar':'';
+    const sl=t.status==='entry'?'✅ IN SUPPORT':t.status==='stoploss'?'🚨 STOP LOSS HIT':t.status==='tp1'?'🎯 TP1 HIT':t.status==='resistance'?'⚠ AT RESIST':'— Watching';
+    const ss=t.status==='entry'?'iz':t.status==='stoploss'?'bd':t.status==='tp1'?'ar2':t.status==='resistance'?'ar2':'nt';
+    return `<div class="tc-card ${sc}" onclick="openKalkiFromCard(${i})" title="Click to open Kalki Analysis">
+      <div class="tc-sym">${t.sym}</div>
+      <div class="tc-zones">
+        <div class="zrow"><span class="zlbl">Support:</span><span>${t.supLow}–${t.supHigh}</span></div>
+        <div class="zrow"><span class="zlbl">Breakdown:</span><span>&lt; ${t.brk}</span></div>
+        <div class="zrow"><span class="zlbl">Resistance:</span><span>${t.res.join(', ')||'—'}</span></div>
+      </div>
+      <div class="tc-price"><div class="tc-p">${pd}</div><div class="tc-s ${ss}">${sl}</div></div>
+      <div><button class="btn btn-d btn-sm" onclick="removeTicker(${i},event)">✕</button></div>
+    </div>`;
+  }).join('');
+}
+
+async function fetchScanPrice(sym){
+  try{const r=await fetchYahoo(sym,'1d','1m');const cls=r.indicators?.quote?.[0]?.close?.filter(c=>c!=null);if(cls?.length)return cls[cls.length-1];return r.meta?.regularMarketPrice||null;}
+  catch(e){sLog('Fetch error '+sym+': '+e.message,'inf');return null;}
+}
+function evalStatus(t){
+  if(t.price==null)return 'neutral';
+  const p=t.price;
+  if(p<=t.brk)return 'stoploss';
+  if(p>=t.supLow&&p<=t.supHigh)return 'entry';
+  if(t.res.length>0&&Math.abs(p-t.res[0])/t.res[0]<=RES_TOL)return 'tp1';
+  for(let i=1;i<t.res.length;i++)if(Math.abs(p-t.res[i])/t.res[i]<=RES_TOL)return 'resistance';
+  return 'neutral';
+}
+async function sendTG(msg){
+  const tok=document.getElementById('botToken').value.trim(),cid=document.getElementById('chatId').value.trim();
+  if(!tok||!cid)return;
+  try{await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})});}
+  catch(e){sLog('TG failed','inf');}
+}
+async function runScan(){
+  if(!scTickers.length)return sLog('No tickers','inf');
+  document.getElementById('scanBtn').disabled=true;setStat('SCANNING',true);
+  for(let i=0;i<scTickers.length;i++){
+    const t=scTickers[i];
+    scTickers[i].price=await fetchScanPrice(t.sym);
+    const ns=evalStatus(scTickers[i]);
+    scTickers[i].status=ns;
+
+    if(ns==='neutral'){
+      delete alertSt[t.sym];
+      continue;
+    }
+
+    const prev=alertSt[t.sym];
+    const isNew=!prev;
+    const isUpdate=prev&&prev.status!==ns&&(ns==='stoploss'||ns==='tp1'||ns==='resistance');
+
+    if(!isNew&&!isUpdate) continue;
+
+    alertSt[t.sym]={status:ns};
+    const tag=isNew?'〔NEW ALERT〕':'〔UPDATE〕';
+    const p=scTickers[i].price?.toFixed(2);
+    const supMid=(t.supLow+t.supHigh)/2;
+    const pctSup=r=>((r-supMid)/supMid*100);
+    const fmt=r=>(pctSup(r)>=0?'+':'')+pctSup(r).toFixed(1)+'%';
+    const header='⚡ *'+t.sym+'*  '+tag+'\n*────────────*\n';
+
+    if(ns==='entry'){
+      if(isNew){
+        pfAutoLog(t.sym, scTickers[i].price, 'B', '✅ IN SUPPORT', t.res, t.brk, t.supLow, t.supHigh);
+      }
+      const tpLines=t.res.map((r,idx)=>{
+        const isNext=idx===0;
+        return '🎯 `'+('TP'+(idx+1)).padEnd(10)+'` *$'+r+'*  '+(isNext?'*'+fmt(r)+'* ◄ NEXT':fmt(r));
+      }).join('\n');
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   ✅ IN SUPPORT\n\n'+
+        '*── Levels ──────────────*\n'+
+        '🛑 `'+('Stop Loss').padEnd(10)+'` *$'+t.brk+'*  '+fmt(t.brk)+'\n'+
+        '🟠 `'+('Support').padEnd(10)+'` *$'+t.supLow+'–'+t.supHigh+'*  _entry zone_\n'+
+        tpLines+'\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — ✅ IN SUPPORT [${tag}]`,'ea');
+    }
+    else if(ns==='stoploss'){
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   🔴 STOP LOSS HIT\n\n'+
+        '⛔ Price broke below *$'+t.brk+'*\n'+
+        'Setup invalidated — exit position\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — 🚨 STOP LOSS [${tag}]`,'ba');
+    }
+    else if(ns==='tp1'){
+      const tp1=t.res[0];
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   🎯 TP1 HIT\n\n'+
+        '🎯 `'+('TP1').padEnd(10)+'` *$'+tp1+'*  *'+fmt(tp1)+'* ◄ NEXT\n'+
+        '💡 Consider partial profits\n'+
+        (t.res[1]?'📈 Next: TP2 *$'+t.res[1]+'*  '+fmt(t.res[1]):'')+'\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — 🎯 TP1 HIT [${tag}]`,'ra');
+    }
+    else if(ns==='resistance'){
+      const nr=t.res.find(r=>Math.abs(scTickers[i].price-r)/r<=RES_TOL);
+      const tpIdx=t.res.indexOf(nr);
+      await sendTG(
+        header+'\n'+
+        '💰 *$'+p+'*   ⚠️ NEAR TP'+(tpIdx+1)+'\n\n'+
+        '🎯 `'+('TP'+(tpIdx+1)).padEnd(10)+'` *$'+nr+'*  *'+fmt(nr)+'* ◄ NEXT\n\n'+
+        '*────────────*\n'+
+        '⚡ _Kalki Analysis Platform_'
+      );
+      sLog(`${t.sym} @ $${p} — ⚠️ NEAR TP${tpIdx+1} [${tag}]`,'ra');
+    }
+  }
+  saveSc();renderSc();setStat(isAuto?'AUTO':'IDLE',isAuto);
+  document.getElementById('scanBtn').disabled=false;
+  sLog(`Scan done — ${scTickers.length} ticker(s)`,'inf');
+}
+function bestUniverseList(){
+  const raw=(document.getElementById('bestUniverse')?.value||'').toUpperCase();
+  const seen=new Set();
+  return raw.split(',').map(s=>s.trim()).filter(Boolean).filter(sym=>{
+    if(seen.has(sym)) return false;
+    seen.add(sym);
+    return true;
+  }).slice(0,120);
+}
+function loadNDX100Universe(){
+  const val = NDX100.join(', ');
+  const el = document.getElementById('bestUniverse');
+  if(el) el.value = val;
+  localStorage.setItem('kalki_best_universe', val);
+  sLog('Best-setup universe loaded with NDX 100','inf');
+}
+function setBestScanStatus(txt, active=false){
+  const box=document.getElementById('bestScanStatus');
+  const dot=document.getElementById('bestScanDot');
+  const lbl=document.getElementById('bestScanTxt');
+  if(lbl) lbl.textContent=txt;
+  if(box) box.className='spill'+(active?' active':'');
+  if(dot) dot.className='dot'+(active?' on':'');
+}
+function renderBestSetupResults(rows, scanned){
+  const el=document.getElementById('bestScanResults');
+  const list=document.getElementById('bestScanList');
+  if(!el||!list) return;
+  if(!rows.length){
+    el.innerHTML=`Scanned ${scanned} symbols. No setups met the swing threshold right now.`;
+    list.innerHTML='';
+    return;
+  }
+  el.innerHTML=`Scanned ${scanned} symbols. Showing top ${rows.length} swing setups.`;
+  list.innerHTML = rows.map((r,i)=>{
+    const added = scTickers.some(t=>t.sym===r.ticker);
+    return `<div class="best-card">
+      <div class="best-rank">#${i+1}</div>
+      <div class="best-sym">
+        <strong>${r.ticker}</strong>
+        <div class="best-grade">Grade ${r.grade}</div>
+      </div>
+      <div class="best-meta">
+        <div class="best-stat"><div class="lbl">Setup</div><div class="val">${r.overall}%</div></div>
+        <div class="best-stat"><div class="lbl">Swing</div><div class="val">${r.shortScore}%</div></div>
+        <div class="best-stat"><div class="lbl">Timing</div><div class="val">${r.longScore}%</div></div>
+        <div class="best-stat"><div class="lbl">Price</div><div class="val">$${r.price.toFixed(2)}</div></div>
+      </div>
+      <div class="best-cta">
+        <button class="btn ${added?'btn-d':'btn-p'} btn-sm" ${added?'disabled':''} onclick="addBestSetupToWatchlist('${r.ticker}')">${added?'Added':'Add'}</button>
+        <div class="hint">Entry $${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function buildBestSetupTelegramMessage(rows, scanned){
+  const datePart = new Date().toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
+  const lines = rows.map((r,i)=>{
+    const entry=`$${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}`;
+    const trigger=r.timingSignals.filter(s=>s.ok).map(s=>s.label.replace(' + VWAP','')).join(', ') || 'wait for trigger';
+    return [
+      `${i+1}. *${r.ticker}*  ·  Grade *${r.grade}*`,
+      `Setup *${r.overall}%*  ·  Swing ${r.shortScore}%  ·  Timing ${r.longScore}%`,
+      `Price $${r.price.toFixed(2)}  ·  Entry ${entry}`,
+      `Trigger: ${trigger}`
+    ].join('\n');
+  }).join('\n\n');
+  return [
+    `⚡ *Kalki Best Setups*`,
+    `Scanned ${scanned} symbols · ${datePart}`,
+    '',
+    lines,
+    '',
+    `Use Kalki for ranking and wait for the trigger filter before entry.`,
+    `⚡ _Kalki Swing V2_`
+  ].join('\n');
+}
+function addBestSetupToWatchlist(sym){
+  const hit = bestScanLatest.find(r=>r.ticker===sym);
+  if(!hit) return;
+  if(scTickers.some(t=>t.sym===sym)){
+    renderBestSetupResults(bestScanLatest, bestUniverseList().length);
+    return;
+  }
+  scTickers.push({
+    sym,
+    supLow:+hit.supLow.toFixed(2),
+    supHigh:+hit.supHigh.toFixed(2),
+    brk:+hit.breakdown.toFixed(2),
+    res:hit.resistances.slice(0,5).map(v=>+v.toFixed(2)),
+    price:hit.price,
+    status:'neutral'
+  });
+  saveSc();
+  renderSc();
+  autoSync();
+  renderBestSetupResults(bestScanLatest, bestUniverseList().length);
+  sLog(`${sym} added to watchlist from best setups`,'ea');
+}
+async function runBestSetupScan(){
+  const universe=bestUniverseList();
+  if(!universe.length) return alert('Enter at least one ticker in Best Setup Scanner');
+  const btn=document.getElementById('bestScanBtn');
+  if(btn) btn.disabled=true;
+  setBestScanStatus('SCANNING', true);
+  renderBestSetupResults([], universe.length);
+  sLog(`Best-setup scan started — ${universe.length} symbol(s)`,'inf');
+  const winners=[];
+  const batchSize = 5;
+  for(let i=0;i<universe.length;i+=batchSize){
+    const batch = universe.slice(i, i + batchSize);
+    setBestScanStatus(`SCANNING ${Math.min(i + batch.length, universe.length)}/${universe.length}`, true);
+    const results = await Promise.allSettled(batch.map(async sym => {
+      const r=await fetchYahoo(sym,'3mo','1d');
+      return buildFromYahoo(sym,r,null);
+    }));
+    results.forEach((res, idx) => {
+      const sym = batch[idx];
+      if(res.status !== 'fulfilled'){
+        sLog(`Best-scan skipped ${sym}: ${res.reason?.message||'Error'}`,'inf');
+        return;
+      }
+      const a = res.value;
+      const passTrend=a.price>a.sma20v && a.price>(a.sma50v||0);
+      const passRsi=a.rsi14>=50 && a.rsi14<=68;
+      const passScore=a.overall>=70;
+      if(passTrend && passRsi && passScore) winners.push(a);
+    });
+  }
+  winners.sort((a,b)=>b.overall-a.overall || b.shortScore-a.shortScore || b.longScore-a.longScore);
+  const top=winners.slice(0,10);
+  bestScanLatest = top;
+  renderBestSetupResults(top, universe.length);
+  if(top.length){
+    await sendTG(buildBestSetupTelegramMessage(top, universe.length));
+    sLog(`Best-setup scan found ${top.length} candidate(s)`,'ea');
+  }else{
+    sLog('Best-setup scan found no qualifying candidates','inf');
+  }
+  setBestScanStatus(top.length?`TOP ${top.length}`:'NO SETUPS', false);
+  if(btn) btn.disabled=false;
+}
+function toggleAlertFormat() {
+  _alertFormat = _alertFormat === 'compact' ? 'detailed' : 'compact';
+  localStorage.setItem('kalki_alert_fmt', _alertFormat);
+  const btn = document.getElementById('alertFmtBtn');
+  if (btn) btn.textContent = _alertFormat === 'compact' ? '📋 Compact' : '📄 Detailed';
+}
+
+function _syncAlertFmtBtn() {
+  const btn = document.getElementById('alertFmtBtn');
+  if (btn) btn.textContent = _alertFormat === 'compact' ? '📋 Compact' : '📄 Detailed';
+}
+function toggleAuto(){
+  isAuto=!isAuto;const b=document.getElementById('autoBtn');
+  if(isAuto){b.textContent='Auto: ON';b.classList.add('on');runScan();autoIv=setInterval(runScan,SCAN_IV);setStat('AUTO',true);}
+  else{b.textContent='Auto: OFF';b.classList.remove('on');clearInterval(autoIv);setStat('IDLE',false);}
+}
+function setStat(txt,active){
+  document.getElementById('spillTxt').textContent=txt;
+  document.getElementById('spill').className='spill'+(active?' active':'');
+  document.getElementById('spillDot').className='dot'+(active?' on':'');
+  document.getElementById('navDot').className='dot'+(active?' on':'');
+  document.getElementById('navStatus').textContent='SCANNER '+(active?txt:'IDLE');
+}
+function sLog(msg,cls='inf'){
+  const b=document.getElementById('logBody');b.querySelectorAll('.empty-s').forEach(e=>e.remove());
+  const now=new Date().toLocaleTimeString('en-US',{hour12:false});
+  const d=document.createElement('div');d.className='log-row '+cls;
+  d.innerHTML=`<span class="ts">${now}</span><span>${msg}</span>`;b.prepend(d);
+}
+function clearLog(){document.getElementById('logBody').innerHTML='<div class="empty-s">No alerts yet</div>';}
+
+// ══════════════════════════════════════════════════════
+// SEND ZONE MAP TO TELEGRAM
+// ══════════════════════════════════════════════════════
+
+// Stores the last rendered zone data for Telegram sending
+let _lastZoneData = null;
+
+// Alert format toggle — 'compact' (new) or 'detailed' (old)
+let _alertFormat = localStorage.getItem('kalki_alert_fmt') || 'compact';
+
+function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio) {
+  return _alertFormat === 'compact'
+    ? buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio)
+    : buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio);
+}
+
+// ── NEW COMPACT FORMAT ────────────────────────────────
+function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio) {
+  const inZone = price >= supLow && price <= supHigh;
+  const entryRef = (supLow + supHigh) / 2;
+
+  // Grade
+  let grade;
+  if      (overall >= 70 && inZone) grade = 'A+';
+  else if (overall >= 70)           grade = 'A+';
+  else if (overall >= 65)           grade = 'A';
+  else if (overall >= 60 && inZone) grade = 'A';
+  else if (overall >= 60)           grade = 'B';
+  else if (overall >= 50)           grade = 'B';
+  else                              grade = 'C';
+
+  // Score /8
+  const scoreOf8 = Math.min(8, Math.round((overall / 100) * 8));
+
+  // % from entry reference price (support zone midpoint)
+  const pctFromEntry = v => {
+    const p = ((v - entryRef) / entryRef * 100);
+    return (p >= 0 ? '+' : '') + p.toFixed(1) + '%';
+  };
+
+  // Entry always shows support zone
+  const entry = `$${supLow === supHigh ? supLow.toFixed(2) : supLow + '–' + supHigh}`;
+
+  // Timestamp — date · time TZ
+  const now = new Date();
+  const datePart = now.toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
+  const timePart = now.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', timeZoneName:'short'});
+
+  // Lines
+  const tpLines = resistances.slice(0, 5).map((r, i) =>
+    `🎯 T${i+1}: $${r} (${pctFromEntry(r)})`
+  ).join('\n');
+
+  return [
+    `⚡ *${ticker}*`,
+    `📊 Grade: *${grade}* | Score: *${scoreOf8}/8*`,
+    ``,
+    `💰 Price: $${price.toFixed(2)}`,
+    `📈 Entry: *$${supLow}–$${supHigh}*`,
+    `🛑 Stop: $${breakdown} (${pctFromEntry(breakdown)})`,
+    tpLines,
+    ``,
+    `⏰ ${datePart} · ${timePart}`,
+    ``,
+    `⚡ _Kalki Analysis Platform_`
+  ].join('\n');
+}
+
+// ── OLD DETAILED FORMAT ───────────────────────────────
+function buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio) {
+  const inZone   = price >= supLow && price <= supHigh;
+  const belowBrk = price < breakdown;
+  const pct = l => (((l-price)/price)*100);
+  const nextR    = resistances.find(r => r > price);
+  const nextRIdx = nextR ? resistances.indexOf(nextR) : -1;
+
+  let statusEmoji, statusText;
+  if      (belowBrk)                                    { statusEmoji='🔴'; statusText='BREAKDOWN'; }
+  else if (inZone)                                      { statusEmoji='✅'; statusText='IN SUPPORT'; }
+  else if (nextR && Math.abs(pct(nextR)) <= 1.5)       { statusEmoji='⚠️'; statusText='NEAR TP'+(nextRIdx+1); }
+  else if (nextR && pct(nextR) > 0 && pct(nextR) <= 5) { statusEmoji='📈'; statusText='WATCHING TP'+(nextRIdx+1); }
+  else                                                  { statusEmoji='⏸'; statusText='NEUTRAL'; }
+
+  const scoreVerdict = stV.split(' — ')[0];
+  const rsiLine  = rsi14    ? 'RSI '+(+rsi14).toFixed(0) : '';
+  const smaLine  = sma20    ? 'SMA $'+(+sma20).toFixed(0) : '';
+  const volLine  = volRatio ? 'Vol '+(+volRatio).toFixed(1)+'×' : '';
+  const techLine = [rsiLine, smaLine, volLine].filter(Boolean).join('  ·  ');
+
+  let gradeLine, warningLine='';
+  if      (overall >= 70 && inZone) { gradeLine='🥇🥇🥇 *A+*  ·  Strong buy setup'; }
+  else if (overall >= 70)           { gradeLine='🥇🥇🥇 *A+*  ·  High conviction'; }
+  else if (overall >= 65)           { gradeLine='🥇🥇 *A*  ·  Bullish momentum'; }
+  else if (overall >= 60 && inZone) { gradeLine='🥇🥇 *A*  ·  Buy at support'; }
+  else if (overall >= 60)           { gradeLine='🥇 *B*  ·  Moderate setup'; }
+  else if (overall >= 50)           { gradeLine='🥇 *B*  ·  Mixed signals'; }
+  else                              { gradeLine='🚫 *C*  ·  Weak momentum'; warningLine='⚠️ _Low conviction — trade with caution_'; }
+
+  const supMid = (supLow + supHigh) / 2;
+  const pctSup = l => (((l - supMid) / supMid) * 100);
+  const fmtRow = (emoji, label, val, pctVal, tag) => {
+    const p = (pctVal>=0?'+':'')+pctVal.toFixed(1)+'%';
+    return emoji+' `'+label.padEnd(10)+'` *$'+val+'*  '+(tag ? '*'+p+'* ◄ NEXT' : p);
+  };
+  const levelRows = [];
+  levelRows.push(fmtRow('🛑','Stop Loss', breakdown.toFixed(2), pctSup(breakdown), false));
+  levelRows.push('🟠 `'+('Support').padEnd(10)+'` *$'+supLow+'–'+supHigh+'*  _entry zone_');
+  resistances.forEach((r,i) => {
+    levelRows.push(fmtRow('🎯','TP'+(i+1), r.toFixed(2), pctSup(r), r===nextR));
+  });
+
+  return [
+    '⚡ *'+ticker+'*',
+    '*────────────*',
+    '',
+    '💰 *$'+price.toFixed(2)+'*   '+statusEmoji+' '+statusText,
+    gradeLine,
+    warningLine||null,
+    '',
+    '*── Levels ──────────────*',
+    ...levelRows,
+    '',
+    '*── Score ─────────*',
+    '📊 Swing *'+shortScore+'%*  ·  Timing *'+longScore+'%*  ·  Setup *'+overall+'%*',
+    '📝 *'+scoreVerdict+'*'+(techLine?'  ·  '+techLine:''),
+    '',
+    '*────────────*',
+    '⚡ _Kalki Swing V2_'
+  ].filter(l => l !== null).join('\n');
+}
+
+async function sendZoneMapToTelegram() {
+  const btn = document.getElementById('sendZoneMapBtn');
+  const status = document.getElementById('tgSendStatus');
+  const tok = document.getElementById('botToken').value.trim();
+  const cid = document.getElementById('chatId').value.trim();
+
+  if (!tok || !cid) {
+    status.style.display='block';
+    status.style.background='rgba(239,68,68,0.1)';
+    status.style.color='#ef4444';
+    status.textContent='⚠ Set Bot Token and Chat ID in Zone Scanner tab first';
+    return;
+  }
+  if (!_lastZoneData) {
+    status.style.display='block';
+    status.style.color='#ef4444';
+    status.textContent='⚠ No ticker loaded yet. Select a ticker first.';
+    return;
+  }
+
+  btn.textContent='📤 Sending…';
+  btn.style.opacity='0.6';
+  btn.style.pointerEvents='none';
+
+  const d = _lastZoneData;
+  const msg = buildZoneMapMessage(
+    d.ticker, d.price, d.supLow, d.supHigh, d.breakdown, d.resistances,
+    d.shortScore, d.longScore, d.overall, d.stV, d.ovV,
+    d.sma20, d.rsi14, d.volRatio
+  );
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: cid, text: msg, parse_mode: 'Markdown' })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      status.style.display='block';
+      status.style.background='rgba(16,185,129,0.1)';
+      status.style.color='#10b981';
+      status.textContent='✅ Zone map sent to Telegram!';
+      btn.textContent='✅ Sent!';
+      setTimeout(()=>{ btn.textContent='📤 Send to Telegram'; btn.style.opacity='1'; btn.style.pointerEvents='auto'; status.style.display='none'; }, 3000);
+    } else {
+      throw new Error(data.description || 'Telegram error');
+    }
+  } catch(e) {
+    status.style.display='block';
+    status.style.background='rgba(239,68,68,0.1)';
+    status.style.color='#ef4444';
+    status.textContent='❌ Failed: ' + e.message;
+    btn.textContent='📤 Send to Telegram';
+    btn.style.opacity='1';
+    btn.style.pointerEvents='auto';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PORTFOLIO TRACKER
+// ══════════════════════════════════════════════════════
+let pfPositions = JSON.parse(localStorage.getItem('kalki_pf')||'[]');
+let pfFilter = 'all';
+
+function pfSave(){ localStorage.setItem('kalki_pf', JSON.stringify(pfPositions)); }
+
+function pfAutoLog(sym, entryPrice, grade, status, resistances, breakdown, supLow, supHigh){
+  // Only auto-log if not already an open position for this sym
+  if(pfPositions.find(p=>p.sym===sym&&p.state==='open')) return;
+  pfPositions.unshift({
+    id: Date.now(),
+    sym, entryPrice, grade,
+    invest: 10000,
+    currentPrice: entryPrice,
+    status,
+    resistances: resistances||[],
+    breakdown, supLow, supHigh,
+    notes: 'Auto-logged · '+status,
+    state: 'open',
+    closedPrice: null,
+    addedAt: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+  });
+  pfSave();
+}
+
+function pfAdd(){
+  const sym=(document.getElementById('pfTick').value||'').trim().toUpperCase();
+  const entry=parseFloat(document.getElementById('pfEntry').value);
+  const entryDate=document.getElementById('pfEntryDate').value || new Date().toISOString().split('T')[0];
+  const invest=parseFloat(document.getElementById('pfAmt').value)||10000;
+  const grade=document.getElementById('pfGrade').value;
+  const notes=document.getElementById('pfNotes').value.trim();
+  if(!sym||isNaN(entry))return alert('Enter ticker and entry price');
+  const sc=scTickers.find(t=>t.sym===sym);
+  pfPositions.unshift({
+    id:Date.now(), sym, entryPrice:entry, entryDate, grade, invest,
+    currentPrice:entry, status:'Added manually',
+    resistances:sc?.res||[], breakdown:sc?.brk||null,
+    supLow:sc?.supLow||null, supHigh:sc?.supHigh||null,
+    notes, state:'open', closedPrice:null, closeDate:null,
+    addedAt:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+  });
+  pfSave();
+  ['pfTick','pfEntry','pfNotes','pfEntryDate'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pfAmt').value='10000';
+  pfRender(); autoSync();
+  switchTab('pf');
+}
+
+function pfEdit(id){
+  const pos=pfPositions.find(p=>p.id===id);
+  if(!pos)return;
+  const entry=prompt('Entry price:', pos.entryPrice?.toFixed(2)||'');
+  if(entry===null)return;
+  const entryDate=prompt('Entry date (YYYY-MM-DD):', pos.entryDate||'');
+  if(entryDate===null)return;
+  const invest=prompt('Amount invested ($):', pos.invest||10000);
+  if(invest===null)return;
+  const notes=prompt('Notes:', pos.notes||'');
+  if(notes===null)return;
+  if(entry) pos.entryPrice=parseFloat(entry)||pos.entryPrice;
+  if(entryDate) pos.entryDate=entryDate;
+  if(invest) pos.invest=parseFloat(invest)||pos.invest;
+  pos.notes=notes;
+  pfSave(); pfRender(); autoSync();
+}
+
+function pfClose(id){
+  const pos=pfPositions.find(p=>p.id===id);
+  if(!pos)return;
+  const input=prompt('Close '+pos.sym+' — Enter exit price:', pos.currentPrice.toFixed(2));
+  if(input===null)return;
+  const exitPrice=parseFloat(input);
+  if(isNaN(exitPrice)||exitPrice<=0)return alert('Invalid price entered');
+  const dateInput=prompt('Close date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if(dateInput===null)return;
+  pos.state='closed';
+  pos.closedPrice=exitPrice;
+  pos.currentPrice=exitPrice;
+  pos.closeDate=dateInput||new Date().toISOString().split('T')[0];
+  pos.status='🔒 Closed @ $'+exitPrice.toFixed(2);
+  pfSave(); pfRender(); autoSync();
+}
+
+function pfRemove(id){
+  if(!confirm('Remove this position?'))return;
+  pfPositions=pfPositions.filter(p=>p.id!==id);
+  pfSave(); pfRender(); autoSync();
+}
+
+function pfClearClosed(){
+  if(!confirm('Remove all closed positions?'))return;
+  pfPositions=pfPositions.filter(p=>p.state!=='closed');
+  pfSave(); pfRender(); autoSync();
+}
+
+function pfSetFilter(f){
+  pfFilter=f;
+  ['all','open','closed','win','loss'].forEach(k=>{
+    const b=document.getElementById('pfFilter'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(b){b.style.background=k===f?'var(--accent)':'transparent';b.style.color=k===f?'#000':'var(--dim)';b.style.borderColor=k===f?'var(--accent)':'var(--border)';}
+  });
+  pfRender();
+}
+
+async function pfRefreshAll(){
+  const opens=pfPositions.filter(p=>p.state==='open');
+  if(!opens.length)return sLog('No open positions to refresh','inf');
+  sLog('Refreshing portfolio prices…','inf');
+  for(const pos of opens){
+    try{
+      const r=await fetchYahoo(pos.sym,'1d','1m');
+      const cls=r.indicators?.quote?.[0]?.close?.filter(c=>c!=null);
+      if(cls?.length) pos.currentPrice=cls[cls.length-1];
+      // update TP status
+      if(pos.resistances?.length){
+        const tpsHit=pos.resistances.filter(r=>pos.currentPrice>=r);
+        pos.tpsHit=tpsHit.length;
+        const nextTP=pos.resistances.find(r=>pos.currentPrice<r);
+        pos.nextTP=nextTP||null;
+        if(pos.breakdown&&pos.currentPrice<=pos.breakdown) pos.status='🔴 STOP LOSS';
+        else if(pos.tpsHit===pos.resistances.length) pos.status='✅ ALL TPs HIT';
+        else if(pos.nextTP) pos.status='📈 Watching TP'+(pos.tpsHit+1);
+        else pos.status='⏸ Neutral';
+      }
+    }catch(e){ sLog('Refresh failed '+pos.sym,'inf'); }
+  }
+  pfSave(); pfRender();
+  sLog('Portfolio prices refreshed','inf');
+}
+
+function pfCalcPnl(pos){
+  const price=pos.state==='closed'?pos.closedPrice:pos.currentPrice;
+  const shares=pos.invest/pos.entryPrice;
+  const currentVal=shares*price;
+  const pnl=currentVal-pos.invest;
+  const pct=(pnl/pos.invest)*100;
+  return{shares,currentVal,pnl,pct};
+}
+
+function pfRender(){
+  const el=document.getElementById('pfList');
+  let filtered=pfPositions;
+  if(pfFilter==='open') filtered=pfPositions.filter(p=>p.state==='open');
+  else if(pfFilter==='closed') filtered=pfPositions.filter(p=>p.state==='closed');
+  else if(pfFilter==='win') filtered=pfPositions.filter(p=>pfCalcPnl(p).pnl>0);
+  else if(pfFilter==='loss') filtered=pfPositions.filter(p=>pfCalcPnl(p).pnl<0);
+
+  if(!filtered.length){el.innerHTML='<div class="empty-s">No positions match this filter</div>';pfUpdateSummary();return;}
+
+  el.innerHTML=filtered.map(pos=>{
+    const {shares,currentVal,pnl,pct}=pfCalcPnl(pos);
+    const isPos=pnl>=0;
+    const winCls=pos.state==='closed'?'closed':isPos?'win':'loss';
+    const gradeCls=pos.grade==='A+'?'ap':pos.grade==='A'?'a':pos.grade==='B'?'b':'c';
+
+    // TP pills
+    const tpPills=(pos.resistances||[]).map((r,i)=>{
+      const hit=pos.currentPrice>=r;
+      const isNext=!hit&&(i===0||(pos.resistances[i-1]&&pos.currentPrice>=pos.resistances[i-1]));
+      return `<span class="pf-tp ${hit?'hit':isNext?'next':''}">${hit?'✓ ':''}TP${i+1} $${r}</span>`;
+    }).join('');
+
+    const priceDisplay=pos.state==='closed'
+      ?`<span style="color:var(--dim);font-size:11px;">Closed @ $${pos.closedPrice?.toFixed(2)}</span>`
+      :`$${pos.currentPrice.toFixed(2)}`;
+
+    return `<div class="pf-card ${winCls}">
+      <div>
+        <div class="pf-sym">${pos.sym}</div>
+        <div class="pf-grade ${gradeCls}">${pos.grade}</div>
+      </div>
+      <div class="pf-meta">
+        <div class="pf-row">
+          <div><div class="pf-lbl">Entry</div><div class="pf-val">$${pos.entryPrice.toFixed(2)}</div></div>
+          <div><div class="pf-lbl">Entry Date</div><div class="pf-val" style="font-size:12px">${pos.entryDate||'—'}</div></div>
+          <div><div class="pf-lbl">Current</div><div class="pf-val">${priceDisplay}</div></div>
+          <div><div class="pf-lbl">Invested</div><div class="pf-val">$${pos.invest.toLocaleString()}</div></div>
+        </div>
+        ${pos.state==='closed'?`<div class="pf-row" style="margin-top:4px">
+          <div><div class="pf-lbl">Closed $</div><div class="pf-val" style="color:var(--green)">$${pos.closedPrice?.toFixed(2)||'—'}</div></div>
+          <div><div class="pf-lbl">Close Date</div><div class="pf-val" style="font-size:12px">${pos.closeDate||'—'}</div></div>
+          <div><div class="pf-lbl">Shares</div><div class="pf-val">${shares.toFixed(1)}</div></div>
+        </div>`:`<div class="pf-row" style="margin-top:4px">
+          <div><div class="pf-lbl">Shares</div><div class="pf-val">${shares.toFixed(1)}</div></div>
+        </div>`}
+        <div class="pf-status">${pos.status}${pos.notes?' · <span style="color:var(--dim)">'+pos.notes+'</span>':''} · <span style="color:var(--dim2)">${pos.addedAt}</span></div>
+        ${tpPills?`<div class="pf-tp-row">${tpPills}</div>`:''}
+        <div class="pf-actions">
+          <button class="btn btn-sm" onclick="pfEdit(${pos.id})" style="background:rgba(59,130,246,0.1);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);">✏ Edit</button>
+          ${pos.state!=='closed'?`<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="pfClose(${pos.id})">✓ Close Position</button>`:'<span style="font-size:10px;color:var(--dim);padding:5px 0;">CLOSED</span>'}
+          <button class="btn btn-d btn-sm" onclick="pfRemove(${pos.id})">✕</button>
+        </div>
+      </div>
+      <div class="pf-pnl">
+        <div class="pf-pnl-amt ${isPos?'pos':'neg'}">${isPos?'+':'-'}$${Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+        <div class="pf-pnl-pct ${isPos?'pos':'neg'}">${isPos?'+':''}${pct.toFixed(1)}%</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:4px;">$${currentVal.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  pfUpdateSummary();
+}
+
+function pfUpdateSummary(){
+  const open=pfPositions.filter(p=>p.state==='open');
+  const totalInvested=pfPositions.reduce((a,p)=>a+p.invest,0);
+  const totalCurrent=pfPositions.reduce((a,p)=>a+pfCalcPnl(p).currentVal,0);
+  const totalPnl=totalCurrent-totalInvested;
+  const totalPct=totalInvested?((totalPnl/totalInvested)*100):0;
+  const winners=pfPositions.filter(p=>pfCalcPnl(p).pnl>0).length;
+  const losers=pfPositions.filter(p=>pfCalcPnl(p).pnl<0).length;
+  document.getElementById('pfTotalInvested').textContent='$'+totalInvested.toLocaleString();
+  document.getElementById('pfCurrentVal').textContent='$'+Math.round(totalCurrent).toLocaleString();
+  const pnlEl=document.getElementById('pfTotalPnl');
+  pnlEl.textContent=(totalPnl>=0?'+':'-')+'$'+Math.abs(Math.round(totalPnl)).toLocaleString();
+  pnlEl.style.color=totalPnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('pfTotalPct').textContent=(totalPct>=0?'+':'')+totalPct.toFixed(1)+'%';
+  document.getElementById('pfCount').textContent=open.length;
+  document.getElementById('pfWinLoss').textContent=winners+'W / '+losers+'L';
+}
+
+// ══════════════════════════════════════════════════════
+// SUBSCRIBERS
+// ══════════════════════════════════════════════════════
+let sbSubs = JSON.parse(localStorage.getItem('kalki_sb')||'[]');
+let sbFilter = 'all';
+
+function sbSave(){ localStorage.setItem('kalki_sb', JSON.stringify(sbSubs)); }
+
+function sbStatus(sub){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const expiry = new Date(sub.expiryDate); expiry.setHours(0,0,0,0);
+  const diff = Math.round((expiry-today)/(1000*60*60*24));
+  if(diff < 0) return 'expired';
+  if(diff <= 7) return 'expiring';
+  return 'active';
+}
+
+function sbDaysLeft(sub){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const expiry = new Date(sub.expiryDate); expiry.setHours(0,0,0,0);
+  return Math.round((expiry-today)/(1000*60*60*24));
+}
+
+function sbAdd(){
+  const name   = document.getElementById('sbName').value.trim();
+  const handle = document.getElementById('sbHandle').value.trim();
+  const method = document.getElementById('sbMethod').value.trim();
+  const amount = parseFloat(document.getElementById('sbAmount').value)||0;
+  const paidDate = document.getElementById('sbPaidDate').value;
+  const notes  = document.getElementById('sbNotes').value.trim();
+  if(!name||!paidDate) return alert('Name and paid date are required');
+  // expiry = paid date + 30 days
+  const expiry = new Date(paidDate);
+  expiry.setDate(expiry.getDate()+30);
+  sbSubs.unshift({
+    id: Date.now(), name, handle, method, amount,
+    paidDate, expiryDate: expiry.toISOString().split('T')[0],
+    notes,
+    addedAt: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+  });
+  sbSave();
+  ['sbName','sbHandle','sbMethod','sbNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sbAmount').value='';
+  document.getElementById('sbPaidDate').value='';
+  sbRender(); autoSync();
+}
+
+function sbRenew(id){
+  const sub=sbSubs.find(s=>s.id===id);
+  if(!sub)return;
+  const newDate=prompt('Renewal paid date (YYYY-MM-DD):',new Date().toISOString().split('T')[0]);
+  if(!newDate)return;
+  const expiry=new Date(newDate);
+  expiry.setDate(expiry.getDate()+30);
+  sub.paidDate=newDate;
+  sub.expiryDate=expiry.toISOString().split('T')[0];
+  sbSave(); sbRender(); autoSync();
+}
+
+function sbRemove(id){
+  if(!confirm('Remove this subscriber?'))return;
+  sbSubs=sbSubs.filter(s=>s.id!==id);
+  sbSave(); sbRender(); autoSync();
+}
+
+function sbClearExpired(){
+  if(!confirm('Remove all expired subscribers?'))return;
+  sbSubs=sbSubs.filter(s=>sbStatus(s)!=='expired');
+  sbSave(); sbRender(); autoSync();
+}
+
+function sbSetFilter(f){
+  sbFilter=f;
+  ['all','active','expiring','expired'].forEach(k=>{
+    const id='sbFilter'+k.charAt(0).toUpperCase()+k.slice(1);
+    const b=document.getElementById(id);
+    if(b){b.style.background=k===f?'var(--accent)':'transparent';b.style.color=k===f?'#000':'var(--dim)';b.style.borderColor=k===f?'var(--accent)':'var(--border)';}
+  });
+  sbRender();
+}
+
+function sbExportCSV(){
+  if(!sbSubs.length)return alert('No subscribers to export');
+  const rows=[['Name','Handle','Method','Amount','Paid Date','Expiry','Status','Notes','Added']];
+  sbSubs.forEach(s=>rows.push([s.name,s.handle,s.method,s.amount,s.paidDate,s.expiryDate,sbStatus(s),s.notes,s.addedAt]));
+  const csv=rows.map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='kalki-subscribers-'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+}
+
+function sbRender(){
+  // update summary
+  const active=sbSubs.filter(s=>sbStatus(s)==='active');
+  const expiring=sbSubs.filter(s=>sbStatus(s)==='expiring');
+  const expired=sbSubs.filter(s=>sbStatus(s)==='expired');
+  const monthlyRev=[...active,...expiring].reduce((a,s)=>a+s.amount,0);
+  document.getElementById('sbActiveCount').textContent=active.length;
+  document.getElementById('sbMonthlyRev').textContent='$'+monthlyRev.toLocaleString();
+  document.getElementById('sbExpiringSoon').textContent=expiring.length;
+  document.getElementById('sbExpiredCount').textContent=expired.length;
+
+  // filter
+  let filtered=sbSubs;
+  if(sbFilter==='active')   filtered=sbSubs.filter(s=>sbStatus(s)==='active');
+  if(sbFilter==='expiring') filtered=sbSubs.filter(s=>sbStatus(s)==='expiring');
+  if(sbFilter==='expired')  filtered=sbSubs.filter(s=>sbStatus(s)==='expired');
+
+  const el=document.getElementById('sbList');
+  if(!filtered.length){el.innerHTML='<div class="empty-s">No subscribers match this filter</div>';return;}
+
+  el.innerHTML=filtered.map(sub=>{
+    const st=sbStatus(sub);
+    const days=sbDaysLeft(sub);
+    const daysLabel=days<0?'Expired '+(Math.abs(days))+' days ago':days===0?'Expires today':'Expires in '+days+' day'+(days!==1?'s':'');
+    const badgeLabel=st==='active'?'✅ Active':st==='expiring'?'⚠️ Expiring':'🔴 Expired';
+    return `<div class="sb-card ${st}">
+      <div>
+        <div class="sb-name">
+          ${sub.name}
+          <span class="sb-badge ${st}">${badgeLabel}</span>
+        </div>
+        ${sub.handle?`<div class="sb-handle">${sub.handle}</div>`:''}
+        <div class="sb-meta">
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Paid</div><div class="sb-meta-val">${sub.paidDate}</div></div>
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Expiry</div><div class="sb-meta-val">${sub.expiryDate}</div></div>
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Method</div><div class="sb-meta-val">${sub.method||'—'}</div></div>
+          <div class="sb-meta-item"><div class="sb-meta-lbl">Added</div><div class="sb-meta-val">${sub.addedAt}</div></div>
+        </div>
+        ${sub.notes?`<div class="sb-notes">📝 ${sub.notes}</div>`:''}
+        <div class="sb-actions">
+          <button class="btn btn-sm" style="background:rgba(59,130,246,0.1);color:var(--accent2);border:1px solid rgba(59,130,246,0.3)" onclick="sbRenew(${sub.id})">🔄 Renew</button>
+          <button class="btn btn-d btn-sm" onclick="sbRemove(${sub.id})">✕</button>
+        </div>
+      </div>
+      <div class="sb-right">
+        <div class="sb-amount">$${sub.amount}<span style="font-size:12px;color:var(--dim)">/mo</span></div>
+        <div class="sb-expiry" style="color:${st==='expired'?'var(--red)':st==='expiring'?'var(--warn)':'var(--dim)'}">${daysLabel}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// REPORT TAB
+// ══════════════════════════════════════════════════════
+let rpFilter = 'all';
+
+function rpSetFilter(f) {
+  rpFilter = f;
+  ['all','open','closed','thismonth','lastmonth'].forEach(k => {
+    const b = document.getElementById('rpf-'+k);
+    if (b) b.classList.toggle('active', k === f);
+  });
+  rpRender();
+}
+
+function rpDaysHeld(t) {
+  const start = new Date(t.entryDate || t.addedAt || Date.now());
+  const end   = t.closeDate ? new Date(t.closeDate) : new Date();
+  return Math.max(0, Math.round((end - start) / 86400000));
+}
+
+function rpIsThisMonth(t) {
+  const now = new Date(), d = new Date(t.entryDate || t.addedAt || 0);
+  return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+}
+
+function rpIsLastMonth(t) {
+  const now = new Date();
+  const last = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const d = new Date(t.entryDate || t.addedAt || 0);
+  return d.getMonth()===last.getMonth() && d.getFullYear()===last.getFullYear();
+}
+
+function rpGetFiltered() {
+  const q = (document.getElementById('rpSearch')?.value||'').trim().toUpperCase();
+  return pfPositions.filter(t => {
+    if (q && !t.sym.includes(q)) return false;
+    if (rpFilter==='open')      return t.state !== 'closed';
+    if (rpFilter==='closed')    return t.state === 'closed';
+    if (rpFilter==='thismonth') return rpIsThisMonth(t);
+    if (rpFilter==='lastmonth') return rpIsLastMonth(t);
+    return true;
+  });
+}
+
+function rpStatus2(t) {
+  const p = t.state==='closed' ? t.closedPrice : t.currentPrice;
+  if (!p) return { label:'⏸ NO DATA', pillColor:'var(--dim)', rowCls:'rp2-open' };
+  if (t.state==='closed') {
+    const pct = rpPct(t);
+    return pct >= 0
+      ? { label:'✓ CLOSED', pillColor:'var(--green)', rowCls:'rp2-win' }
+      : { label:'✗ STOPPED', pillColor:'var(--red)',  rowCls:'rp2-loss' };
+  }
+  if (t.breakdown && p <= t.breakdown) return { label:'🚨 STOP LOSS', pillColor:'var(--red)', rowCls:'rp2-loss' };
+  if (t.supLow && t.supHigh && p >= t.supLow && p <= t.supHigh) return { label:'✅ IN SUPPORT', pillColor:'var(--green)', rowCls:'rp2-win' };
+  const res = t.resistances || [];
+  const nextR = res.find(r => p < r);
+  const nextRIdx = nextR ? res.indexOf(nextR) : -1;
+  if (nextR && Math.abs((nextR-p)/nextR) <= 0.015) return { label:'⚠️ NEAR TP'+(nextRIdx+1), pillColor:'var(--warn)', rowCls:'rp2-warn' };
+  const tpsHit = res.filter(r=>p>=r).length;
+  if (tpsHit > 0) return { label:'📈 TP'+tpsHit+' HIT', pillColor:'var(--accent)', rowCls:'rp2-open' };
+  return { label:'👀 WATCHING', pillColor:'var(--accent)', rowCls:'rp2-open' };
+}
+
+function rpPct(t) {
+  const price = t.state==='closed' ? t.closedPrice : t.currentPrice;
+  if (!price || !t.entryPrice) return null;
+  return ((price - t.entryPrice) / t.entryPrice * 100);
+}
+
+function rpTpBar(t) {
+  const res = t.resistances || [];
+  if (!res.length) return '';
+  const p = (t.state==='closed' ? t.closedPrice : t.currentPrice) || 0;
+  const nextR = res.find(r => p < r);
+  return res.map(r => {
+    const hit = p >= r;
+    const isNext = r === nextR;
+    const wrn = isNext && Math.abs((r-p)/r) <= 0.015;
+    return `<div class="rp2-seg ${hit?'hit':isNext?(wrn?'wrn':'nxt'):''}"></div>`;
+  }).join('');
+}
+
+function rpGradeTxt(t) {
+  const g = t.grade;
+  if (!g) return '—';
+  if (g==='A+') return '🥇🥇🥇 A+';
+  if (g==='A')  return '🥇🥇 A';
+  if (g==='B')  return '🥇 B';
+  return '📉 C';
+}
+
+async function rpRefresh() {
+  if (!pfPositions.length) return;
+  const btn = document.getElementById('rpRefreshBtn');
+  btn.textContent = '⟳ Refreshing...'; btn.disabled = true;
+  const opens = pfPositions.filter(p=>p.state!=='closed');
+  for (const pos of opens) {
+    const price = await fetchScanPrice(pos.sym);
+    if (price) pos.currentPrice = price;
+  }
+  pfSave(); rpRender();
+  btn.textContent = '🔄 Refresh'; btn.disabled = false;
+}
+
+function rpRender() {
+  if (!pfPositions.length) {
+    document.getElementById('rpStats').innerHTML = '';
+    document.getElementById('rpList').innerHTML = '<div class="empty-s">No positions — add some in the Portfolio tab first</div>';
+    document.getElementById('rpFooterStats').textContent = '—';
+    return;
+  }
+
+  const filtered = rpGetFiltered();
+
+  // Stats
+  const withPnl = filtered.filter(t => (t.currentPrice||t.closedPrice) && t.entryPrice);
+  const totalPnl = withPnl.reduce((a,t) => a + (rpPct(t)/100)*(t.invest||10000), 0);
+  const wins = withPnl.filter(t => rpPct(t) > 0).length;
+  const winRate = withPnl.length ? Math.round(wins/withPnl.length*100) : 0;
+  const withDates = filtered.filter(t => t.alertDate);
+  const avgHold = withDates.length ? Math.round(withDates.reduce((a,t)=>a+rpDaysHeld(t),0)/withDates.length) : 0;
+  const pnlColor = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const pnlStr = (totalPnl>=0?'+$':'−$')+Math.abs(Math.round(totalPnl)).toLocaleString();
+
+  document.getElementById('rpStats').innerHTML = `
+    <div class="rp-stat"><div class="rp-stat-num" style="color:${pnlColor}">${pnlStr}</div><div class="rp-stat-lbl">P&L</div></div>
+    <div class="rp-stat"><div class="rp-stat-num" style="color:var(--accent)">${filtered.length}</div><div class="rp-stat-lbl">Positions</div></div>
+    <div class="rp-stat"><div class="rp-stat-num" style="color:var(--accent2)">${winRate}%</div><div class="rp-stat-lbl">Win Rate</div></div>
+    <div class="rp-stat"><div class="rp-stat-num" style="color:#a78bfa">${avgHold}d</div><div class="rp-stat-lbl">Avg Hold</div></div>`;
+
+  if (!filtered.length) {
+    document.getElementById('rpList').innerHTML = '<div class="empty-s">No positions match this filter</div>';
+    document.getElementById('rpFooterStats').textContent = '$10k per position · 0 results';
+    return;
+  }
+
+  // Sort: open/support first, then by pnl
+  const stOrder = { 'rp2-win':0, 'rp2-open':1, 'rp2-warn':2, 'rp2-loss':3 };
+  const sorted = [...filtered].sort((a,b) => {
+    const oa = stOrder[rpStatus2(a).rowCls]||0;
+    const ob = stOrder[rpStatus2(b).rowCls]||0;
+    if (oa !== ob) return oa - ob;
+    return (rpPct(b)||0) - (rpPct(a)||0);
+  });
+
+  document.getElementById('rpList').innerHTML = sorted.map(t => {
+    const st  = rpStatus2(t);
+    const pct = rpPct(t);
+    const pctStr = pct!=null ? (pct>=0?'+':'')+pct.toFixed(1)+'%' : '—';
+    const amtStr = pct!=null ? (pct>=0?'+$':'−$')+Math.abs(Math.round(pct/100*(t.invest||10000))).toLocaleString() : '';
+    const pctColor = pct==null?'var(--dim)':pct>=0?'var(--green)':pct<-1?'var(--red)':'var(--warn)';
+    const days = rpDaysHeld(t);
+    const entryStr = t.entryPrice ? '$'+t.entryPrice.toFixed(2) : '—';
+    const currPrice = t.state==='closed' ? t.closedPrice : t.currentPrice;
+    const currStr  = currPrice ? '$'+currPrice.toFixed(2) : '—';
+    const stateStr = t.state==='closed'
+      ? '· Closed '+(t.closeDate||'')
+      : '· Holding since '+(t.entryDate||'—');
+    const alertDt  = t.entryDate || '—';
+    const res = t.resistances || [];
+    const nextR = res.find(r=>(currPrice||0)<r);
+    const nextInfo = nextR ? `Next <span style="color:var(--accent)">TP${res.indexOf(nextR)+1} $${nextR}</span>` : res.length ? `<span style="color:var(--green)">All TPs hit</span>` : '—';
+
+    return `<div class="rp-row2 ${st.rowCls}">
+      <div class="rp2-top">
+        <div class="rp2-left">
+          <div class="rp2-sym">${t.sym}</div>
+          <span class="rp2-pill" style="background:${st.pillColor}22;color:${st.pillColor};border:1px solid ${st.pillColor}55">${st.label}</span>
+          <span class="rp2-days">${days}d</span>
+        </div>
+        <div class="rp2-right">
+          <div class="rp2-pct" style="color:${pctColor}">${pctStr}</div>
+          <div class="rp2-amt">${amtStr}</div>
+        </div>
+      </div>
+      <div class="rp2-price">
+        <span style="color:var(--dim);font-family:'DM Mono',monospace">${entryStr}</span>
+        <span style="color:var(--dim2)">──▶</span>
+        <span style="color:${pctColor};font-weight:500;font-family:'DM Mono',monospace">${currStr}</span>
+        <span style="font-size:10px;color:${pctColor}">${stateStr}</span>
+      </div>
+      <div class="rp2-bar">${rpTpBar(t)}</div>
+      <div class="rp2-meta">
+        <div class="rp2-meta-item">Entry <span>${alertDt}</span></div>
+        <div class="rp2-meta-item">Grade <span>${rpGradeTxt(t)}</span></div>
+        <div class="rp2-meta-item">${nextInfo}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const openC   = filtered.filter(t=>t.state!=='closed').length;
+  const closedC = filtered.filter(t=>t.state==='closed').length;
+  document.getElementById('rpFooterStats').textContent = `$10k per pos · ${openC} open · ${closedC} closed`;
+}
+
+async function rpSendTelegram() {
+  const tok = document.getElementById('botToken').value.trim();
+  const cid = document.getElementById('chatId').value.trim();
+  if (!tok || !cid) { alert('Set Bot Token and Chat ID in Zone Scanner tab first'); return; }
+  const btn = document.getElementById('rpTgBtn');
+  btn.textContent = '📤 Sending...'; btn.disabled = true;
+
+  const data = rpTelegramReportData();
+  if (!data.filtered.length) {
+    alert('No report rows to send');
+    btn.textContent = '📤 Telegram'; btn.disabled = false;
+    return;
+  }
+
+  try {
+    const svg = rpBuildTelegramCardSvg(data);
+    const pngBlob = await rpSvgToPngBlob(svg, 3);
+    const form = new FormData();
+    form.append('chat_id', cid);
+    form.append('document', pngBlob, `kalki-report-${Date.now()}@3x.png`);
+    form.append('caption', `Kalki Report · ${data.dateShort}`);
+    const r = await fetch(`https://api.telegram.org/bot${tok}/sendDocument`, { method:'POST', body:form });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.description || 'Telegram document upload failed');
+    btn.textContent='✅ Sent HQ';
+    setTimeout(()=>{btn.textContent='📤 Telegram';btn.disabled=false;},2500);
+  } catch(e) {
+    // Fallback to text
+    try {
+      const msg = rpBuildTelegramFallbackText(data);
+      const fb = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})
+      });
+      const fbd = await fb.json();
+      if (!fbd.ok) throw new Error(fbd.description||'Fallback failed');
+      btn.textContent='✅ Sent Text';
+      setTimeout(()=>{btn.textContent='📤 Telegram';btn.disabled=false;},2500);
+    } catch(fe) {
+      alert('Failed: '+fe.message+'\n(Image error: '+e.message+')');
+      btn.textContent='📤 Telegram'; btn.disabled=false;
+    }
+  }
+}
+
+function rpTelegramReportData() {
+  const filtered = rpGetFiltered();
+  const withPnl  = filtered.filter(t=>(t.currentPrice||t.closedPrice)&&t.entryPrice);
+  const totalPnl = withPnl.reduce((a,t)=>a+(rpPct(t)/100)*(t.invest||10000),0);
+  const wins     = withPnl.filter(t=>rpPct(t)>0).length;
+  const winRate  = withPnl.length ? Math.round(wins/withPnl.length*100) : 0;
+  const avgHold  = filtered.length ? Math.round(filtered.reduce((a,t)=>a+rpDaysHeld(t),0)/filtered.length) : 0;
+  const stOrder  = {'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3};
+  const sorted   = [...filtered].sort((a,b)=>(stOrder[rpStatus2(a).rowCls]||0)-(stOrder[rpStatus2(b).rowCls]||0));
+  return {
+    filtered,
+    closed:   sorted.filter(t=>t.state==='closed'),
+    watching: sorted.filter(t=>t.state!=='closed'&&rpStatus2(t).rowCls!=='rp2-warn'&&rpStatus2(t).rowCls!=='rp2-loss'),
+    warning:  sorted.filter(t=>t.state!=='closed'&&(rpStatus2(t).rowCls==='rp2-warn'||rpStatus2(t).rowCls==='rp2-loss')),
+    totalPnl,
+    pnlStr:   (totalPnl>=0?'+$':'-$')+Math.abs(Math.round(totalPnl)).toLocaleString(),
+    winRate,
+    avgHold,
+    dateShort: new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),
+    dateLong:  new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})
+  };
+}
+
+function rpXmlEsc(v) {
+  return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function rpFmtMoney(v) {
+  if (v==null||Number.isNaN(v)) return '--';
+  if (Math.abs(v)>=100) return '$'+Math.round(v).toLocaleString();
+  return '$'+Number(v).toFixed(2);
+}
+
+function rpSvgRow(t, y, width) {
+  const pct      = rpPct(t);
+  const curr     = t.state==='closed' ? t.closedPrice : t.currentPrice;
+  const days     = rpDaysHeld(t);
+  const pctStr   = pct!=null ? (pct>=0?'+':'')+pct.toFixed(1)+'%' : '--';
+  const pctFill  = pct==null?'#243042':pct>=0?'#163828':'#3b1820';
+  const pctText  = pct==null?'#94a3b8':pct>=0?'#63d97e':'#ff6b6b';
+  const border   = {'rp2-win':'#20b26b','rp2-open':'#4b7cff','rp2-warn':'#f59e0b','rp2-loss':'#ef4444'}[rpStatus2(t).rowCls]||'#4b7cff';
+  const iconStroke = pct==null?'#9ca3af':pct>=0?'#63d97e':'#ff6b6b';
+  const iconPath = pct==null
+    ? `<path d="M0 9 L18 9" stroke="${iconStroke}" stroke-width="2.5" stroke-linecap="round"/>`
+    : pct>=0
+      ? `<path d="M1 14 L7 8 L11 12 L18 3" stroke="${iconStroke}" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<path d="M1 3 L7 9 L11 5 L18 15" stroke="${iconStroke}" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return `
+    <rect x="28" y="${y}" width="${width-56}" height="58" rx="12" fill="#0c1323" stroke="#1e2b44" stroke-width="1.2"/>
+    <rect x="28" y="${y}" width="4" height="58" rx="2" fill="${border}"/>
+    <rect x="42" y="${y+11}" width="30" height="30" rx="8" fill="#f8fafc"/>
+    <g transform="translate(48 ${y+17})">${iconPath}</g>
+    <text x="90" y="${y+27}" font-family="DM Sans, Arial, sans-serif" font-size="17" font-weight="700" fill="#f8fafc" letter-spacing="1">${rpXmlEsc(t.sym||'--')}</text>
+    <text x="182" y="${y+27}" font-family="DM Mono, monospace" font-size="15" fill="#9fb0c9">${rpXmlEsc(rpFmtMoney(t.entryPrice))}</text>
+    <text x="306" y="${y+27}" font-family="DM Sans, Arial, sans-serif" font-size="16" fill="#5f7397">→</text>
+    <text x="340" y="${y+27}" font-family="DM Mono, monospace" font-size="15" font-weight="600" fill="${pctText}">${rpXmlEsc(rpFmtMoney(curr))}</text>
+    <text x="90" y="${y+45}" font-family="DM Sans, Arial, sans-serif" font-size="11" fill="#6f86a8">${rpXmlEsc(days+'d')}</text>
+    <rect x="${width-194}" y="${y+12}" width="156" height="34" rx="10" fill="${pctFill}" stroke="${pctText}" stroke-opacity="0.22"/>
+    <text x="${width-116}" y="${y+36}" font-family="DM Mono, monospace" font-size="16" font-weight="700" text-anchor="middle" fill="${pctText}">${rpXmlEsc(pctStr)}</text>`;
+}
+
+function rpSvgSection(label, color, rows, y, width) {
+  if (!rows.length) return { markup:'', nextY:y };
+  let markup = `
+    <line x1="32" y1="${y+13}" x2="${width/2-76}" y2="${y+13}" stroke="#23314b" stroke-width="1"/>
+    <text x="${width/2}" y="${y+18}" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="${color}" letter-spacing="1.8">${rpXmlEsc(label)}</text>
+    <line x1="${width/2+76}" y1="${y+13}" x2="${width-32}" y2="${y+13}" stroke="#23314b" stroke-width="1"/>`;
+  let nextY = y+28;
+  rows.forEach(row => { markup += rpSvgRow(row, nextY, width); nextY += 68; });
+  return { markup, nextY };
+}
+
+function rpBuildTelegramCardSvg(data) {
+  const width       = 820;
+  const headerH     = 92;
+  const summaryH    = 122;
+  const footerH     = 84;
+  const sectionBase = 28;
+  const rowBlock    = 68;
+  const sectionCount = [data.closed,data.watching,data.warning].filter(r=>r.length).length;
+  const rowsCount    = data.closed.length+data.watching.length+data.warning.length;
+  const height = headerH+summaryH+footerH+(sectionCount*sectionBase)+(rowsCount*rowBlock)+38;
+  const profitColor = data.totalPnl>=0?'#4ade80':'#ff6b6b';
+
+  const summaryBoxes = [
+    {x:30,  label:'PROFIT',    value:data.pnlStr,                color:profitColor,    glow:'rgba(34,197,94,0.28)'},
+    {x:292, label:'WIN RATE',  value:data.winRate+'%',            color:'#8bb3ff',      glow:'rgba(96,165,250,0.24)'},
+    {x:554, label:'POSITIONS', value:String(data.filtered.length),color:'#b38cff',      glow:'rgba(168,85,247,0.24)'}
+  ].map(b=>`
+    <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="#0f1628" stroke="#22314a" stroke-width="1.2"/>
+    <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="${b.glow}" fill-opacity="0.22"/>
+    <rect x="${b.x+1}" y="93" width="234" height="18" rx="15" fill="rgba(255,255,255,0.035)"/>
+    <text x="${b.x+26}" y="125" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="#8796ad" letter-spacing="1.6">${b.label}</text>
+    <text x="${b.x+26}" y="156" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="800" fill="${b.color}">${rpXmlEsc(b.value)}</text>`).join('');
+
+  let sectionsMarkup='', y=headerH+summaryH;
+  const cb=rpSvgSection('CLOSED',    '#57d26f', data.closed,   y, width); sectionsMarkup+=cb.markup; y=cb.nextY;
+  const wb=rpSvgSection('WATCHING',  '#83a9ff', data.watching, y, width); sectionsMarkup+=wb.markup; y=wb.nextY;
+  const nb=rpSvgSection('NEAR STOP', '#ff8b5f', data.warning,  y, width); sectionsMarkup+=nb.markup; y=nb.nextY;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#070b14"/><stop offset="58%" stop-color="#0b1020"/><stop offset="100%" stop-color="#120d20"/>
+      </linearGradient>
+      <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="14" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    <rect width="${width}" height="${height}" rx="24" fill="url(#bg)"/>
+    <rect x="10" y="10" width="${width-20}" height="${height-20}" rx="22" fill="none" stroke="#1d2740" stroke-width="1.4"/>
+    <rect x="12" y="12" width="${width-24}" height="${height-24}" rx="20" fill="none" stroke="url(#frame)" stroke-width="0.8"/>
+    <circle cx="744" cy="110" r="122" fill="rgba(88,64,255,0.08)" filter="url(#softGlow)"/>
+    <circle cx="84"  cy="146" r="96"  fill="rgba(34,197,94,0.06)"  filter="url(#softGlow)"/>
+    <text x="32" y="54" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="800" fill="#ffffff">⚡ ANALYSIS REPORT</text>
+    <text x="${width-32}" y="54" text-anchor="end" font-family="DM Sans, Arial, sans-serif" font-size="18" fill="#9cabbe">${rpXmlEsc(data.dateShort)}</text>
+    <line x1="32" y1="72" x2="${width-32}" y2="72" stroke="#22314a" stroke-width="1"/>
+    ${summaryBoxes}
+    ${sectionsMarkup}
+    <rect x="30" y="${height-78}" width="${width-60}" height="48" rx="14" fill="#0c1323" stroke="#1e2b44" stroke-width="1.2"/>
+    <text x="54" y="${height-49}" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="#8395af" letter-spacing="1.3">POSITION SIZE</text>
+    <text x="54" y="${height-24}" font-family="DM Sans, Arial, sans-serif" font-size="16" font-weight="800" fill="#fbbf24">$10,000 <tspan fill="#d9e2f1" font-weight="500">invested per position</tspan></text>
+    <text x="${width/2}" y="${height-6}" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="14" font-weight="700" fill="#87a0ff">⚡ Kalki Analysis Platform</text>
+  </svg>`;
+}
+
+async function rpSvgToPngBlob(svgMarkup, scale=1) {
+  const svgBlob = new Blob([svgMarkup], {type:'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('Card image render failed'));
+      i.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round(img.width  * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.fillStyle = '#070b14';
+    ctx.fillRect(0, 0, img.width, img.height);
+    ctx.drawImage(img, 0, 0);
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG conversion failed')), 'image/png', 1);
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function rpBuildTelegramFallbackText(data) {
+  const fP   = v => { if(!v) return '-'; if(v>=100) return '$'+Math.round(v); return '$'+parseFloat(v).toFixed(2); };
+  const padL = (s,n) => { s=String(s); while(s.length<n) s=' '+s; return s; };
+  const padR = (s,n) => { s=String(s); while(s.length<n) s=s+' '; return s; };
+  const fmtRow = t => {
+    const pct=rpPct(t), curr=t.state==='closed'?t.closedPrice:t.currentPrice;
+    const pctStr=pct!=null?(pct>=0?'+':'')+pct.toFixed(1)+'%':'--';
+    const emoji=pct==null?'-':pct>=0?'📈':'📉';
+    return `${emoji} ${padR(t.sym,5)} ${padL(fP(t.entryPrice),7)}  →  ${padL(fP(curr),7)}  ${padL(pctStr,7)}`;
+  };
+  let sections='';
+  if (data.closed.length)   sections+=`── CLOSED ──\n`  +data.closed.map(fmtRow).join('\n')  +'\n\n';
+  if (data.watching.length) sections+=`── WATCHING ──\n`+data.watching.map(fmtRow).join('\n')+'\n\n';
+  if (data.warning.length)  sections+=`── NEAR STOP ──\n`+data.warning.map(fmtRow).join('\n')+'\n\n';
+  return `⚡ *KALKI REPORT* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}*  ·  Win *${data.winRate}%*  ·  *${data.filtered.length}* positions\n\n${sections}_$10,000 invested per position_\n────────────\n⚡ _Kalki Analysis Platform_`;
+}
+
+// ══════════════════════════════════════════════════════
+// JSONBIN.IO SYNC
+// ══════════════════════════════════════════════════════
+function jbBinId()  { return (document.getElementById('jbBinId')?.value||'').trim(); }
+function jbApiKey() { return (document.getElementById('jbApiKey')?.value||'').trim(); }
+
+function gsStatus(msg, color='var(--green)') {
+  const el = document.getElementById('gsSyncStatus');
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+
+async function gsSyncAll() {
+  const binId  = jbBinId();
+  const apiKey = jbApiKey();
+  if (!binId || !apiKey) return alert('Enter JSONBin Bin ID and API Key in Zone Scanner settings');
+  gsStatus('Syncing...', 'var(--accent)');
+  try {
+    const payload = {
+      portfolio:   pfPositions,
+      watchlist:   scTickers,
+      subscribers: sbSubs,
+      updatedAt:   new Date().toISOString()
+    };
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': apiKey,
+      },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.message || 'Sync failed');
+    localStorage.setItem('kalki_jb_bin', binId);
+    localStorage.setItem('kalki_jb_key', apiKey);
+    gsStatus('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    gsStatus('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+async function gsLoadAll() {
+  const binId  = jbBinId();
+  const apiKey = jbApiKey();
+  if (!binId || !apiKey) return alert('Enter JSONBin Bin ID and API Key first');
+  gsStatus('Loading...', 'var(--accent)');
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+      headers: { 'X-Master-Key': apiKey }
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.message || 'Load failed');
+    const data = d.record;
+    if (data.portfolio)   { pfPositions = data.portfolio;   pfSave(); pfRender(); }
+    if (data.watchlist)   { scTickers   = data.watchlist;   saveSc(); renderSc(); }
+    if (data.subscribers) { sbSubs      = data.subscribers; sbSave(); sbRender(); }
+    localStorage.setItem('kalki_jb_bin', binId);
+    localStorage.setItem('kalki_jb_key', apiKey);
+    gsStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    gsStatus('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+// Auto-sync helpers with debounce — syncs 2s after last change
+let _syncTimer = null;
+function autoSync() {
+  if (!jbBinId() || !jbApiKey()) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    gsSyncAll().catch(()=>{});
+  }, 2000);
+}
+async function pfSaveAndSync(){ pfSave(); autoSync(); }
+async function saveSCAndSync(){ saveSc(); autoSync(); }
+async function sbSaveAndSync(){ sbSave(); autoSync(); }
+
+
+
+// ── INIT ─────────────────────────────────────────────
+const st=localStorage.getItem('kalki_tok'),sc=localStorage.getItem('kalki_cid');
+if(st)document.getElementById('botToken').value=st;
+if(sc)document.getElementById('chatId').value=sc;
+document.getElementById('botToken').addEventListener('change',e=>localStorage.setItem('kalki_tok',e.target.value));
+document.getElementById('chatId').addEventListener('change',e=>localStorage.setItem('kalki_cid',e.target.value));
+const savedBestUniverse = localStorage.getItem('kalki_best_universe');
+if (savedBestUniverse) document.getElementById('bestUniverse').value = savedBestUniverse;
+document.getElementById('bestUniverse').addEventListener('change', e => localStorage.setItem('kalki_best_universe', e.target.value));
+document.getElementById('bestUniverse').addEventListener('keyup', e => localStorage.setItem('kalki_best_universe', e.target.value));
+
+// Restore JSONBin credentials and auto-load on start
+const savedBinId  = localStorage.getItem('kalki_jb_bin');
+const savedApiKey = localStorage.getItem('kalki_jb_key');
+if (savedBinId)  document.getElementById('jbBinId').value  = savedBinId;
+if (savedApiKey) document.getElementById('jbApiKey').value = savedApiKey;
+
+if (savedBinId && savedApiKey) {
+  gsStatus('Loading from JSONBin...', 'var(--accent)');
+  gsLoadAll().then(() => {
+    gsStatus('✅ Loaded from JSONBin');
+    renderSc();
+  }).catch(() => {
+    gsStatus('⚠ Could not reach JSONBin — using local data', 'var(--warn)');
+    renderSc();
+  });
+} else {
+  if(!scTickers.length){
+    scTickers.push({sym:'AXTI',supLow:38,supHigh:40,brk:37,res:[42,44,46,50,55,60],price:null,status:'neutral'});
+    saveSc();
+  }
+  renderSc();
+}
+</script>
+</body>
+</html>
