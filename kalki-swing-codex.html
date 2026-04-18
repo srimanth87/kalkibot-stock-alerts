@@ -305,6 +305,7 @@ textarea:focus{border-color:var(--accent);}
 .pf-grade.a{background:rgba(59,130,246,0.15);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);}
 .pf-grade.b{background:rgba(245,158,11,0.15);color:var(--accent);border:1px solid rgba(245,158,11,0.3);}
 .pf-grade.c{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.pf-grade.d{background:rgba(127,29,29,0.25);color:#fca5a5;border:1px solid rgba(248,113,113,0.35);}
 .pf-meta{display:flex;flex-direction:column;gap:4px;}
 .pf-row{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;font-family:'DM Mono',monospace;}
 .pf-lbl{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px;}
@@ -355,6 +356,96 @@ textarea:focus{border-color:var(--accent);}
 .rp2-meta{display:flex;gap:10px;flex-wrap:wrap;}
 .rp2-meta-item{font-size:10px;font-family:'DM Mono',monospace;color:var(--dim2);}
 .rp2-meta-item span{color:var(--dim);}
+.ga-top{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;}
+.ga-list{display:flex;flex-direction:column;gap:12px;}
+.ga-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;display:grid;grid-template-columns:120px 1fr 180px;gap:14px;align-items:center;}
+.ga-sym{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:1.5px;color:#fff;line-height:1;}
+.ga-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin-top:4px;}
+.ga-meta{display:flex;gap:14px;flex-wrap:wrap;}
+.ga-chip{padding:3px 8px;border-radius:999px;border:1px solid var(--border);font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;}
+.ga-grid{display:grid;grid-template-columns:repeat(4,minmax(90px,1fr));gap:10px;margin-top:10px;}
+.ga-stat{background:rgba(6,10,18,0.45);border:1px solid var(--border);border-radius:10px;padding:10px;}
+.ga-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1.1px;color:var(--dim);margin-bottom:4px;}
+.ga-val{font-family:'DM Mono',monospace;font-size:14px;color:#fff;}
+.ga-val.pos{color:var(--green);}
+.ga-val.neg{color:var(--red);}
+.ga-right{text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.ga-badge{font-size:10px;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid var(--border);}
+.ga-badge.hot{color:var(--green);border-color:rgba(16,185,129,0.35);background:rgba(16,185,129,0.1);}
+.ga-badge.watch{color:var(--warn);border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.08);}
+.ga-badge.flat{color:var(--dim);background:rgba(100,116,139,0.08);}
+.ga-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.ga-save{font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;margin:6px 0 12px;}
+
+@media(max-width:640px){
+  .wrap{padding:16px 12px 44px;}
+  .topnav{flex-direction:column;align-items:flex-start;gap:12px;}
+  .top-actions{width:100%;justify-content:flex-start;gap:8px;}
+  .tab-bar{overflow-x:auto;padding-bottom:4px;}
+  .tab{white-space:nowrap;flex:0 0 auto;}
+
+  .search-row{flex-direction:column;}
+  .search-input{font-size:18px;letter-spacing:2px;}
+  .analyze-btn{width:100%;}
+
+  .stock-header{flex-direction:column;gap:10px;}
+  .ticker-name{font-size:42px;}
+  .price-block{text-align:left;}
+  .price-big{font-size:32px;}
+
+  .score-banner,
+  #pfSummary{grid-template-columns:1fr !important;gap:12px;}
+
+  .scanner-toolbar{
+    flex-wrap:wrap;
+    overflow:visible;
+    align-items:stretch;
+  }
+  .scanner-toolbar .scan-btn-big{
+    flex:1 1 calc(50% - 4px);
+    min-width:140px;
+  }
+  .scanner-toolbar .auto-btn,
+  .scanner-toolbar .toolbar-toggle,
+  .scanner-toolbar .toolbar-select{
+    flex:1 1 calc(50% - 4px);
+    min-width:0;
+  }
+  .toolbar-status{
+    margin-left:0;
+    flex:1 1 100%;
+    justify-content:flex-start;
+  }
+  .spill{width:100%;justify-content:center;}
+
+  .tc-card{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+  .tc-price{text-align:left;}
+
+  .best-card{grid-template-columns:1fr;}
+  .best-rank{text-align:left;}
+  .best-meta{grid-template-columns:1fr 1fr;}
+  .best-cta{align-items:stretch;}
+
+  .pf-card,
+  .ga-card,
+  .sb-card{
+    grid-template-columns:1fr;
+  }
+  .pf-pnl,
+  .ga-right{
+    text-align:left;
+    align-items:flex-start;
+  }
+  .ga-grid{grid-template-columns:1fr 1fr;}
+
+  .rp2-top{flex-direction:column;gap:8px;}
+  .rp2-right{text-align:left;}
+
+  .compare-grid{grid-template-columns:1fr 1fr;}
+}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 </style>
@@ -384,6 +475,7 @@ textarea:focus{border-color:var(--accent);}
 <div class="tab-bar">
   <button class="tab active" id="t-sc" onclick="switchTab('sc')">🔔 Scanner</button>
   <button class="tab" id="t-an" onclick="switchTab('an')">📊 Analysis</button>
+  <button class="tab" id="t-ga" onclick="switchTab('ga')">🚀 Group Tracker</button>
   <button class="tab" id="t-ka" onclick="switchTab('ka')" style="display:none;">⚡ Swing Workspace</button>
   <button class="tab" id="t-pf" onclick="switchTab('pf')">💼 Portfolio</button>
   <button class="tab" id="t-sb" onclick="switchTab('sb')" style="display:none;">👥 Subscribers</button>
@@ -432,6 +524,28 @@ textarea:focus{border-color:var(--accent);}
     <div class="grid2"><div class="acard" id="stCard"></div><div class="acard" id="ltCard"></div></div>
     <div class="acard" style="margin-bottom:18px;" id="targetsCard"></div>
     <div class="acard" id="stratCard"></div>
+  </div>
+</div>
+
+<!-- ══ TAB: GROUP TRACKER ══ -->
+<div id="gaTab" style="display:none;">
+  <div class="scanner-section">
+    <div class="sec-title">🚀 Group Alert Tracker</div>
+    <div class="hint">Track tickers sent by your group and see whether the news-catalyst momentum logic is really delivering 1–2 day follow-through.</div>
+    <div class="ga-save" id="gaSaveStatus">Saved locally</div>
+    <div class="ga-top">
+      <div class="field" style="flex:1 1 340px;"><label>Tickers (comma separated)</label><input id="gaTickers" placeholder="CRCL, IONQ, QBTS, NVTS" style="text-transform:uppercase"/></div>
+      <div class="field" style="flex:1 1 220px;"><label>Note</label><input id="gaNote" placeholder="Apr 17 group alerts"/></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-p" onclick="gaAddBatch()">Add Batch</button></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-o" onclick="gaRefresh()">Refresh</button></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-d" onclick="gaClearAll()">Clear All</button></div>
+    </div>
+    <div class="score-banner" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:18px;">
+      <div class="score-item"><div class="score-lbl">Tracked</div><div class="score-val ov" id="gaTrackedCount" style="font-size:34px;">0</div><div class="score-sub">group alerts</div></div>
+      <div class="score-item"><div class="score-lbl">10%+ in 2D</div><div class="score-val st" id="gaWinners2d" style="font-size:34px;">0</div><div class="score-sub">fast follow-through</div></div>
+      <div class="score-item"><div class="score-lbl">Avg Return</div><div class="score-val lt" id="gaAvgReturn" style="font-size:34px;">0.0%</div><div class="score-sub">since added</div></div>
+    </div>
+    <div id="gaList" class="ga-list"><div class="empty-s">No group alerts tracked yet</div></div>
   </div>
 </div>
 
@@ -524,15 +638,14 @@ textarea:focus{border-color:var(--accent);}
     </div>
 
     <div class="settings-section">
-      <div class="sec-title">Scanner Defaults</div>
-      <div class="field"><label>Universe (comma separated)</label><textarea id="bestUniverse" rows="4">IONQ, TSLA, MSFT, NVDA, META, AMD, AMZN, AAPL, GOOG, PLTR, SOFI, HOOD, COIN, MSTR, ARM, MU, AVGO, NFLX, CRM, SMCI</textarea><span class="hint">Scans this list, ranks the best 3–5 day setups, and can send the top names to Telegram.</span></div>
-      <div class="settings-grid" style="margin-top:10px;">
-        <div class="field"><label>Mode</label><select id="bestScanMode" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;"><option value="swing">Swing A+</option><option value="momentum">Momentum Breakout</option><option value="both">Both</option></select></div>
-        <div class="field"><label>Auto Interval</label><select id="bestAutoInterval" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;"><option value="15">15m</option><option value="30">30m</option><option value="60">60m</option></select></div>
-      </div>
+      <div class="sec-title">Universe</div>
+      <div class="field"><label>Scan Universe (comma separated)</label><textarea id="bestUniverse" rows="4">IONQ, TSLA, MSFT, NVDA, META, AMD, AMZN, AAPL, GOOG, PLTR, SOFI, HOOD, COIN, MSTR, ARM, MU, AVGO, NFLX, CRM, SMCI</textarea><span class="hint">Used when you run a custom universe scan. NDX100 and Watchlist are controlled from the main scanner bar.</span></div>
       <div class="settings-actions">
-        <button class="auto-btn" id="bestAutoBtn" onclick="toggleBestAuto()">A+ Auto: OFF</button>
         <button class="btn btn-o btn-sm" onclick="loadNDX100Universe()">Load NDX 100 Universe</button>
+      </div>
+      <div style="display:none;">
+        <select id="bestScanMode"><option value="swing">Swing A+</option><option value="momentum">Momentum Breakout</option><option value="both">Both</option></select>
+        <select id="bestAutoInterval"><option value="15">15m</option><option value="30">30m</option><option value="60">60m</option></select>
       </div>
     </div>
   </div>
@@ -650,7 +763,7 @@ textarea:focus{border-color:var(--accent);}
       <div class="field"><label>Invest $</label><input id="pfAmt" type="number" placeholder="10000" step="100"/></div>
       <div class="field"><label>Grade</label>
         <select id="pfGrade" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%;">
-          <option>A+</option><option>A</option><option selected>B</option><option>C</option>
+          <option>A+</option><option>A</option><option selected>B</option><option>C</option><option>D</option>
         </select>
       </div>
       <div class="field"><label>Notes</label><input id="pfNotes" placeholder="Entry at support zone"/></div>
@@ -798,12 +911,14 @@ let bestScanLatest = [];
 let bestScanLastCount = 0;
 let bestScanLastSource = localStorage.getItem('kalki_best_source') || 'ndx100';
 let bestAutoSource = localStorage.getItem('kalki_best_auto_source') || 'ndx100';
+let gaTrackers = JSON.parse(localStorage.getItem('kalki_ga')||'[]');
 let bestAutoIv = null;
 let bestAutoEnabled = localStorage.getItem('kalki_best_auto') === '1';
 let bestAutoRunning = false;
 let bestAlertMemory = JSON.parse(localStorage.getItem('kalki_best_alert_memory') || '{}');
 let telegramEnabled = localStorage.getItem('kalki_tg_enabled') === '1';
 let watchExcludePortfolio = localStorage.getItem('kalki_watch_ex_pf') === '1';
+let gaCloudStatus = localStorage.getItem('kalki_ga_cloud_status') || '';
 const ADMIN_PASSWORD = '1515';
 let adminUnlocked = false;
 
@@ -938,20 +1053,21 @@ async function refreshMarketRegime(){
 // TABS
 // ══════════════════════════════════════════════════════
 function switchTab(t) {
-  const visibleTabs = ['an','sc','pf','sb','rp'];
-  const panelMap = {an:'ka', sc:'sc', pf:'pf', sb:'sb', rp:'rp', ka:'ka'};
+  const visibleTabs = ['an','ga','sc','pf','sb','rp'];
+  const panelMap = {an:'ka', ga:'ga', sc:'sc', pf:'pf', sb:'sb', rp:'rp', ka:'ka'};
   const targetPanel = panelMap[t] || 'sc';
 
   visibleTabs.forEach(id => {
     const btn = document.getElementById('t-'+id);
     if (btn) btn.classList.toggle('active', t===id);
   });
-  ['an','sc','ka','pf','sb','rp'].forEach(id => {
+  ['an','ga','sc','ka','pf','sb','rp'].forEach(id => {
     const panel = document.getElementById(id+'Tab');
     if (panel) panel.style.display = id===targetPanel ? 'block' : 'none';
   });
 
   if (targetPanel === 'ka') refreshKaTab();
+  if (t === 'ga') gaRender();
   if (t === 'pf') pfRender();
   if (t === 'sb') sbRender();
   if (t === 'rp') rpRender();
@@ -1137,6 +1253,48 @@ function calcScores({price,high52,low52,sma20,sma50,rsi14,atr14,changePct,avgVol
     ],
     metrics:{volRatio,atrPct,fromHigh,rangePos,roomPct,rsSpread:rs.spread}
   };
+}
+function gradeFromOverall(setup){
+  return setup>=80?'A+':setup>=72?'A':setup>=64?'B':setup>=55?'C':'D';
+}
+function gradeRank(g){
+  return g==='A+'?5:g==='A'?4:g==='B'?3:g==='C'?2:g==='D'?1:0;
+}
+function bestKnownGradeForSymbol(sym, currentGrade=''){
+  let best = currentGrade || '';
+  const watch = scTickers.find(t=>t.sym===sym);
+  if(watch?.grade && gradeRank(watch.grade) > gradeRank(best)) best = watch.grade;
+  const tracker = gaTrackers.find(t=>t.sym===sym);
+  if(tracker?.grade && gradeRank(tracker.grade) > gradeRank(best)) best = tracker.grade;
+  return best || currentGrade || 'B';
+}
+async function backfillSignalGrades(symbols){
+  const uniq = [...new Set((symbols||[]).filter(Boolean))];
+  if(!uniq.length) return;
+  let changed = false;
+  for(const sym of uniq){
+    try{
+      const needs = scTickers.some(t=>t.sym===sym && !t.grade) ||
+        gaTrackers.some(t=>t.sym===sym && !t.grade) ||
+        pfPositions.some(p=>p.sym===sym && gradeRank(p.grade) < gradeRank(bestKnownGradeForSymbol(sym, '')));
+      if(!needs) continue;
+      const r = await fetchYahoo(sym,'3mo','1d');
+      const a = await buildFromYahoo(sym, r, null);
+      const g = a.grade || gradeFromOverall(a.overall || 0);
+      scTickers.forEach(t=>{ if(t.sym===sym && gradeRank(g) > gradeRank(t.grade||'')){ t.grade = g; changed = true; } });
+      gaTrackers.forEach(t=>{ if(t.sym===sym && gradeRank(g) > gradeRank(t.grade||'')){ t.grade = g; changed = true; } });
+      pfPositions.forEach(p=>{ if(p.sym===sym && gradeRank(g) > gradeRank(p.grade||'')){ p.grade = g; changed = true; } });
+    }catch(_e){}
+  }
+  if(changed){
+    saveSc();
+    gaSave();
+    pfSave();
+    renderSc();
+    gaRender();
+    pfRender();
+    autoSync();
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1579,7 +1737,7 @@ function addTicker(){
   if(!supLow||!supHigh)return alert('Enter support as e.g. 38-40');
   if(isNaN(brk))return alert('Enter breakdown level');
   const res=resRaw.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
-  scTickers.push({sym,supLow,supHigh,brk,res,price:null,status:'neutral',monitorTrend:false});
+  scTickers.push({sym,supLow,supHigh,brk,res,price:null,status:'neutral',monitorTrend:false,grade:''});
   saveSc();renderSc();autoSync();
   ['inTick','inSup','inBrk','inRes'].forEach(id=>document.getElementById(id).value='');
 }
@@ -1607,8 +1765,9 @@ function addWatchlistToPortfolio(i,e){
   if(entryRaw===null) return;
   const entry=parseFloat(entryRaw);
   if(isNaN(entry)) return alert('Enter a valid entry price');
+  const inSupport = t.price!=null && t.price>=t.supLow && t.price<=t.supHigh;
   pfPositions.unshift({
-    id:Date.now(), sym:t.sym, entryPrice:entry, entryDate:new Date().toISOString().split('T')[0], grade:'A', invest:10000,
+    id:Date.now(), sym:t.sym, entryPrice:entry, entryDate:new Date().toISOString().split('T')[0], grade:bestKnownGradeForSymbol(t.sym, t.grade || (inSupport?'A':'B')), invest:10000,
     currentPrice:t.price||entry, status:'Added from watchlist',
     resistances:t.res||[], breakdown:t.brk||null,
     supLow:t.supLow||null, supHigh:t.supHigh||null,
@@ -1626,6 +1785,7 @@ function openKalkiFromCard(i) {
 }
 
 function primeTelegramZoneData(data){
+  const resolvedGrade = bestKnownGradeForSymbol(data.ticker, data.grade || gradeFromOverall(data.overall || 0));
   _lastZoneData = {
     ticker:data.ticker,
     price:data.price,
@@ -1636,6 +1796,7 @@ function primeTelegramZoneData(data){
     shortScore:data.shortScore,
     longScore:data.longScore,
     overall:data.overall,
+    grade:resolvedGrade,
     stV:data.stV,
     ovV:data.ovV,
     sma20:data.sma20v ?? data.sma20 ?? null,
@@ -1681,7 +1842,8 @@ function addCurrentAnalysisToWatchlist(){
     res:(d.resistances||[]).slice(0,5).map(v=>+v.toFixed(2)),
     price:d.price || null,
     status:'neutral',
-    monitorTrend:false
+    monitorTrend:false,
+    grade:d.grade || gradeFromOverall(d.overall || 0)
   });
   saveSc();
   renderSc();
@@ -1915,7 +2077,7 @@ async function runScan(){
 
     if(ns==='entry'){
       if(isNew){
-        pfAutoLog(t.sym, scTickers[i].price, 'B', '✅ IN SUPPORT', t.res, t.brk, t.supLow, t.supHigh);
+        pfAutoLog(t.sym, scTickers[i].price, 'A', '✅ IN SUPPORT', t.res, t.brk, t.supLow, t.supHigh);
       }
       const tpLines=t.res.map((r,idx)=>{
         const isNext=idx===0;
@@ -2269,7 +2431,8 @@ function addBestSetupToWatchlist(sym){
     res:hit.resistances.slice(0,5).map(v=>+v.toFixed(2)),
     price:hit.price,
     status:'neutral',
-    monitorTrend:false
+    monitorTrend:false,
+    grade:hit.grade || gradeFromOverall(hit.overall || 0)
   });
   saveSc();
   renderSc();
@@ -2402,6 +2565,235 @@ function sLog(msg,cls='inf'){
   d.innerHTML=`<span class="ts">${now}</span><span>${msg}</span>`;b.prepend(d);
 }
 function clearLog(){document.getElementById('logBody').innerHTML='<div class="empty-s">No alerts yet</div>';}
+function setGaSaveStatus(mode, detail=''){
+  const el = document.getElementById('gaSaveStatus');
+  if(!el) return;
+  if(mode === 'cloud'){
+    gaCloudStatus = detail || `Cloud synced ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
+    localStorage.setItem('kalki_ga_cloud_status', gaCloudStatus);
+    el.textContent = `Saved locally · ${gaCloudStatus}`;
+    return;
+  }
+  if(mode === 'local'){
+    el.textContent = gaCloudStatus ? `Saved locally · ${gaCloudStatus}` : 'Saved locally';
+    return;
+  }
+  if(mode === 'warning'){
+    el.textContent = detail || 'Saved locally · Cloud sync unavailable';
+    return;
+  }
+}
+
+function gaSave(){
+  localStorage.setItem('kalki_ga', JSON.stringify(gaTrackers));
+  setGaSaveStatus('local');
+}
+function gaLinkedPosition(item){
+  if(item.portfolioId){
+    const direct = pfPositions.find(p=>p.id===item.portfolioId);
+    if(direct) return direct;
+  }
+  const matches = pfPositions.filter(p=>p.sym===item.sym).sort((a,b)=>(b.id||0)-(a.id||0));
+  return matches[0] || null;
+}
+function gaDaysHeld(item){
+  const start = new Date(item.addedIso || Date.now());
+  return Math.max(0, Math.round((Date.now() - start.getTime()) / 86400000));
+}
+function gaStatus(item){
+  const linked = gaLinkedPosition(item);
+  const pct = linked ? (pfCalcPnl(linked).pct || 0) : (item.pctSinceAdd ?? 0);
+  const days = gaDaysHeld(item);
+  if(linked && linked.state==='closed') return {label:'Closed Trade', cls:pct>=0?'hot':'flat'};
+  if(linked && linked.state==='open') return {label:'In Portfolio', cls:pct>=0?'watch':'flat'};
+  if(days <= 2 && pct >= 10) return {label:'10%+ in 2D', cls:'hot'};
+  if(pct >= 5) return {label:'Working', cls:'watch'};
+  return {label:'Tracking', cls:'flat'};
+}
+async function gaAddBatch(){
+  const raw = (document.getElementById('gaTickers')?.value || '').toUpperCase();
+  const note = (document.getElementById('gaNote')?.value || '').trim();
+  const syms = [...new Set(raw.split(',').map(s=>s.trim()).filter(Boolean))];
+  if(!syms.length) return alert('Enter at least one ticker');
+  for(const sym of syms){
+    if(gaTrackers.some(t=>t.sym===sym)) continue;
+    let price = null;
+    let grade = '';
+    try{
+      price = await fetchScanPrice(sym);
+      if(!price){
+        const r = await fetchYahoo(sym,'1d','1m');
+        const cls = r.indicators?.quote?.[0]?.close?.filter(c=>c!=null);
+        price = cls?.[cls.length-1] || null;
+      }
+      const rd = await fetchYahoo(sym,'3mo','1d');
+      const ad = await buildFromYahoo(sym, rd, null);
+      grade = ad.grade || gradeFromOverall(ad.overall || 0);
+    }catch(_e){}
+    gaTrackers.unshift({
+      id: Date.now() + Math.floor(Math.random()*1000),
+      sym,
+      note,
+      addedIso: new Date().toISOString(),
+      addedLabel: new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
+      addedPrice: price,
+      currentPrice: price,
+      pctSinceAdd: 0,
+      catalystScore: null,
+      grade
+    });
+  }
+  gaSave();
+  gaRender();
+  autoSync();
+  document.getElementById('gaTickers').value='';
+  document.getElementById('gaNote').value='';
+}
+async function gaRefresh(){
+  if(!gaTrackers.length) return;
+  for(const item of gaTrackers){
+    try{
+      const r = await fetchYahoo(item.sym,'3mo','1d');
+      const a = await buildFromYahoo(item.sym, r, null);
+      item.currentPrice = a.price;
+      if(item.addedPrice){
+        item.pctSinceAdd = ((a.price - item.addedPrice) / item.addedPrice) * 100;
+      }
+      item.grade = a.grade || gradeFromOverall(a.overall || 0);
+      const catalyst = Math.round(((a.metrics?.volRatio || 1) >= 1.5 ? 30 : (a.metrics?.volRatio || 1) >= 1.1 ? 20 : 10)
+        + (a.changePct >= 5 ? 25 : a.changePct >= 2 ? 15 : 5)
+        + (a.rsi14 >= 58 && a.rsi14 <= 82 ? 20 : 8)
+        + (a.price > a.sma20v && a.price > (a.sma50v||0) ? 15 : 5)
+        + (a.timingSignals?.[2]?.ok ? 10 : 0));
+      item.catalystScore = Math.min(100, catalyst);
+    }catch(_e){}
+  }
+  gaSave();
+  gaRender();
+  autoSync();
+}
+function gaRemove(id){
+  gaTrackers = gaTrackers.filter(t=>t.id!==id);
+  gaSave();
+  gaRender();
+  autoSync();
+}
+function gaAddToPortfolio(id){
+  const item = gaTrackers.find(t=>t.id===id);
+  if(!item) return;
+  const existing = gaLinkedPosition(item);
+  if(existing){
+    item.portfolioId = existing.id;
+    gaSave();
+    gaRender();
+    return;
+  }
+  const entryBase = item.currentPrice || item.addedPrice || 0;
+  const entryRaw = prompt(`Entry price for ${item.sym}:`, entryBase ? entryBase.toFixed(2) : '');
+  if(entryRaw===null) return;
+  const entryPrice = parseFloat(entryRaw);
+  if(isNaN(entryPrice) || entryPrice<=0) return alert('Enter a valid entry price');
+  const entryDate = prompt('Entry date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if(entryDate===null) return;
+  const investRaw = prompt('Amount invested ($):', '10000');
+  if(investRaw===null) return;
+  const invest = parseFloat(investRaw) || 10000;
+  const sc = scTickers.find(t=>t.sym===item.sym);
+  pfPositions.unshift({
+    id:Date.now(),
+    sym:item.sym,
+    entryPrice,
+    entryDate:entryDate || new Date().toISOString().split('T')[0],
+    grade:bestKnownGradeForSymbol(item.sym, item.grade || sc?.grade || 'A'),
+    invest,
+    currentPrice:item.currentPrice || entryPrice,
+    status:'Added from Group Tracker',
+    resistances:sc?.res||[],
+    breakdown:sc?.brk||null,
+    supLow:sc?.supLow||null,
+    supHigh:sc?.supHigh||null,
+    notes:`Group Tracker${item.note ? ' · ' + item.note : ''}`,
+    state:'open',
+    closedPrice:null,
+    closeDate:null,
+    addedAt:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+  });
+  item.portfolioId = pfPositions[0].id;
+  pfSave();
+  gaSave();
+  pfRender();
+  gaRender();
+  autoSync();
+}
+function gaClearAll(){
+  if(!confirm('Remove all tracked group alerts?')) return;
+  gaTrackers = [];
+  gaSave();
+  gaRender();
+  autoSync();
+}
+function gaRender(){
+  const list = document.getElementById('gaList');
+  if(!list) return;
+  const tracked = gaTrackers.length;
+  const winners2d = gaTrackers.filter(t=>{
+    const linked = gaLinkedPosition(t);
+    const pct = linked ? (pfCalcPnl(linked).pct || 0) : (t.pctSinceAdd || 0);
+    return gaDaysHeld(t) <= 2 && pct >= 10;
+  }).length;
+  const avg = tracked ? gaTrackers.reduce((a,t)=>{
+    const linked = gaLinkedPosition(t);
+    return a + (linked ? (pfCalcPnl(linked).pct || 0) : (t.pctSinceAdd || 0));
+  },0)/tracked : 0;
+  const bought = gaTrackers.filter(t=>!!gaLinkedPosition(t)).length;
+  const tc=document.getElementById('gaTrackedCount'); if(tc) tc.textContent=String(tracked);
+  const w2=document.getElementById('gaWinners2d'); if(w2) w2.textContent=`${winners2d}/${bought}`;
+  const ar=document.getElementById('gaAvgReturn'); if(ar) ar.textContent=`${avg>=0?'+':''}${avg.toFixed(1)}%`;
+  if(!tracked){
+    list.innerHTML='<div class="empty-s">No group alerts tracked yet</div>';
+    return;
+  }
+  list.innerHTML = gaTrackers.map(item=>{
+    const linked = gaLinkedPosition(item);
+    const st = gaStatus(item);
+    const linkedPnl = linked ? pfCalcPnl(linked) : null;
+    const pct = linkedPnl ? linkedPnl.pct : (item.pctSinceAdd ?? 0);
+    const currentPx = linked ? (linked.state==='closed' ? linked.closedPrice : linked.currentPrice) : item.currentPrice;
+    const entryPx = linked ? linked.entryPrice : item.addedPrice;
+    const entryLbl = linked ? (linked.entryDate || '—') : item.addedLabel;
+    const holdDays = linked
+      ? Math.max(0, Math.round(((linked.state==='closed' ? new Date(linked.closeDate || Date.now()) : new Date()) - new Date(linked.entryDate || item.addedIso || Date.now())) / 86400000))
+      : gaDaysHeld(item);
+    return `<div class="ga-card">
+      <div>
+        <div class="ga-sym">${item.sym}</div>
+        <div class="ga-sub">${item.note || 'Group alert'}</div>
+      </div>
+      <div>
+        <div class="ga-meta">
+          <span class="ga-chip">${linked?'Entry':'Added'} ${entryLbl}</span>
+          <span class="ga-chip">${holdDays}d held</span>
+          ${item.catalystScore!=null?`<span class="ga-chip">Catalyst ${item.catalystScore}/100</span>`:''}
+          ${linked?`<span class="ga-chip">${linked.state==='closed'?'Closed':'In Portfolio'}</span>`:''}
+        </div>
+        <div class="ga-grid">
+          <div class="ga-stat"><div class="ga-lbl">${linked?'Entry':'Added'}</div><div class="ga-val">${entryPx?`$${entryPx.toFixed(2)}`:'—'}</div></div>
+          <div class="ga-stat"><div class="ga-lbl">${linked&&linked.state==='closed'?'Closed':'Current'}</div><div class="ga-val">${currentPx?`$${currentPx.toFixed(2)}`:'—'}</div></div>
+          <div class="ga-stat"><div class="ga-lbl">Return</div><div class="ga-val ${pct>=0?'pos':'neg'}">${pct>=0?'+':''}${pct.toFixed(1)}%</div></div>
+          <div class="ga-stat"><div class="ga-lbl">${linked?'Trade':'Goal'}</div><div class="ga-val ${(gaDaysHeld(item)<=2 && pct>=10)?'pos':''}">${linked?linked.state==='closed'?'Closed':'Open':gaDaysHeld(item)<=2 && pct>=10?'Hit':'Track'}</div></div>
+        </div>
+      </div>
+      <div class="ga-right">
+        <span class="ga-badge ${st.cls}">${st.label}</span>
+        <div class="ga-actions">
+          <button class="btn ${linked?'btn-o':'btn-p'} btn-sm" onclick="gaAddToPortfolio(${item.id})">${linked?'In Portfolio':'Add to Portfolio'}</button>
+          <button class="btn btn-o btn-sm" onclick="document.getElementById('kaSearchInput').value='${item.sym}';switchTab('an');runKalkiSearch();">Open</button>
+          <button class="btn btn-d btn-sm" onclick="gaRemove(${item.id})">Remove</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 // ══════════════════════════════════════════════════════
 // SEND ZONE MAP TO TELEGRAM
@@ -2413,29 +2805,20 @@ let _lastZoneData = null;
 // Alert format toggle — 'compact' (new) or 'detailed' (old)
 let _alertFormat = localStorage.getItem('kalki_alert_fmt') || 'compact';
 
-function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio) {
+function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null) {
   return _alertFormat === 'compact'
-    ? buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio)
-    : buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio);
+    ? buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride)
+    : buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride);
 }
 
 // ── NEW COMPACT FORMAT ────────────────────────────────
-function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio) {
+function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null) {
   const inZone = price >= supLow && price <= supHigh;
   const entryRef = (supLow + supHigh) / 2;
 
-  // Grade
-  let grade;
-  if      (overall >= 70 && inZone) grade = 'A+';
-  else if (overall >= 70)           grade = 'A+';
-  else if (overall >= 65)           grade = 'A';
-  else if (overall >= 60 && inZone) grade = 'A';
-  else if (overall >= 60)           grade = 'B';
-  else if (overall >= 50)           grade = 'B';
-  else                              grade = 'C';
-
-  // Score /8
-  const scoreOf8 = Math.min(8, Math.round((overall / 100) * 8));
+  // Use the same grade model as calcScores/reporting.
+  const grade = gradeOverride || gradeFromOverall(overall);
+  const scoreOf8 = scoreOutOf8(overall);
 
   // % from entry reference price (support zone midpoint)
   const pctFromEntry = v => {
@@ -2472,7 +2855,7 @@ function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistan
 }
 
 // ── OLD DETAILED FORMAT ───────────────────────────────
-function buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio) {
+function buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null) {
   const inZone   = price >= supLow && price <= supHigh;
   const belowBrk = price < breakdown;
   const pct = l => (((l-price)/price)*100);
@@ -2492,14 +2875,16 @@ function buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resista
   const volLine  = volRatio ? 'Vol '+(+volRatio).toFixed(1)+'×' : '';
   const techLine = [rsiLine, smaLine, volLine].filter(Boolean).join('  ·  ');
 
+  const grade = gradeOverride || gradeFromOverall(overall);
   let gradeLine, warningLine='';
-  if      (overall >= 70 && inZone) { gradeLine='🥇🥇🥇 *A+*  ·  Strong buy setup'; }
-  else if (overall >= 70)           { gradeLine='🥇🥇🥇 *A+*  ·  High conviction'; }
-  else if (overall >= 65)           { gradeLine='🥇🥇 *A*  ·  Bullish momentum'; }
-  else if (overall >= 60 && inZone) { gradeLine='🥇🥇 *A*  ·  Buy at support'; }
-  else if (overall >= 60)           { gradeLine='🥇 *B*  ·  Moderate setup'; }
-  else if (overall >= 50)           { gradeLine='🥇 *B*  ·  Mixed signals'; }
-  else                              { gradeLine='🚫 *C*  ·  Weak momentum'; warningLine='⚠️ _Low conviction — trade with caution_'; }
+  if      (grade === 'A+' && inZone) { gradeLine='🥇🥇🥇 *A+*  ·  Strong buy setup'; }
+  else if (grade === 'A+')           { gradeLine='🥇🥇🥇 *A+*  ·  High conviction'; }
+  else if (grade === 'A'  && inZone) { gradeLine='🥇🥇 *A*  ·  Buy at support'; }
+  else if (grade === 'A')            { gradeLine='🥇🥇 *A*  ·  Bullish momentum'; }
+  else if (grade === 'B'  && inZone) { gradeLine='🥇 *B*  ·  Setup improving at support'; }
+  else if (grade === 'B')            { gradeLine='🥇 *B*  ·  Moderate setup'; }
+  else if (grade === 'C')            { gradeLine='⚠️ *C*  ·  Selective / lower conviction'; warningLine='⚠️ _Trade only if timing improves_'; }
+  else                               { gradeLine='🚫 *D*  ·  Weak momentum'; warningLine='⚠️ _Low conviction — trade with caution_'; }
 
   const supMid = (supLow + supHigh) / 2;
   const pctSup = l => (((l - supMid) / supMid) * 100);
@@ -2562,7 +2947,7 @@ async function sendZoneMapToTelegram() {
   const msg = buildZoneMapMessage(
     d.ticker, d.price, d.supLow, d.supHigh, d.breakdown, d.resistances,
     d.shortScore, d.longScore, d.overall, d.stV, d.ovV,
-    d.sma20, d.rsi14, d.volRatio
+    d.sma20, d.rsi14, d.volRatio, d.grade
   );
 
   try {
@@ -2734,9 +3119,27 @@ function pfCalcPnl(pos){
   const pct=(pnl/pos.invest)*100;
   return{shares,currentVal,pnl,pct};
 }
+function pfEnsureTargets(pos){
+  if(!pos) return;
+  const sc = scTickers.find(t=>t.sym===pos.sym);
+  if(!sc) return;
+  if((!pos.resistances || !pos.resistances.length) && sc.res?.length) pos.resistances = [...sc.res];
+  if((pos.breakdown==null || Number.isNaN(pos.breakdown)) && sc.brk!=null) pos.breakdown = sc.brk;
+  if((pos.supLow==null || Number.isNaN(pos.supLow)) && sc.supLow!=null) pos.supLow = sc.supLow;
+  if((pos.supHigh==null || Number.isNaN(pos.supHigh)) && sc.supHigh!=null) pos.supHigh = sc.supHigh;
+  pos.grade = bestKnownGradeForSymbol(pos.sym, pos.grade);
+}
+function pfSortDateKey(pos){
+  const primary = pos.state === 'closed'
+    ? (pos.closeDate || pos.entryDate || pos.addedAt || '')
+    : (pos.entryDate || pos.addedAt || '');
+  const ts = Date.parse(primary);
+  return Number.isNaN(ts) ? 0 : ts;
+}
 
 function pfRender(){
   const el=document.getElementById('pfList');
+  pfPositions.forEach(pfEnsureTargets);
   let filtered=pfPositions;
   if(pfFilter==='open') filtered=pfPositions.filter(p=>p.state==='open');
   else if(pfFilter==='closed') filtered=pfPositions.filter(p=>p.state==='closed');
@@ -2745,11 +3148,19 @@ function pfRender(){
 
   if(!filtered.length){el.innerHTML='<div class="empty-s">No positions match this filter</div>';pfUpdateSummary();return;}
 
+  filtered = [...filtered].sort((a,b) => {
+    if (a.state !== b.state) return a.state === 'closed' ? 1 : -1;
+    const da = pfSortDateKey(a);
+    const db = pfSortDateKey(b);
+    if (da !== db) return da - db;
+    return (b.id||0) - (a.id||0);
+  });
+
   el.innerHTML=filtered.map(pos=>{
     const {shares,currentVal,pnl,pct}=pfCalcPnl(pos);
     const isPos=pnl>=0;
     const winCls=pos.state==='closed'?'closed':isPos?'win':'loss';
-    const gradeCls=pos.grade==='A+'?'ap':pos.grade==='A'?'a':pos.grade==='B'?'b':'c';
+    const gradeCls=pos.grade==='A+'?'ap':pos.grade==='A'?'a':pos.grade==='B'?'b':pos.grade==='C'?'c':'d';
 
     // TP pills
     const tpPills=(pos.resistances||[]).map((r,i)=>{
@@ -3044,6 +3455,11 @@ function rpTpBar(t) {
     return `<div class="rp2-seg ${hit?'hit':isNext?(wrn?'wrn':'nxt'):''}"></div>`;
   }).join('');
 }
+function rpSortDateKey(t) {
+  const primary = t.entryDate || t.addedAt || '';
+  const ts = Date.parse(primary);
+  return Number.isNaN(ts) ? 0 : ts;
+}
 
 function rpGradeTxt(t) {
   const g = t.grade;
@@ -3051,7 +3467,8 @@ function rpGradeTxt(t) {
   if (g==='A+') return '🥇🥇🥇 A+';
   if (g==='A')  return '🥇🥇 A';
   if (g==='B')  return '🥇 B';
-  return '📉 C';
+  if (g==='C')  return '📉 C';
+  return '⛔ D';
 }
 
 async function rpRefresh() {
@@ -3099,12 +3516,15 @@ function rpRender() {
     return;
   }
 
-  // Sort: open/support first, then by pnl
+  // Sort: by section first, then by relevant date descending within each section
   const stOrder = { 'rp2-win':0, 'rp2-open':1, 'rp2-warn':2, 'rp2-loss':3 };
   const sorted = [...filtered].sort((a,b) => {
     const oa = stOrder[rpStatus2(a).rowCls]||0;
     const ob = stOrder[rpStatus2(b).rowCls]||0;
     if (oa !== ob) return oa - ob;
+    const da = rpSortDateKey(a);
+    const db = rpSortDateKey(b);
+    if (da !== db) return da - db;
     return (rpPct(b)||0) - (rpPct(a)||0);
   });
 
@@ -3215,7 +3635,15 @@ function rpTelegramReportData() {
   const winRate  = withPnl.length ? Math.round(wins/withPnl.length*100) : 0;
   const avgHold  = filtered.length ? Math.round(filtered.reduce((a,t)=>a+rpDaysHeld(t),0)/filtered.length) : 0;
   const stOrder  = {'rp2-win':0,'rp2-open':1,'rp2-warn':2,'rp2-loss':3};
-  const sorted   = [...filtered].sort((a,b)=>(stOrder[rpStatus2(a).rowCls]||0)-(stOrder[rpStatus2(b).rowCls]||0));
+  const sorted   = [...filtered].sort((a,b) => {
+    const oa = stOrder[rpStatus2(a).rowCls]||0;
+    const ob = stOrder[rpStatus2(b).rowCls]||0;
+    if (oa !== ob) return oa - ob;
+    const da = rpSortDateKey(a);
+    const db = rpSortDateKey(b);
+    if (da !== db) return da - db;
+    return (rpPct(b)||0) - (rpPct(a)||0);
+  });
   return {
     filtered,
     closed:   sorted.filter(t=>t.state==='closed'),
@@ -3247,6 +3675,8 @@ function rpSvgRow(t, y, width) {
   const pct      = rpPct(t);
   const curr     = t.state==='closed' ? t.closedPrice : t.currentPrice;
   const days     = rpDaysHeld(t);
+  const entryDate = t.entryDate || '—';
+  const gradeTxt = t.grade || '—';
   const pctStr   = pct!=null ? (pct>=0?'+':'')+pct.toFixed(1)+'%' : '--';
   const pctFill  = pct==null?'#243042':pct>=0?'#163828':'#3b1820';
   const pctText  = pct==null?'#94a3b8':pct>=0?'#63d97e':'#ff6b6b';
@@ -3266,7 +3696,7 @@ function rpSvgRow(t, y, width) {
     <text x="182" y="${y+27}" font-family="DM Mono, monospace" font-size="15" fill="#9fb0c9">${rpXmlEsc(rpFmtMoney(t.entryPrice))}</text>
     <text x="306" y="${y+27}" font-family="DM Sans, Arial, sans-serif" font-size="16" fill="#5f7397">→</text>
     <text x="340" y="${y+27}" font-family="DM Mono, monospace" font-size="15" font-weight="600" fill="${pctText}">${rpXmlEsc(rpFmtMoney(curr))}</text>
-    <text x="90" y="${y+45}" font-family="DM Sans, Arial, sans-serif" font-size="11" fill="#6f86a8">${rpXmlEsc(days+'d')}</text>
+    <text x="90" y="${y+45}" font-family="DM Sans, Arial, sans-serif" font-size="11" fill="#6f86a8">${rpXmlEsc(entryDate)} · ${rpXmlEsc(days+'d')} · ${rpXmlEsc(gradeTxt)}</text>
     <rect x="${width-194}" y="${y+12}" width="156" height="34" rx="10" fill="${pctFill}" stroke="${pctText}" stroke-opacity="0.22"/>
     <text x="${width-116}" y="${y+36}" font-family="DM Mono, monospace" font-size="16" font-weight="700" text-anchor="middle" fill="${pctText}">${rpXmlEsc(pctStr)}</text>`;
 }
@@ -3309,7 +3739,7 @@ function rpBuildTelegramCardSvg(data) {
   let sectionsMarkup='', y=headerH+summaryH;
   const cb=rpSvgSection('CLOSED',    '#57d26f', data.closed,   y, width); sectionsMarkup+=cb.markup; y=cb.nextY;
   const wb=rpSvgSection('WATCHING',  '#83a9ff', data.watching, y, width); sectionsMarkup+=wb.markup; y=wb.nextY;
-  const nb=rpSvgSection('NEAR STOP', '#ff8b5f', data.warning,  y, width); sectionsMarkup+=nb.markup; y=nb.nextY;
+  const nb=rpSvgSection('CAUTION', '#ff8b5f', data.warning,  y, width); sectionsMarkup+=nb.markup; y=nb.nextY;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
@@ -3382,7 +3812,7 @@ function rpBuildTelegramFallbackText(data) {
   let sections='';
   if (data.closed.length)   sections+=`── CLOSED ──\n`  +data.closed.map(fmtRow).join('\n')  +'\n\n';
   if (data.watching.length) sections+=`── WATCHING ──\n`+data.watching.map(fmtRow).join('\n')+'\n\n';
-  if (data.warning.length)  sections+=`── NEAR STOP ──\n`+data.warning.map(fmtRow).join('\n')+'\n\n';
+  if (data.warning.length)  sections+=`── CAUTION ──\n`+data.warning.map(fmtRow).join('\n')+'\n\n';
   const totalPct = (data.totalPct>=0?'+':'')+data.totalPct.toFixed(1)+'%';
   return `⚡ *KALKI REPORT* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}* (${totalPct})\n🎯 Win *${data.winRate}%*\n📦 *${data.filtered.length}* positions · ${data.wins}W / ${data.losses}L\n\n${sections}_$10,000 invested per position_\n────────────\n⚡ _Kalki Analysis Platform_`;
 }
@@ -3407,6 +3837,7 @@ async function gsSyncAll() {
     const payload = {
       portfolio:   pfPositions,
       watchlist:   scTickers,
+      groupTracker: gaTrackers,
       subscribers: sbSubs,
       updatedAt:   new Date().toISOString()
     };
@@ -3422,8 +3853,10 @@ async function gsSyncAll() {
     if (!res.ok) throw new Error(d.message || 'Sync failed');
     localStorage.setItem('kalki_jb_bin', binId);
     localStorage.setItem('kalki_jb_key', apiKey);
+    setGaSaveStatus('cloud', `Cloud synced ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     gsStatus('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
+    setGaSaveStatus('warning', 'Saved locally · Cloud sync failed');
     gsStatus('❌ ' + e.message, 'var(--red)');
   }
 }
@@ -3442,11 +3875,14 @@ async function gsLoadAll() {
     const data = d.record;
     if (data.portfolio)   { pfPositions = data.portfolio;   pfSave(); pfRender(); }
     if (data.watchlist)   { scTickers   = data.watchlist;   saveSc(); renderSc(); }
+    if (data.groupTracker){ gaTrackers  = data.groupTracker; gaSave(); gaRender(); }
     if (data.subscribers) { sbSubs      = data.subscribers; sbSave(); sbRender(); }
     localStorage.setItem('kalki_jb_bin', binId);
     localStorage.setItem('kalki_jb_key', apiKey);
+    setGaSaveStatus('cloud', `Cloud loaded ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     gsStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
+    setGaSaveStatus('warning', 'Saved locally · Cloud load failed');
     gsStatus('❌ ' + e.message, 'var(--red)');
   }
 }
@@ -3516,9 +3952,11 @@ if (savedBinId && savedApiKey) {
   gsLoadAll().then(() => {
     gsStatus('✅ Loaded from JSONBin');
     renderSc();
+    gaRender();
   }).catch(() => {
     gsStatus('⚠ Could not reach JSONBin — using local data', 'var(--warn)');
     renderSc();
+    gaRender();
   });
 } else {
   if(!scTickers.length){
@@ -3526,6 +3964,9 @@ if (savedBinId && savedApiKey) {
     saveSc();
   }
   renderSc();
+  gaRender();
+  setGaSaveStatus('local');
+  setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
 }
 </script>
 </body>
