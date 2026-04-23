@@ -542,7 +542,7 @@ textarea:focus{border-color:var(--accent);}
     </div>
     <div class="score-banner" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:18px;">
       <div class="score-item"><div class="score-lbl">Tracked</div><div class="score-val ov" id="gaTrackedCount" style="font-size:34px;">0</div><div class="score-sub">group alerts</div></div>
-      <div class="score-item"><div class="score-lbl">10%+ in 2D</div><div class="score-val st" id="gaWinners2d" style="font-size:34px;">0</div><div class="score-sub">fast follow-through</div></div>
+      <div class="score-item"><div class="score-lbl">Targets Hit</div><div class="score-val st" id="gaTargetsHit" style="font-size:34px;">0</div><div class="score-sub">tracked ideas reaching targets</div></div>
       <div class="score-item"><div class="score-lbl">Avg Return</div><div class="score-val lt" id="gaAvgReturn" style="font-size:34px;">0.0%</div><div class="score-sub">since added</div></div>
     </div>
     <div id="gaList" class="ga-list"><div class="empty-s">No group alerts tracked yet</div></div>
@@ -634,6 +634,19 @@ textarea:focus{border-color:var(--accent);}
       <div class="settings-actions">
         <button class="btn btn-p btn-sm" onclick="gsSyncAll()">☁ Sync to JSONBin</button>
         <button class="btn btn-o btn-sm" onclick="gsLoadAll()">⬇ Load from JSONBin</button>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>Cloudflare Backup URL</label><input id="cfBackupUrl" value="https://kalki-sync-backup.srimanthgada87.workers.dev" placeholder="https://kalki-sync-backup....workers.dev"/><span class="hint">Optional second backup copy on Cloudflare Workers KV</span></div>
+      <div class="field" style="margin-top:10px;"><label>Cloudflare Backup Key</label><input id="cfBackupKey" value="ksb_6Fv9xQ2mR7pL4tN8" placeholder="ksb_..." type="password"/><span class="hint">Shared key for the Cloudflare backup worker &nbsp; <span id="cfSyncStatus" style="color:var(--green)"></span></span></div>
+      <div class="settings-actions">
+        <button class="btn btn-p btn-sm" onclick="cfSyncAll()">☁ Sync to Cloudflare</button>
+        <button class="btn btn-o btn-sm" onclick="cfLoadAll()">⬇ Load from Cloudflare</button>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>Cloudflare D1 URL</label><input id="d1SyncUrl" value="https://kalki-sync-backup.srimanthgada87.workers.dev" placeholder="https://kalki-sync-backup....workers.dev"/><span class="hint">Queryable Cloudflare D1 database endpoint</span></div>
+      <div class="field" style="margin-top:10px;"><label>Cloudflare D1 Key</label><input id="d1SyncKey" value="ksb_6Fv9xQ2mR7pL4tN8" placeholder="ksb_..." type="password"/><span class="hint">Uses the same shared key as the Cloudflare backup worker &nbsp; <span id="d1SyncStatus" style="color:var(--green)"></span></span></div>
+      <div class="settings-actions">
+        <button class="btn btn-p btn-sm" onclick="d1SyncAll()">☁ Sync to D1</button>
+        <button class="btn btn-o btn-sm" onclick="d1LoadAll()">⬇ Load from D1</button>
+        <button class="btn btn-o btn-sm" onclick="d1ViewSummary()">👁 View D1 Summary</button>
       </div>
     </div>
 
@@ -860,6 +873,8 @@ textarea:focus{border-color:var(--accent);}
       <button class="rp-filter-btn active" id="rpf-all"       onclick="rpSetFilter('all')">All</button>
       <button class="rp-filter-btn"        id="rpf-open"      onclick="rpSetFilter('open')">Open</button>
       <button class="rp-filter-btn"        id="rpf-closed"    onclick="rpSetFilter('closed')">Closed</button>
+      <button class="rp-filter-btn"        id="rpf-thisweek"  onclick="rpSetFilter('thisweek')">This Week</button>
+      <button class="rp-filter-btn"        id="rpf-lastweek"  onclick="rpSetFilter('lastweek')">Last Week</button>
       <button class="rp-filter-btn"        id="rpf-thismonth" onclick="rpSetFilter('thismonth')">This Month</button>
       <button class="rp-filter-btn"        id="rpf-lastmonth" onclick="rpSetFilter('lastmonth')">Last Month</button>
       <input id="rpSearch" placeholder="Search ticker…" oninput="rpRender()"
@@ -923,6 +938,10 @@ const ADMIN_PASSWORD = '1515';
 let adminUnlocked = false;
 
 function proxy(){ return (document.getElementById('proxyUrl').value||'https://yahoo-proxy.srimanthgada87.workers.dev').trim(); }
+function cfBackupUrl(){ return (document.getElementById('cfBackupUrl')?.value||'').trim(); }
+function cfBackupKey(){ return (document.getElementById('cfBackupKey')?.value||'').trim(); }
+function d1SyncUrl(){ return (document.getElementById('d1SyncUrl')?.value||'').trim(); }
+function d1SyncKey(){ return (document.getElementById('d1SyncKey')?.value||'').trim(); }
 function ensureAdminAccess(){
   if(adminUnlocked) return true;
   const entered = prompt('Enter Admin password');
@@ -1236,13 +1255,22 @@ function calcScores({price,high52,low52,sma20,sma50,rsi14,atr14,changePct,avgVol
   const timingScore=Math.round((timingPassed / Math.max(1,timingSignals.length)) * 100);
   const timingBonus=(timingSignals[0]?.ok&&timingSignals[1]?.ok)?10:0;
   const setup=Math.round(clamp(swing + timingBonus, 0, 100));
+  const grade = gradeFromOverall(setup, {
+    longScore: timingScore,
+    trendOk: !!(sma20 && price > sma20 && sma50 && price > sma50 && sma20 > sma50),
+    timingReady: !!(timingSignals[0]?.ok && timingSignals[1]?.ok),
+    volumeScore: volume,
+    riskScore: risk,
+    roomScore: room,
+    rsi14
+  });
 
   return {
     shortScore:swing,
     longScore:timingScore,
     overall:setup,
     timingBonus,
-    grade:setup>=80?'A+':setup>=72?'A':setup>=64?'B':setup>=55?'C':'D',
+    grade,
     factors:[
       {name:'Trend (30%)',short:trend,long:trend,type:trend>=7?'bull':'bear'},
       {name:'Momentum (25%)',short:momentum,long:momentum,type:momentum>=7?'bull':'neutral'},
@@ -1254,8 +1282,34 @@ function calcScores({price,high52,low52,sma20,sma50,rsi14,atr14,changePct,avgVol
     metrics:{volRatio,atrPct,fromHigh,rangePos,roomPct,rsSpread:rs.spread}
   };
 }
-function gradeFromOverall(setup){
-  return setup>=80?'A+':setup>=72?'A':setup>=64?'B':setup>=55?'C':'D';
+function gradeFromOverall(setup, ctx={}){
+  const {
+    longScore = null,
+    trendOk = null,
+    timingReady = null,
+    volumeScore = null,
+    riskScore = null,
+    roomScore = null,
+    rsi14 = null
+  } = ctx || {};
+  let grade = setup>=80?'A+':setup>=72?'A':setup>=64?'B':setup>=55?'C':'D';
+
+  const strongTrend = trendOk === true;
+  const strongTiming = timingReady === true || (longScore != null && longScore >= 70);
+  const weakTiming = timingReady === false || (longScore != null && longScore < 45);
+  const strongVolume = volumeScore != null && volumeScore >= 7;
+  const weakVolume = volumeScore != null && volumeScore <= 3;
+  const highRisk = riskScore != null && riskScore <= 3;
+  const weakRoom = roomScore != null && roomScore <= 3;
+  const sweetRsi = rsi14 != null && rsi14 >= 50 && rsi14 <= 68;
+  const stretchedRsi = rsi14 != null && (rsi14 < 42 || rsi14 > 74);
+
+  if(grade === 'A+' && (!strongTrend || !strongTiming || highRisk || weakRoom || stretchedRsi)) grade = 'A';
+  if(grade === 'A' && (!strongTrend || weakTiming || weakVolume || highRisk)) grade = 'B';
+  if(grade === 'B' && weakTiming && (weakVolume || stretchedRsi || highRisk)) grade = 'C';
+  if(grade === 'A' && strongTrend && strongTiming && strongVolume && sweetRsi && !highRisk && !weakRoom && setup >= 78) grade = 'A+';
+  if(grade === 'B' && strongTrend && strongTiming && strongVolume && sweetRsi && !highRisk && setup >= 70) grade = 'A';
+  return grade;
 }
 function gradeRank(g){
   return g==='A+'?5:g==='A'?4:g==='B'?3:g==='C'?2:g==='D'?1:0;
@@ -1737,7 +1791,7 @@ function addTicker(){
   if(!supLow||!supHigh)return alert('Enter support as e.g. 38-40');
   if(isNaN(brk))return alert('Enter breakdown level');
   const res=resRaw.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n));
-  scTickers.push({sym,supLow,supHigh,brk,res,price:null,status:'neutral',monitorTrend:false,grade:''});
+  scTickers.unshift({sym,supLow,supHigh,brk,res,price:null,status:'neutral',monitorTrend:false,grade:''});
   saveSc();renderSc();autoSync();
   ['inTick','inSup','inBrk','inRes'].forEach(id=>document.getElementById(id).value='');
 }
@@ -1746,6 +1800,40 @@ function removeTicker(i,e){e.stopPropagation();scTickers.splice(i,1);if(kaSelect
 function clearAll(){if(!confirm('Remove all?'))return;scTickers=[];kaSelected=null;saveSc();renderSc();autoSync();}
 function isInPortfolio(sym){
   return !!pfPositions.find(p=>p.sym===sym && p.state==='open');
+}
+function editTicker(i,e){
+  if(e) e.stopPropagation();
+  const t=scTickers[i];
+  if(!t) return;
+  const supRaw = prompt(`Support for ${t.sym} (lo-hi):`, `${t.supLow}-${t.supHigh}`);
+  if(supRaw===null) return;
+  const brkRaw = prompt(`Breakdown / stop-loss for ${t.sym}:`, `${t.brk}`);
+  if(brkRaw===null) return;
+  const resRaw = prompt(`Resistance levels for ${t.sym} (csv):`, `${(t.res||[]).join(', ')}`);
+  if(resRaw===null) return;
+  const parts = supRaw.split('-').map(v=>parseFloat(String(v).trim())).filter(v=>!Number.isNaN(v));
+  const supLow = parts[0], supHigh = parts[1] ?? parts[0];
+  const brk = parseFloat(brkRaw);
+  const res = resRaw.split(',').map(s=>parseFloat(s.trim())).filter(n=>!Number.isNaN(n));
+  if(!supLow || !supHigh) return alert('Enter support as e.g. 68-70');
+  if(Number.isNaN(brk)) return alert('Enter a valid breakdown / stop-loss');
+  t.supLow = +supLow.toFixed(2);
+  t.supHigh = +supHigh.toFixed(2);
+  t.brk = +brk.toFixed(2);
+  t.res = res.map(v=>+v.toFixed(2));
+  pfPositions.forEach(pos => {
+    if(pos.sym !== t.sym || pos.state === 'closed') return;
+    pos.breakdown = t.brk;
+    pos.supLow = t.supLow;
+    pos.supHigh = t.supHigh;
+    pos.resistances = [...t.res];
+  });
+  saveSc();
+  pfSave();
+  renderSc();
+  pfRender();
+  autoSync();
+  sLog(`${t.sym} watchlist levels updated`,'ea');
 }
 function toggleWatchMonitor(i,e){
   if(e) e.stopPropagation();
@@ -1834,7 +1922,7 @@ function addCurrentAnalysisToWatchlist(){
     alert(`${d.ticker} is already in your watchlist`);
     return;
   }
-  scTickers.push({
+  scTickers.unshift({
     sym:d.ticker,
     supLow:+(+d.supLow).toFixed(2),
     supHigh:+(+d.supHigh).toFixed(2),
@@ -1974,6 +2062,7 @@ function renderSc(){
           ${inPf?'<span class="mini-flag own">In Portfolio</span>':''}
         </div>
         <div class="tc-actions">
+          <button class="btn btn-sm btn-o" onclick="editTicker(${i},event)">Edit</button>
           <button class="btn btn-sm ${t.monitorTrend?'btn-o':'btn-p'}" onclick="toggleWatchMonitor(${i},event)">${t.monitorTrend?'Monitoring':'Monitor Trend'}</button>
           <button class="btn btn-sm ${inPf?'btn-o':'btn-p'}" ${inPf?'disabled':''} onclick="addWatchlistToPortfolio(${i},event)">${inPf?'In Portfolio':'Add to Portfolio'}</button>
           <button class="btn btn-sm btn-o" onclick="sendPreparedTickerToTelegram({ticker:'${t.sym}',price:${t.price!=null?t.price:'null'},supLow:${t.supLow},supHigh:${t.supHigh},breakdown:${t.brk},resistances:[${t.res.join(',')}],shortScore:0,longScore:0,overall:0},event)">Send TG</button>
@@ -2004,8 +2093,15 @@ async function sendTG(msg){
   try{await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})});}
   catch(e){sLog('TG failed','inf');}
 }
+function alertStopLevel(a){
+  if(Number.isFinite(a.breakdown)) return a.breakdown;
+  if(Number.isFinite(a.brk)) return a.brk;
+  if(Number.isFinite(a.stStop) && Number.isFinite(a.supLow)) return Math.min(a.stStop, +(a.supLow * 0.99).toFixed(2));
+  return a.stStop;
+}
 function buildTrendBuyAlert(a){
   const entryRef = (a.supLow + a.supHigh) / 2;
+  const stop = alertStopLevel(a);
   const pct = v => {
     const p = ((v - entryRef) / entryRef) * 100;
     return `${p>=0?'+':''}${p.toFixed(1)}%`;
@@ -2016,7 +2112,7 @@ function buildTrendBuyAlert(a){
     ``,
     `💰 Price: $${a.price.toFixed(2)}`,
     `📈 Entry: *$${a.supLow.toFixed(2)}–$${a.supHigh.toFixed(2)}*`,
-    `🛑 Stop: $${a.stStop.toFixed(2)} (${pct(a.stStop)})`,
+    `🛑 Stop: $${stop.toFixed(2)} (${pct(stop)})`,
     `🎯 T1: $${a.stT1.toFixed(2)} (${pct(a.stT1)})`,
     `🎯 T2: $${a.stT2.toFixed(2)} (${pct(a.stT2)})`,
     `🎯 T3: $${a.stT3.toFixed(2)} (${pct(a.stT3)})`,
@@ -2024,6 +2120,43 @@ function buildTrendBuyAlert(a){
     `Why: trend above SMA20/50 · timing filter ready · strong setup score`,
     `⚡ _Kalki Swing V2_`
   ].join('\n');
+}
+function buildPortfolioStopAlert(pos, t, price){
+  const entry = pos.entryPrice || price || 0;
+  const pct = entry ? (((price - entry) / entry) * 100) : 0;
+  const next = (pos.resistances || t.res || []).find(r => price < r);
+  return [
+    `🚨 *${pos.sym}* 〔PORTFOLIO STOP LOSS〕`,
+    `📊 Grade: *${pos.grade || t.grade || '—'}*  ·  Status *Breakdown hit*`,
+    ``,
+    `💰 Current: $${price.toFixed(2)}`,
+    `📈 Entry: $${entry.toFixed(2)}`,
+    `🛑 Stop: $${(pos.breakdown ?? t.brk).toFixed(2)}`,
+    `📉 P&L: ${pct>=0?'+':''}${pct.toFixed(1)}%`,
+    next ? `👀 Next overhead: $${next.toFixed(2)}` : null,
+    ``,
+    `Why: price is below your saved breakdown / stop-loss level`,
+    `⚡ _Kalki Swing V2_`
+  ].filter(Boolean).join('\n');
+}
+async function checkPortfolioStopMonitor(t){
+  const openPositions = pfPositions.filter(p=>p.sym===t.sym && p.state==='open');
+  if(!openPositions.length) return;
+  const price = t.price;
+  const stop = t.brk ?? openPositions[0]?.breakdown;
+  if(price==null || !Number.isFinite(stop)) return;
+  const hit = price <= stop;
+  for(const pos of openPositions){
+    pos.currentPrice = price;
+    if(pos.breakdown == null && t.brk != null) pos.breakdown = t.brk;
+    if(hit) pos.status = `🚨 Stop loss hit @ $${price.toFixed(2)}`;
+  }
+  if(hit && !alertSt[t.sym]?.portfolioStop){
+    await sendTG(buildPortfolioStopAlert(openPositions[0], t, price));
+    sLog(`${t.sym} portfolio stop-loss alert fired @ $${price.toFixed(2)}`,'ba');
+  }
+  alertSt[t.sym] = {...(alertSt[t.sym]||{}), portfolioStop: hit};
+  pfSave();
 }
 async function checkTrendBuyMonitor(t){
   if(!t.monitorTrend) return;
@@ -2048,13 +2181,17 @@ async function runScan(){
   for(let i=0;i<scTickers.length;i++){
     const t=scTickers[i];
     scTickers[i].price=await fetchScanPrice(t.sym);
+    await checkPortfolioStopMonitor(scTickers[i]);
     const ns=evalStatus(scTickers[i]);
     scTickers[i].status=ns;
     await checkTrendBuyMonitor(scTickers[i]);
 
     if(ns==='neutral'){
-      if(alertSt[t.sym]?.trendBuy!==undefined){
-        alertSt[t.sym] = {trendBuy: alertSt[t.sym].trendBuy};
+      if(alertSt[t.sym]?.trendBuy!==undefined || alertSt[t.sym]?.portfolioStop!==undefined){
+        alertSt[t.sym] = {
+          ...(alertSt[t.sym]?.trendBuy!==undefined ? {trendBuy: alertSt[t.sym].trendBuy} : {}),
+          ...(alertSt[t.sym]?.portfolioStop!==undefined ? {portfolioStop: alertSt[t.sym].portfolioStop} : {})
+        };
       } else {
         delete alertSt[t.sym];
       }
@@ -2228,9 +2365,10 @@ function bestAutoIntervalMs(){
 }
 function syncBestAutoUi(){
   const btn=document.getElementById('bestAutoBtn');
-  if(!btn) return;
-  btn.textContent = `A+ Auto: ${bestAutoEnabled ? 'ON' : 'OFF'}`;
-  btn.classList.toggle('on', bestAutoEnabled);
+  if(btn){
+    btn.textContent = `A+ Auto: ${bestAutoEnabled ? 'ON' : 'OFF'}`;
+    btn.classList.toggle('on', bestAutoEnabled);
+  }
   const barBtn=document.getElementById('bestAutoBarBtn');
   if(barBtn){
     barBtn.textContent = `⚡ Auto: ${bestAutoEnabled ? 'ON' : 'OFF'}`;
@@ -2318,6 +2456,7 @@ function scoreOutOf8(v){
 }
 function buildAPlusAlertMessage(r){
   const entryRef = (r.supLow + r.supHigh) / 2;
+  const stop = alertStopLevel(r);
   const pct = v => {
     const p = ((v - entryRef) / entryRef) * 100;
     return `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`;
@@ -2330,7 +2469,7 @@ function buildAPlusAlertMessage(r){
     ``,
     `💰 Price: $${r.price.toFixed(2)}`,
     `📈 Entry: *$${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}*`,
-    `🛑 Stop: $${r.stStop.toFixed(2)} (${pct(r.stStop)})`,
+    `🛑 Stop: $${stop.toFixed(2)} (${pct(stop)})`,
     `🎯 T1: $${r.stT1.toFixed(2)} (${pct(r.stT1)})`,
     `🎯 T2: $${r.stT2.toFixed(2)} (${pct(r.stT2)})`,
     `🎯 T3: $${r.stT3.toFixed(2)} (${pct(r.stT3)})`,
@@ -2423,7 +2562,7 @@ function addBestSetupToWatchlist(sym){
     renderBestSetupResults(bestScanLatest, bestScanLastCount);
     return;
   }
-  scTickers.push({
+  scTickers.unshift({
     sym,
     supLow:+hit.supLow.toFixed(2),
     supHigh:+hit.supHigh.toFixed(2),
@@ -2603,12 +2742,27 @@ function gaDaysHeld(item){
 function gaStatus(item){
   const linked = gaLinkedPosition(item);
   const pct = linked ? (pfCalcPnl(linked).pct || 0) : (item.pctSinceAdd ?? 0);
-  const days = gaDaysHeld(item);
   if(linked && linked.state==='closed') return {label:'Closed Trade', cls:pct>=0?'hot':'flat'};
   if(linked && linked.state==='open') return {label:'In Portfolio', cls:pct>=0?'watch':'flat'};
-  if(days <= 2 && pct >= 10) return {label:'10%+ in 2D', cls:'hot'};
+  const tp = gaTargetProgress(item);
+  if(tp.hitCount >= (tp.total || 1) && tp.total) return {label:'All Targets Hit', cls:'hot'};
+  if(tp.hitCount > 0) return {label:`TP${tp.hitCount} Hit`, cls:'hot'};
   if(pct >= 5) return {label:'Working', cls:'watch'};
   return {label:'Tracking', cls:'flat'};
+}
+function gaTargetLevels(item){
+  const linked = gaLinkedPosition(item);
+  if(linked?.resistances?.length) return linked.resistances;
+  const sc = scTickers.find(t=>t.sym===item.sym);
+  if(sc?.res?.length) return sc.res;
+  return [];
+}
+function gaTargetProgress(item){
+  const linked = gaLinkedPosition(item);
+  const levels = gaTargetLevels(item);
+  const price = linked ? (linked.state==='closed' ? linked.closedPrice : linked.currentPrice) : item.currentPrice;
+  const hitCount = levels.filter(r => price != null && price >= r).length;
+  return { hitCount, total: levels.length, next: levels.find(r => price != null && price < r) || null };
 }
 async function gaAddBatch(){
   const raw = (document.getElementById('gaTickers')?.value || '').toUpperCase();
@@ -2736,18 +2890,14 @@ function gaRender(){
   const list = document.getElementById('gaList');
   if(!list) return;
   const tracked = gaTrackers.length;
-  const winners2d = gaTrackers.filter(t=>{
-    const linked = gaLinkedPosition(t);
-    const pct = linked ? (pfCalcPnl(linked).pct || 0) : (t.pctSinceAdd || 0);
-    return gaDaysHeld(t) <= 2 && pct >= 10;
-  }).length;
+  const targetsHit = gaTrackers.filter(t=>gaTargetProgress(t).hitCount > 0).length;
   const avg = tracked ? gaTrackers.reduce((a,t)=>{
     const linked = gaLinkedPosition(t);
     return a + (linked ? (pfCalcPnl(linked).pct || 0) : (t.pctSinceAdd || 0));
   },0)/tracked : 0;
   const bought = gaTrackers.filter(t=>!!gaLinkedPosition(t)).length;
   const tc=document.getElementById('gaTrackedCount'); if(tc) tc.textContent=String(tracked);
-  const w2=document.getElementById('gaWinners2d'); if(w2) w2.textContent=`${winners2d}/${bought}`;
+  const w2=document.getElementById('gaTargetsHit'); if(w2) w2.textContent=`${targetsHit}/${tracked}`;
   const ar=document.getElementById('gaAvgReturn'); if(ar) ar.textContent=`${avg>=0?'+':''}${avg.toFixed(1)}%`;
   if(!tracked){
     list.innerHTML='<div class="empty-s">No group alerts tracked yet</div>';
@@ -2758,6 +2908,7 @@ function gaRender(){
     const st = gaStatus(item);
     const linkedPnl = linked ? pfCalcPnl(linked) : null;
     const pct = linkedPnl ? linkedPnl.pct : (item.pctSinceAdd ?? 0);
+    const tp = gaTargetProgress(item);
     const currentPx = linked ? (linked.state==='closed' ? linked.closedPrice : linked.currentPrice) : item.currentPrice;
     const entryPx = linked ? linked.entryPrice : item.addedPrice;
     const entryLbl = linked ? (linked.entryDate || '—') : item.addedLabel;
@@ -2775,12 +2926,13 @@ function gaRender(){
           <span class="ga-chip">${holdDays}d held</span>
           ${item.catalystScore!=null?`<span class="ga-chip">Catalyst ${item.catalystScore}/100</span>`:''}
           ${linked?`<span class="ga-chip">${linked.state==='closed'?'Closed':'In Portfolio'}</span>`:''}
+          ${tp.total?`<span class="ga-chip">${tp.hitCount ? `TP${tp.hitCount} hit` : tp.next ? `Next $${tp.next}` : 'Targets tracked'}</span>`:''}
         </div>
         <div class="ga-grid">
           <div class="ga-stat"><div class="ga-lbl">${linked?'Entry':'Added'}</div><div class="ga-val">${entryPx?`$${entryPx.toFixed(2)}`:'—'}</div></div>
           <div class="ga-stat"><div class="ga-lbl">${linked&&linked.state==='closed'?'Closed':'Current'}</div><div class="ga-val">${currentPx?`$${currentPx.toFixed(2)}`:'—'}</div></div>
           <div class="ga-stat"><div class="ga-lbl">Return</div><div class="ga-val ${pct>=0?'pos':'neg'}">${pct>=0?'+':''}${pct.toFixed(1)}%</div></div>
-          <div class="ga-stat"><div class="ga-lbl">${linked?'Trade':'Goal'}</div><div class="ga-val ${(gaDaysHeld(item)<=2 && pct>=10)?'pos':''}">${linked?linked.state==='closed'?'Closed':'Open':gaDaysHeld(item)<=2 && pct>=10?'Hit':'Track'}</div></div>
+          <div class="ga-stat"><div class="ga-lbl">${linked?'Trade':'Target'}</div><div class="ga-val ${tp.hitCount>0?'pos':''}">${linked?linked.state==='closed'?'Closed':'Open':tp.hitCount>0?`TP${tp.hitCount}`:tp.next?`Next $${tp.next}`:'Track'}</div></div>
         </div>
       </div>
       <div class="ga-right">
@@ -3152,7 +3304,7 @@ function pfRender(){
     if (a.state !== b.state) return a.state === 'closed' ? 1 : -1;
     const da = pfSortDateKey(a);
     const db = pfSortDateKey(b);
-    if (da !== db) return da - db;
+    if (da !== db) return db - da;
     return (b.id||0) - (a.id||0);
   });
 
@@ -3380,7 +3532,7 @@ let rpFilter = 'all';
 
 function rpSetFilter(f) {
   rpFilter = f;
-  ['all','open','closed','thismonth','lastmonth'].forEach(k => {
+  ['all','open','closed','thisweek','lastweek','thismonth','lastmonth'].forEach(k => {
     const b = document.getElementById('rpf-'+k);
     if (b) b.classList.toggle('active', k === f);
   });
@@ -3404,6 +3556,42 @@ function rpIsLastMonth(t) {
   const d = new Date(t.entryDate || t.addedAt || 0);
   return d.getMonth()===last.getMonth() && d.getFullYear()===last.getFullYear();
 }
+function rpStartOfWeek(d) {
+  const dt = new Date(d);
+  dt.setHours(0,0,0,0);
+  dt.setDate(dt.getDate() - dt.getDay());
+  return dt;
+}
+function rpIsThisWeek(t) {
+  const d = new Date(t.entryDate || t.addedAt || 0);
+  const start = rpStartOfWeek(new Date());
+  const end = new Date(start); end.setDate(start.getDate() + 7);
+  return d >= start && d < end;
+}
+function rpIsLastWeek(t) {
+  const d = new Date(t.entryDate || t.addedAt || 0);
+  const thisStart = rpStartOfWeek(new Date());
+  const lastStart = new Date(thisStart); lastStart.setDate(thisStart.getDate() - 7);
+  return d >= lastStart && d < thisStart;
+}
+function rpFilterLabel() {
+  return rpFilter === 'open' ? 'Open Positions'
+    : rpFilter === 'closed' ? 'Closed Positions'
+    : rpFilter === 'thisweek' ? 'This Week'
+    : rpFilter === 'lastweek' ? 'Last Week'
+    : rpFilter === 'thismonth' ? 'This Month'
+    : rpFilter === 'lastmonth' ? 'Last Month'
+    : 'All Positions';
+}
+function rpFilterSlug() {
+  return rpFilter === 'open' ? 'open'
+    : rpFilter === 'closed' ? 'closed'
+    : rpFilter === 'thisweek' ? 'this-week'
+    : rpFilter === 'lastweek' ? 'last-week'
+    : rpFilter === 'thismonth' ? 'this-month'
+    : rpFilter === 'lastmonth' ? 'last-month'
+    : 'all';
+}
 
 function rpGetFiltered() {
   const q = (document.getElementById('rpSearch')?.value||'').trim().toUpperCase();
@@ -3411,6 +3599,8 @@ function rpGetFiltered() {
     if (q && !t.sym.includes(q)) return false;
     if (rpFilter==='open')      return t.state !== 'closed';
     if (rpFilter==='closed')    return t.state === 'closed';
+    if (rpFilter==='thisweek')  return rpIsThisWeek(t);
+    if (rpFilter==='lastweek')  return rpIsLastWeek(t);
     if (rpFilter==='thismonth') return rpIsThisMonth(t);
     if (rpFilter==='lastmonth') return rpIsLastMonth(t);
     return true;
@@ -3516,15 +3706,19 @@ function rpRender() {
     return;
   }
 
-  // Sort: by section first, then by relevant date descending within each section
+  // Sort: open positions first, all closed positions at the bottom.
+  // Within each group, newest entry date stays on top.
   const stOrder = { 'rp2-win':0, 'rp2-open':1, 'rp2-warn':2, 'rp2-loss':3 };
   const sorted = [...filtered].sort((a,b) => {
+    const aClosed = a.state === 'closed';
+    const bClosed = b.state === 'closed';
+    if (aClosed !== bClosed) return aClosed ? 1 : -1;
     const oa = stOrder[rpStatus2(a).rowCls]||0;
     const ob = stOrder[rpStatus2(b).rowCls]||0;
-    if (oa !== ob) return oa - ob;
+    if (!aClosed && oa !== ob) return oa - ob;
     const da = rpSortDateKey(a);
     const db = rpSortDateKey(b);
-    if (da !== db) return da - db;
+    if (da !== db) return db - da;
     return (rpPct(b)||0) - (rpPct(a)||0);
   });
 
@@ -3597,9 +3791,10 @@ async function rpSendTelegram() {
     const pngBlob = await rpSvgToPngBlob(svg, 3);
     const form = new FormData();
     const dateStamp = new Date().toLocaleDateString('en-CA').replace(/-/g,'');
+    const filterSlug = data.filterSlug || 'all';
     form.append('chat_id', cid);
-    form.append('document', pngBlob, `kalki-report-${dateStamp}.png`);
-    form.append('caption', `Kalki Report · ${data.dateShort}`);
+    form.append('document', pngBlob, `kalki-report-${filterSlug}-${dateStamp}.png`);
+    form.append('caption', `Kalki Report · ${data.filterLabel} · ${data.dateShort}`);
     const r = await fetch(`https://api.telegram.org/bot${tok}/sendDocument`, { method:'POST', body:form });
     const d = await r.json();
     if (!d.ok) throw new Error(d.description || 'Telegram document upload failed');
@@ -3656,6 +3851,8 @@ function rpTelegramReportData() {
     wins,
     losses,
     avgHold,
+    filterLabel: rpFilterLabel(),
+    filterSlug: rpFilterSlug(),
     dateShort: new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),
     dateLong:  new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})
   };
@@ -3759,7 +3956,7 @@ function rpBuildTelegramCardSvg(data) {
     <rect x="12" y="12" width="${width-24}" height="${height-24}" rx="20" fill="none" stroke="url(#frame)" stroke-width="0.8"/>
     <circle cx="744" cy="110" r="122" fill="rgba(88,64,255,0.08)" filter="url(#softGlow)"/>
     <circle cx="84"  cy="146" r="96"  fill="rgba(34,197,94,0.06)"  filter="url(#softGlow)"/>
-    <text x="32" y="54" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="800" fill="#ffffff">⚡ ANALYSIS REPORT</text>
+    <text x="32" y="54" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="800" fill="#ffffff">⚡ ${rpXmlEsc(data.filterLabel.toUpperCase())} REPORT</text>
     <text x="${width-32}" y="54" text-anchor="end" font-family="DM Sans, Arial, sans-serif" font-size="18" fill="#9cabbe">${rpXmlEsc(data.dateShort)}</text>
     <line x1="32" y1="72" x2="${width-32}" y2="72" stroke="#22314a" stroke-width="1"/>
     ${summaryBoxes}
@@ -3814,7 +4011,7 @@ function rpBuildTelegramFallbackText(data) {
   if (data.watching.length) sections+=`── WATCHING ──\n`+data.watching.map(fmtRow).join('\n')+'\n\n';
   if (data.warning.length)  sections+=`── CAUTION ──\n`+data.warning.map(fmtRow).join('\n')+'\n\n';
   const totalPct = (data.totalPct>=0?'+':'')+data.totalPct.toFixed(1)+'%';
-  return `⚡ *KALKI REPORT* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}* (${totalPct})\n🎯 Win *${data.winRate}%*\n📦 *${data.filtered.length}* positions · ${data.wins}W / ${data.losses}L\n\n${sections}_$10,000 invested per position_\n────────────\n⚡ _Kalki Analysis Platform_`;
+  return `⚡ *KALKI ${data.filterLabel.toUpperCase()} REPORT* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}* (${totalPct})\n🎯 Win *${data.winRate}%*\n📦 *${data.filtered.length}* positions · ${data.wins}W / ${data.losses}L\n\n${sections}_$10,000 invested per position_\n────────────\n⚡ _Kalki Analysis Platform_`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -3822,10 +4019,38 @@ function rpBuildTelegramFallbackText(data) {
 // ══════════════════════════════════════════════════════
 function jbBinId()  { return (document.getElementById('jbBinId')?.value||'').trim(); }
 function jbApiKey() { return (document.getElementById('jbApiKey')?.value||'').trim(); }
+function hasJsonBinConfig(){ return !!(jbBinId() && jbApiKey()); }
+function hasCloudflareBackupConfig(){ return !!(cfBackupUrl() && cfBackupKey()); }
+function hasD1Config(){ return !!(d1SyncUrl() && d1SyncKey()); }
 
 function gsStatus(msg, color='var(--green)') {
   const el = document.getElementById('gsSyncStatus');
   if (el) { el.textContent = msg; el.style.color = color; }
+}
+function cfStatus(msg, color='var(--green)') {
+  const el = document.getElementById('cfSyncStatus');
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+function d1Status(msg, color='var(--green)') {
+  const el = document.getElementById('d1SyncStatus');
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+function syncPayload() {
+  return {
+    portfolio: pfPositions,
+    watchlist: scTickers,
+    groupTracker: gaTrackers,
+    subscribers: sbSubs,
+    updatedAt: new Date().toISOString()
+  };
+}
+function applySyncData(data) {
+  if (!data) return;
+  if (data.portfolio)    { pfPositions = data.portfolio;    pfSave(); pfRender(); }
+  if (data.watchlist)    { scTickers   = data.watchlist;    saveSc(); renderSc(); }
+  if (data.groupTracker) { gaTrackers  = data.groupTracker; gaSave(); gaRender(); }
+  if (data.subscribers)  { sbSubs      = data.subscribers;  sbSave(); sbRender(); }
+  setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
 }
 
 async function gsSyncAll() {
@@ -3834,13 +4059,7 @@ async function gsSyncAll() {
   if (!binId || !apiKey) return alert('Enter JSONBin Bin ID and API Key in Zone Scanner settings');
   gsStatus('Syncing...', 'var(--accent)');
   try {
-    const payload = {
-      portfolio:   pfPositions,
-      watchlist:   scTickers,
-      groupTracker: gaTrackers,
-      subscribers: sbSubs,
-      updatedAt:   new Date().toISOString()
-    };
+    const payload = syncPayload();
     const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
       method: 'PUT',
       headers: {
@@ -3872,11 +4091,7 @@ async function gsLoadAll() {
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.message || 'Load failed');
-    const data = d.record;
-    if (data.portfolio)   { pfPositions = data.portfolio;   pfSave(); pfRender(); }
-    if (data.watchlist)   { scTickers   = data.watchlist;   saveSc(); renderSc(); }
-    if (data.groupTracker){ gaTrackers  = data.groupTracker; gaSave(); gaRender(); }
-    if (data.subscribers) { sbSubs      = data.subscribers; sbSave(); sbRender(); }
+    applySyncData(d.record);
     localStorage.setItem('kalki_jb_bin', binId);
     localStorage.setItem('kalki_jb_key', apiKey);
     setGaSaveStatus('cloud', `Cloud loaded ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
@@ -3887,13 +4102,147 @@ async function gsLoadAll() {
   }
 }
 
+async function cfSyncAll() {
+  const url = cfBackupUrl();
+  const key = cfBackupKey();
+  if (!url || !key) return alert('Enter Cloudflare Backup URL and Key first');
+  cfStatus('Syncing...', 'var(--accent)');
+  try {
+    const payload = syncPayload();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kalki-Key': key
+      },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'Cloudflare sync failed');
+    localStorage.setItem('kalki_cf_url', url);
+    localStorage.setItem('kalki_cf_key', key);
+    setGaSaveStatus('cloud', `Cloud synced ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
+    cfStatus('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    setGaSaveStatus('warning', 'Saved locally · Cloudflare sync failed');
+    cfStatus('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+async function cfLoadAll() {
+  const url = cfBackupUrl();
+  const key = cfBackupKey();
+  if (!url || !key) return alert('Enter Cloudflare Backup URL and Key first');
+  cfStatus('Loading...', 'var(--accent)');
+  try {
+    const res = await fetch(url, {
+      headers: { 'X-Kalki-Key': key }
+    });
+    const d = await res.json();
+    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'Cloudflare load failed');
+    const record = d.record ? d.record : (d.portfolio || d.watchlist || d.groupTracker || d.subscribers ? d : null);
+    applySyncData(record);
+    localStorage.setItem('kalki_cf_url', url);
+    localStorage.setItem('kalki_cf_key', key);
+    setGaSaveStatus('cloud', `Cloud loaded ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
+    cfStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    setGaSaveStatus('warning', 'Saved locally · Cloudflare load failed');
+    cfStatus('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+async function d1Query(sql, params=[]) {
+  const url = d1SyncUrl();
+  const key = d1SyncKey();
+  const endpoint = url.replace(/\/+$/,'') + '/d1/query';
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Kalki-Key': key
+    },
+    body: JSON.stringify({ sql, params })
+  });
+  const d = await res.json();
+  if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 query failed');
+  return d.result;
+}
+
+async function d1SyncAll() {
+  const url = d1SyncUrl();
+  const key = d1SyncKey();
+  if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
+  d1Status('Syncing...', 'var(--accent)');
+  try {
+    const payload = syncPayload();
+    const endpoint = url.replace(/\/+$/,'') + '/d1/save';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kalki-Key': key
+      },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 sync failed');
+    localStorage.setItem('kalki_d1_url', url);
+    localStorage.setItem('kalki_d1_key', key);
+    d1Status('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    d1Status('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+async function d1LoadAll() {
+  const url = d1SyncUrl();
+  const key = d1SyncKey();
+  if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
+  d1Status('Loading...', 'var(--accent)');
+  try {
+    const endpoint = url.replace(/\/+$/,'') + '/d1/load';
+    const res = await fetch(endpoint, {
+      headers: { 'X-Kalki-Key': key }
+    });
+    const d = await res.json();
+    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 load failed');
+    applySyncData(d.record);
+    localStorage.setItem('kalki_d1_url', url);
+    localStorage.setItem('kalki_d1_key', key);
+    d1Status('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    d1Status('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+async function d1ViewSummary() {
+  if (!hasD1Config()) return alert('Enter Cloudflare D1 URL and Key first');
+  d1Status('Querying...', 'var(--accent)');
+  try {
+    const result = await d1Query(`SELECT 'portfolio_positions' AS name, COUNT(*) AS count FROM portfolio_positions
+UNION ALL SELECT 'watchlist_items' AS name, COUNT(*) AS count FROM watchlist_items
+UNION ALL SELECT 'group_alerts' AS name, COUNT(*) AS count FROM group_alerts
+UNION ALL SELECT 'subscribers' AS name, COUNT(*) AS count FROM subscribers
+UNION ALL SELECT 'app_state' AS name, COUNT(*) AS count FROM app_state`);
+    const rows = result?.results || [];
+    const out = rows.map(r => `${r.name}: ${r.count}`).join('\n') || 'No rows found';
+    d1Status('✅ Queried ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+    alert(`Cloudflare D1 Summary\n\n${out}`);
+  } catch(e) {
+    d1Status('❌ ' + e.message, 'var(--red)');
+  }
+}
+
 // Auto-sync helpers with debounce — syncs 2s after last change
 let _syncTimer = null;
 function autoSync() {
-  if (!jbBinId() || !jbApiKey()) return;
+  if (!hasJsonBinConfig() && !hasCloudflareBackupConfig() && !hasD1Config()) return;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
-    gsSyncAll().catch(()=>{});
+    if (hasJsonBinConfig()) gsSyncAll().catch(()=>{});
+    if (hasCloudflareBackupConfig()) cfSyncAll().catch(()=>{});
+    if (hasD1Config()) d1SyncAll().catch(()=>{});
   }, 2000);
 }
 async function pfSaveAndSync(){ pfSave(); autoSync(); }
@@ -3908,6 +4257,10 @@ if(st)document.getElementById('botToken').value=st;
 if(sc)document.getElementById('chatId').value=sc;
 document.getElementById('botToken').addEventListener('change',e=>{localStorage.setItem('kalki_tok',e.target.value);syncConnectionPill();});
 document.getElementById('chatId').addEventListener('change',e=>{localStorage.setItem('kalki_cid',e.target.value);syncConnectionPill();});
+document.getElementById('cfBackupUrl').addEventListener('change',e=>localStorage.setItem('kalki_cf_url',e.target.value));
+document.getElementById('cfBackupKey').addEventListener('change',e=>localStorage.setItem('kalki_cf_key',e.target.value));
+document.getElementById('d1SyncUrl').addEventListener('change',e=>localStorage.setItem('kalki_d1_url',e.target.value));
+document.getElementById('d1SyncKey').addEventListener('change',e=>localStorage.setItem('kalki_d1_key',e.target.value));
 const savedBestUniverse = localStorage.getItem('kalki_best_universe');
 if (savedBestUniverse) document.getElementById('bestUniverse').value = savedBestUniverse;
 document.getElementById('bestUniverse').addEventListener('change', e => localStorage.setItem('kalki_best_universe', e.target.value));
@@ -3937,8 +4290,16 @@ if (bestAutoEnabled) {
 // Restore JSONBin credentials and auto-load on start
 const savedBinId  = localStorage.getItem('kalki_jb_bin');
 const savedApiKey = localStorage.getItem('kalki_jb_key');
+const savedCfUrl  = localStorage.getItem('kalki_cf_url');
+const savedCfKey  = localStorage.getItem('kalki_cf_key');
+const savedD1Url  = localStorage.getItem('kalki_d1_url');
+const savedD1Key  = localStorage.getItem('kalki_d1_key');
 if (savedBinId)  document.getElementById('jbBinId').value  = savedBinId;
 if (savedApiKey) document.getElementById('jbApiKey').value = savedApiKey;
+if (savedCfUrl)  document.getElementById('cfBackupUrl').value = savedCfUrl;
+if (savedCfKey)  document.getElementById('cfBackupKey').value = savedCfKey;
+if (savedD1Url)  document.getElementById('d1SyncUrl').value = savedD1Url;
+if (savedD1Key)  document.getElementById('d1SyncKey').value = savedD1Key;
 syncConnectionPill();
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSettingsPanel();
@@ -3953,8 +4314,47 @@ if (savedBinId && savedApiKey) {
     gsStatus('✅ Loaded from JSONBin');
     renderSc();
     gaRender();
+    setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
   }).catch(() => {
-    gsStatus('⚠ Could not reach JSONBin — using local data', 'var(--warn)');
+    if (savedCfUrl && savedCfKey) {
+      cfStatus('Loading from Cloudflare...', 'var(--accent)');
+      cfLoadAll().then(() => {
+        cfStatus('✅ Loaded from Cloudflare');
+        renderSc();
+        gaRender();
+        setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
+      }).catch(() => {
+        gsStatus('⚠ Could not reach JSONBin', 'var(--warn)');
+        cfStatus('⚠ Could not reach Cloudflare — using local data', 'var(--warn)');
+        renderSc();
+        gaRender();
+      });
+    } else {
+      gsStatus('⚠ Could not reach JSONBin — using local data', 'var(--warn)');
+      renderSc();
+      gaRender();
+    }
+  });
+} else if (savedCfUrl && savedCfKey) {
+  cfStatus('Loading from Cloudflare...', 'var(--accent)');
+  cfLoadAll().then(() => {
+    cfStatus('✅ Loaded from Cloudflare');
+    renderSc();
+    gaRender();
+    setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
+  }).catch(() => {
+    cfStatus('⚠ Could not reach Cloudflare — using local data', 'var(--warn)');
+    renderSc();
+    gaRender();
+  });
+} else if (savedD1Url && savedD1Key) {
+  d1Status('Loading from D1...', 'var(--accent)');
+  d1LoadAll().then(() => {
+    d1Status('✅ Loaded from D1');
+    renderSc();
+    gaRender();
+  }).catch(() => {
+    d1Status('⚠ Could not reach D1 — using local data', 'var(--warn)');
     renderSc();
     gaRender();
   });
