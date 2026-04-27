@@ -71,6 +71,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .ticker-name{font-family:'Bebas Neue',sans-serif;font-size:58px;letter-spacing:2px;line-height:1;color:#fff;}
 .kalki-badge{display:inline-block;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:var(--accent);font-size:9px;padding:2px 8px;border-radius:20px;letter-spacing:1.5px;text-transform:uppercase;margin-left:8px;vertical-align:middle;font-family:'DM Sans',sans-serif;}
 .ticker-full{font-size:12px;color:var(--dim);margin-top:3px;}
+.ticker-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.meta-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(15,23,42,0.6);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+.meta-chip strong{color:var(--text);font-weight:700;font-family:'DM Mono',monospace;letter-spacing:0.5px;}
 .price-block{text-align:right;}
 .price-big{font-family:'DM Mono',monospace;font-size:40px;font-weight:500;color:#fff;}
 .price-change{font-family:'DM Mono',monospace;font-size:14px;margin-top:4px;}
@@ -646,6 +649,7 @@ textarea:focus{border-color:var(--accent);}
       <div class="settings-actions">
         <button class="btn btn-p btn-sm" onclick="d1SyncAll()">☁ Sync to D1</button>
         <button class="btn btn-o btn-sm" onclick="d1LoadAll()">⬇ Load from D1</button>
+        <button class="btn btn-o btn-sm" onclick="d1TestConnection()">🩺 Test D1 Connection</button>
         <button class="btn btn-o btn-sm" onclick="d1ViewSummary()">👁 View D1 Summary</button>
       </div>
     </div>
@@ -931,9 +935,14 @@ let bestAutoIv = null;
 let bestAutoEnabled = localStorage.getItem('kalki_best_auto') === '1';
 let bestAutoRunning = false;
 let bestAlertMemory = JSON.parse(localStorage.getItem('kalki_best_alert_memory') || '{}');
+let gaUpgradeMemory = JSON.parse(localStorage.getItem('kalki_ga_upgrade_memory') || '{}');
 let telegramEnabled = localStorage.getItem('kalki_tg_enabled') === '1';
 let watchExcludePortfolio = localStorage.getItem('kalki_watch_ex_pf') === '1';
 let gaCloudStatus = localStorage.getItem('kalki_ga_cloud_status') || '';
+let cloudHydratedAt = localStorage.getItem('kalki_cloud_hydrated_at') || '';
+let initialCloudHydrationDone = false;
+let lastCloudSyncAt = localStorage.getItem('kalki_last_cloud_sync_at') || '';
+let gaCloudIds = new Set(JSON.parse(localStorage.getItem('kalki_ga_cloud_ids')||'[]'));
 const ADMIN_PASSWORD = '1515';
 let adminUnlocked = false;
 
@@ -942,6 +951,23 @@ function cfBackupUrl(){ return (document.getElementById('cfBackupUrl')?.value||'
 function cfBackupKey(){ return (document.getElementById('cfBackupKey')?.value||'').trim(); }
 function d1SyncUrl(){ return (document.getElementById('d1SyncUrl')?.value||'').trim(); }
 function d1SyncKey(){ return (document.getElementById('d1SyncKey')?.value||'').trim(); }
+function noteCloudHydration(updatedAt=''){
+  if(!updatedAt) return;
+  cloudHydratedAt = updatedAt;
+  localStorage.setItem('kalki_cloud_hydrated_at', updatedAt);
+}
+function noteCloudSync(updatedAt=''){
+  if(!updatedAt) return;
+  lastCloudSyncAt = updatedAt;
+  localStorage.setItem('kalki_last_cloud_sync_at', updatedAt);
+}
+function persistGaCloudIds(){
+  localStorage.setItem('kalki_ga_cloud_ids', JSON.stringify([...gaCloudIds]));
+}
+function noteGroupTrackerCloudSync(items = gaTrackers){
+  gaCloudIds = new Set((items || []).map(t => String(t.id)));
+  persistGaCloudIds();
+}
 function ensureAdminAccess(){
   if(adminUnlocked) return true;
   const entered = prompt('Enter Admin password');
@@ -1165,21 +1191,21 @@ function calcRelativeStrengthScore(stock20, spy20, qqq20){
 }
 function calcTimingSignal(valid, mode){
   const closes=valid.map(d=>d.c);
-  if(!closes.length)return {ok:false,label:'No data',detail:'Unavailable'};
+  if(!closes.length)return {ok:false,available:false,label:'No data',detail:'Unavailable'};
   const last=closes[closes.length-1], prev=closes[closes.length-2]||last;
   const ema8v=ema(closes,8), ema20v=ema(closes,20), ema21v=ema(closes,21), ema50v=ema(closes,50);
   const vwap=calcVWAP(valid);
   if(mode==='1h'){
     const ok=last>ema20v&&ema20v>ema50v&&ema20v>(ema(closes.slice(0,-1),20)||ema20v);
-    return {ok,label:'1H Trend Stack',detail:ok?'Bullish stack active':'Trend stack not fully bullish',value:`$${last.toFixed(2)} vs EMA20 $${ema20v.toFixed(2)}`};
+    return {ok,available:true,label:'1H Trend Stack',detail:ok?'Bullish stack active':'Trend stack not fully bullish',value:`$${last.toFixed(2)} vs EMA20 $${ema20v.toFixed(2)}`};
   }
   if(mode==='15m'){
     const dist=Math.abs(last-ema20v)/(ema20v||last||1);
     const ok=last>=ema20v&&ema20v>ema50v&&dist<=0.012;
-    return {ok,label:'15m Pullback',detail:ok?'Pullback near EMA20 is live':'Not in ideal pullback zone',value:`${(dist*100).toFixed(1)}% from EMA20`};
+    return {ok,available:true,label:'15m Pullback',detail:ok?'Pullback near EMA20 is live':'Not in ideal pullback zone',value:`${(dist*100).toFixed(1)}% from EMA20`};
   }
   const ok=last>ema8v&&ema8v>ema21v&&last>prev&&last>vwap;
-  return {ok,label:'5m BUY + VWAP',detail:ok?'Micro trigger confirmed above VWAP':'No clean 5m trigger yet',value:`VWAP $${vwap.toFixed(2)}`};
+  return {ok,available:true,label:'5m BUY + VWAP',detail:ok?'Micro trigger confirmed above VWAP':'No clean 5m trigger yet',value:`VWAP $${vwap.toFixed(2)}`};
 }
 async function fetchTimingData(ticker){
   const [spyRes,qqqRes,h1Res,m15Res,m5Res]=await Promise.allSettled([
@@ -1251,14 +1277,17 @@ function calcScores({price,high52,low52,sma20,sma50,rsi14,atr14,changePct,avgVol
   const rs=calcRelativeStrengthScore(stock20,spy20,qqq20);
 
   const swing=Math.round((trend*0.30 + momentum*0.25 + volume*0.15 + risk*0.10 + room*0.10 + rs.score*0.10) * 10);
-  const timingPassed=timingSignals.filter(s=>s.ok).length;
-  const timingScore=Math.round((timingPassed / Math.max(1,timingSignals.length)) * 100);
+  const availableTimingSignals=timingSignals.filter(s=>s.available!==false);
+  const timingPassed=availableTimingSignals.filter(s=>s.ok).length;
+  const timingScore=availableTimingSignals.length
+    ? Math.round((timingPassed / availableTimingSignals.length) * 100)
+    : 35;
   const timingBonus=(timingSignals[0]?.ok&&timingSignals[1]?.ok)?10:0;
   const setup=Math.round(clamp(swing + timingBonus, 0, 100));
   const grade = gradeFromOverall(setup, {
     longScore: timingScore,
     trendOk: !!(sma20 && price > sma20 && sma50 && price > sma50 && sma20 > sma50),
-    timingReady: !!(timingSignals[0]?.ok && timingSignals[1]?.ok),
+    timingReady: availableTimingSignals.length ? !!(timingSignals[0]?.ok && timingSignals[1]?.ok) : false,
     volumeScore: volume,
     riskScore: risk,
     roomScore: room,
@@ -1270,6 +1299,7 @@ function calcScores({price,high52,low52,sma20,sma50,rsi14,atr14,changePct,avgVol
     longScore:timingScore,
     overall:setup,
     timingBonus,
+    timingAvailableCount: availableTimingSignals.length,
     grade,
     factors:[
       {name:'Trend (30%)',short:trend,long:trend,type:trend>=7?'bull':'bear'},
@@ -1280,6 +1310,69 @@ function calcScores({price,high52,low52,sma20,sma50,rsi14,atr14,changePct,avgVol
       {name:'RS vs SPY/QQQ (10%)',short:Math.round(rs.score),long:Math.round(rs.score),type:rs.score>=6?'bull':'neutral'},
     ],
     metrics:{volRatio,atrPct,fromHigh,rangePos,roomPct,rsSpread:rs.spread}
+  };
+}
+function calcStructureScore(valid, {price, supLow, supHigh, breakdown, resistances, sma20, sma50, atr14}){
+  const recent = valid.slice(-12);
+  const lows = recent.map(d=>d.l ?? d.c).filter(v=>v!=null);
+  const highs = recent.map(d=>d.h ?? d.c).filter(v=>v!=null);
+  const closes = recent.map(d=>d.c).filter(v=>v!=null);
+  const zoneMid = (supLow + supHigh) / 2;
+  const firstRes = resistances?.[0] || price * 1.04;
+  const atrPct = price ? atr14 / price : 0;
+
+  let score = 35;
+  const reasons = [];
+
+  const nearSupport = price >= breakdown && price <= (supHigh * 1.03);
+  if(nearSupport){
+    score += 18;
+    reasons.push('price is sitting near support');
+  }
+
+  const heldBreakdown = lows.length ? Math.min(...lows) >= (breakdown * 0.985) : false;
+  if(heldBreakdown){
+    score += 14;
+    reasons.push('recent lows are holding above breakdown');
+  }
+
+  const higherLow = lows.length >= 6 ? lows.slice(-3).every((v,i,a)=>i===0 || v >= a[i-1] * 0.995) : false;
+  if(higherLow){
+    score += 10;
+    reasons.push('base is trying to print higher lows');
+  }
+
+  const compression = highs.length >= 6 ? Math.max(...highs.slice(-6)) <= Math.max(...highs.slice(0,6)) * 1.03 : false;
+  if(compression){
+    score += 8;
+    reasons.push('price is compressing under nearby resistance');
+  }
+
+  const reclaim = closes.length >= 3 ? closes[closes.length-1] > zoneMid && closes[closes.length-1] > closes[closes.length-2] : false;
+  if(reclaim){
+    score += 8;
+    reasons.push('latest candle is reclaiming the support zone');
+  }
+
+  const roomPct = ((firstRes - price) / Math.max(price, 0.01)) * 100;
+  if(roomPct >= 2 && roomPct <= 12){
+    score += 10;
+    reasons.push(`there is ${roomPct.toFixed(1)}% room to first resistance`);
+  } else if(roomPct < 1){
+    score -= 10;
+  }
+
+  if(sma20 && price > sma20) score += 6;
+  if(sma50 && price > sma50) score += 5;
+  if(atrPct > 0.08) score -= 10;
+  if(price < breakdown) score -= 20;
+
+  score = Math.round(clamp(score, 0, 100));
+  return {
+    score,
+    verdict: score >= 70 ? 'strong structure' : score >= 55 ? 'developing structure' : 'weak structure',
+    reasons: reasons.slice(0,3),
+    roomPct
   };
 }
 function gradeFromOverall(setup, ctx={}){
@@ -1309,6 +1402,42 @@ function gradeFromOverall(setup, ctx={}){
   if(grade === 'B' && weakTiming && (weakVolume || stretchedRsi || highRisk)) grade = 'C';
   if(grade === 'A' && strongTrend && strongTiming && strongVolume && sweetRsi && !highRisk && !weakRoom && setup >= 78) grade = 'A+';
   if(grade === 'B' && strongTrend && strongTiming && strongVolume && sweetRsi && !highRisk && setup >= 70) grade = 'A';
+  return grade;
+}
+function raiseGrade(g){
+  return g==='D'?'C':g==='C'?'B':g==='B'?'A':g==='A'?'A+':'A+';
+}
+function lowerGrade(g){
+  return g==='A+'?'A':g==='A'?'B':g==='B'?'C':g==='C'?'D':'D';
+}
+function adjustGradeWithPattern(baseGrade, patternScore, ctx={}){
+  const {
+    longScore = 0,
+    trendOk = false,
+    volumeScore = 0,
+    riskScore = 0
+  } = ctx || {};
+  let grade = baseGrade || 'D';
+
+  const strongPattern = patternScore >= 75;
+  const decentPattern = patternScore >= 65;
+  const weakPattern = patternScore < 40;
+  const enoughTiming = longScore >= 45;
+  const enoughVolume = volumeScore >= 4;
+  const manageableRisk = riskScore >= 4;
+
+  if(strongPattern && enoughTiming && enoughVolume && manageableRisk && gradeRank(grade) <= gradeRank('B')){
+    grade = raiseGrade(grade);
+  } else if(decentPattern && trendOk && enoughTiming && manageableRisk && grade === 'C'){
+    grade = 'B';
+  }
+
+  if(weakPattern && gradeRank(grade) >= gradeRank('A')){
+    grade = lowerGrade(grade);
+  } else if(weakPattern && !trendOk && grade === 'B'){
+    grade = 'C';
+  }
+
   return grade;
 }
 function gradeRank(g){
@@ -1472,7 +1601,17 @@ function drawPriceChart(canvasId, {priceHistory, supLow, supHigh, breakdown, res
 // ══════════════════════════════════════════════════════
 // RENDER SHARED ANALYSIS COMPONENTS
 // ══════════════════════════════════════════════════════
-function renderScoreBanner(el, shortScore, longScore, overall, stV, ltV, ovV) {
+function renderScoreBanner(el, shortScore, longScore, overall, stV, ltV, ovV, pattern=null) {
+  if(pattern){
+    el.style.gridTemplateColumns='1fr 1fr 1fr 1fr';
+    el.innerHTML = `
+      <div class="score-item"><div class="score-lbl">Swing Core (3–5 Days)</div><div class="score-val st">${shortScore}%</div><div class="score-sub">${stV}</div></div>
+      <div class="score-item"><div class="score-lbl">Entry Timing Filter</div><div class="score-val lt">${longScore}%</div><div class="score-sub">${ltV}</div></div>
+      <div class="score-item"><div class="score-lbl">Pattern / Structure</div><div class="score-val ${pattern.score>=70?'lt':pattern.score>=55?'ov':'st'}">${pattern.score}%</div><div class="score-sub">${pattern.verdict}</div></div>
+      <div class="score-item"><div class="score-lbl">Final Setup Score</div><div class="score-val ov">${overall}%</div><div class="score-sub">${ovV}</div></div>`;
+    return;
+  }
+  el.style.gridTemplateColumns='1fr 1fr 1fr';
   el.innerHTML = `
     <div class="score-item"><div class="score-lbl">Swing Core (3–5 Days)</div><div class="score-val st">${shortScore}%</div><div class="score-sub">${stV}</div></div>
     <div class="score-item"><div class="score-lbl">Entry Timing Filter</div><div class="score-val lt">${longScore}%</div><div class="score-sub">${ltV}</div></div>
@@ -1533,10 +1672,18 @@ async function buildFromYahoo(ticker, r, manualZones) {
   ];
 
   const scores = calcScores({price,high52,low52,sma20:sma20v,sma50:sma50v,rsi14,atr14,changePct,avgVol,lastVol,supLow,supHigh,breakdown,resistances,stock20,spy20,qqq20,timingSignals});
-  const {shortScore,longScore,overall,factors,metrics,timingBonus,grade} = scores;
+  const {shortScore,longScore,overall,factors,metrics,timingBonus,timingAvailableCount,grade:baseGrade} = scores;
+  const pattern = calcStructureScore(valid, {price, supLow, supHigh, breakdown, resistances, sma20:sma20v, sma50:sma50v, atr14});
+  const grade = adjustGradeWithPattern(baseGrade, pattern.score, {
+    longScore,
+    trendOk: !!(price > sma20v && price > (sma50v || 0)),
+    volumeScore: factors.find(f=>f.name.startsWith('Volume'))?.short || 0,
+    riskScore: factors.find(f=>f.name.startsWith('ATR risk'))?.short || 0
+  });
+  const patternBoostedGrade = gradeRank(grade) > gradeRank(baseGrade);
 
   const stV=shortScore>=75?'Primary swing engine says buy':shortScore>=65?'Good swing candidate':shortScore>=55?'Needs cleaner structure':'Avoid as core swing';
-  const ltV=longScore>=75?'Trigger is ready now':longScore>=45?'Candidate is good, wait for trigger':'Timing filter says wait';
+  const ltV=!timingAvailableCount?'Intraday timing unavailable':longScore>=75?'Trigger is ready now':longScore>=45?'Candidate is good, wait for trigger':'Timing filter says wait';
   const ovV=overall>=80?'A-grade swing + timing support':overall>=70?'Strong swing watchlist name':overall>=60?'Good candidate, be selective':'Low-conviction swing';
 
   const atr=atr14||price*0.02;
@@ -1553,6 +1700,7 @@ async function buildFromYahoo(ticker, r, manualZones) {
 
   const stats=[
     {label:'Grade',value:grade,type:overall>=70?'pos':overall>=60?'warn':'neg'},
+    {label:'Pattern / Structure',value:`${pattern.score}%`,type:pattern.score>=70?'pos':pattern.score>=55?'warn':'neg'},
     {label:'RS vs SPY/QQQ',value:(metrics.rsSpread>=0?'+':'')+rsSpread+'%',type:metrics.rsSpread>=0?'pos':'neg'},
     {label:'Volume Ratio',value:metrics.volRatio.toFixed(2)+'x',type:metrics.volRatio>=1?'pos':'warn'},
     {label:'Room to R1',value:metrics.roomPct.toFixed(1)+'%',type:metrics.roomPct>=3?'pos':'warn'},
@@ -1577,8 +1725,10 @@ async function buildFromYahoo(ticker, r, manualZones) {
   const trendTxt=price>(sma20v||price)&&price>(sma50v||price)?'above both 20-day and 50-day SMA — trend strength is intact':'not fully above the key swing moving averages';
   const inZ=price>=supLow&&price<=supHigh;
   const zoneTxt=inZ?`inside the Kalki support zone ($${supLow}–$${supHigh})`:price<supLow?`below support and at breakdown risk`:price<resistances[0]?`above support with room toward R1 at $${resistances[0]}`:`close to resistance`;
-  const timingTxt=timingSignals.map(s=>`${s.label}: ${s.ok?'yes':'no'}`).join(' · ');
-  const insight=`${ticker} has a swing-core score of ${shortScore}% and a final setup score of ${overall}% (${grade}). Trend is ${trendTxt}, RSI is ${rsiTxt}, and price is ${zoneTxt}. Relative strength is ${(metrics.rsSpread>=0?'+':'')+rsSpread}% vs SPY/QQQ. Timing filter: ${timingTxt}.${timingBonus?` Added +${timingBonus} points for 1H + 15m alignment.`:''} ${manualZones?'Zones loaded from your Kalki alert.':'Zones auto-calculated from price structure.'}`;
+  const timingTxt=timingSignals.map(s=>`${s.label}: ${s.available===false?'n/a':s.ok?'yes':'no'}`).join(' · ');
+  const gradeAdjTxt = grade !== baseGrade ? `Pattern structure adjusted the grade from ${baseGrade} to ${grade}.` : '';
+  const patternTxt = pattern.reasons.length ? `Pattern score is ${pattern.score}% (${pattern.verdict}) because ${pattern.reasons.join(' · ')}.` : `Pattern score is ${pattern.score}% (${pattern.verdict}).`;
+  const insight=`${ticker} has a swing-core score of ${shortScore}% and a final setup score of ${overall}% (${grade}). ${gradeAdjTxt} ${patternTxt} Trend is ${trendTxt}, RSI is ${rsiTxt}, and price is ${zoneTxt}. Relative strength is ${(metrics.rsSpread>=0?'+':'')+rsSpread}% vs SPY/QQQ. Timing filter: ${timingTxt}.${timingBonus?` Added +${timingBonus} points for 1H + 15m alignment.`:''} ${manualZones?'Zones loaded from your Kalki alert.':'Zones auto-calculated from price structure.'}`;
 
   // Bullets
   const sBull=[],sBear=[],lBull=[],lBear=[];
@@ -1595,7 +1745,8 @@ async function buildFromYahoo(ticker, r, manualZones) {
   if(price<breakdown)sBear.push('Price is below breakdown $'+breakdown+' — invalid swing structure.');
   if(!sBull.length)sBull.push('Defined support zone gives this ticker a workable risk box.');
   timingSignals.forEach(s => {
-    if(s.ok) lBull.push(s.label+' passed: '+s.detail+'.');
+    if(s.available===false) lBear.push(s.label+' unavailable: '+s.detail+'.');
+    else if(s.ok) lBull.push(s.label+' passed: '+s.detail+'.');
     else lBear.push(s.label+' failed: '+s.detail+'.');
   });
   lBull.push('Use Kalki to rank the ticker and the timing filter to decide whether today is the entry day.');
@@ -1603,7 +1754,7 @@ async function buildFromYahoo(ticker, r, manualZones) {
 
   return {ticker,name:meta.longName||meta.shortName||ticker,exch:meta.exchangeName||'',
     price,change,changePct,high52,low52,sma20v,sma50v,rsi14,atr14,atr,avgVol,lastVol,
-    shortScore,longScore,overall,stV,ltV,ovV,factors,stats,revBars,priceHistory,
+    shortScore,longScore,overall,stV,ltV,ovV,factors,stats,revBars,priceHistory,pattern,baseGrade,_patternBoostedGrade:patternBoostedGrade,
     supLow,supHigh,breakdown,resistances,stStop,stT1,stT2,stT3,sBull,sBear,lBull,lBear,insight,timingSignals,timingBonus,grade};
 }
 
@@ -1632,8 +1783,8 @@ async function runAnalysis() {
 function renderLiveAnalysis(a) {
   document.getElementById('resultsArea').style.display='block';
   const ud=a.change>=0?'up':'dn', sym=a.change>=0?'▲':'▼';
-  document.getElementById('stockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live swing read · 52W $${a.low52.toFixed(2)} – $${a.high52.toFixed(2)}</div></div>`;
-  renderScoreBanner(document.getElementById('scoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV);
+  document.getElementById('stockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span></div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live swing read · 52W $${a.low52.toFixed(2)} – $${a.high52.toFixed(2)}</div></div>`;
+  renderScoreBanner(document.getElementById('scoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV,a.pattern);
   document.getElementById('insightBox').innerHTML=`<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
   document.getElementById('chartBadge').textContent=a.priceHistory.length+' DAYS';
   drawPriceChart('priceChart',a);
@@ -1726,9 +1877,9 @@ async function loadKalki(idx) {
 
     // Stock header
     const ud=a.change>=0?'up':'dn', sym=a.change>=0?'▲':'▼';
-    document.getElementById('kaStockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Alert + Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live price · Alert zones: $${t.supLow}–$${t.supHigh} support · Break $${t.brk}</div></div>`;
+    document.getElementById('kaStockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Alert + Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span></div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live price · Alert zones: $${t.supLow}–$${t.supHigh} support · Break $${t.brk}</div></div>`;
 
-    renderScoreBanner(document.getElementById('kaScoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV);
+    renderScoreBanner(document.getElementById('kaScoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV,a.pattern);
     document.getElementById('kaInsightBox').innerHTML=`<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
     document.getElementById('kaChartBadge').textContent=a.priceHistory.length+' DAYS LIVE';
     drawPriceChart('kaChart',a);
@@ -1885,6 +2036,7 @@ function primeTelegramZoneData(data){
     longScore:data.longScore,
     overall:data.overall,
     grade:resolvedGrade,
+    entryMode:data.entryMode || 'current',
     stV:data.stV,
     ovV:data.ovV,
     sma20:data.sma20v ?? data.sma20 ?? null,
@@ -1944,13 +2096,42 @@ function addCurrentAnalysisToWatchlist(){
     wb.style.pointerEvents='none';
   }
 }
+function hasOpenPositionForSymbol(sym){
+  return pfPositions.some(p => p.sym === sym && p.state === 'open');
+}
+function hasClosedPositionForSymbol(sym){
+  return pfPositions.some(p => p.sym === sym && p.state === 'closed');
+}
+function shouldUseLiveZonesForTelegram(sym, data={}){
+  return zonesLookStale((data.price ?? NaN), data.supLow, data.supHigh, data.breakdown, data.resistances||[]);
+}
+function zonesLookStale(price, supLow, supHigh, breakdown, resistances=[]){
+  if(!Number.isFinite(price) || !Number.isFinite(supLow) || !Number.isFinite(supHigh)) return false;
+  const zoneMid = (supLow + supHigh) / 2;
+  const tooFarAboveSupport = price > supHigh * 1.15 && price > zoneMid * 1.18;
+  const validBreakdown = Number.isFinite(breakdown) && breakdown < supLow;
+  const brokenFarBelow = validBreakdown && price < breakdown * 0.95;
+  return tooFarAboveSupport || brokenFarBelow;
+}
+function safeTelegramBreakdown(price, supLow, supHigh, breakdown){
+  if(Number.isFinite(breakdown) && Number.isFinite(supLow) && breakdown < supLow) return breakdown;
+  if(Number.isFinite(supLow) && Number.isFinite(supHigh)){
+    const fallback = Math.min(supLow, supHigh) * 0.97;
+    return +fallback.toFixed(2);
+  }
+  if(Number.isFinite(price)){
+    return +(price * 0.95).toFixed(2);
+  }
+  return breakdown;
+}
 
 async function sendPreparedTickerToTelegram(data, e){
   if(e) e.stopPropagation();
+  const requestedEntryMode = data.entryMode || 'current';
   if(!data.price || !data.shortScore || !data.longScore || !data.overall){
     try{
       const r = await fetchYahoo(data.ticker, '3mo', '1d');
-      const manualZones = (data.supLow!=null && data.supHigh!=null && data.breakdown!=null)
+      const manualZones = (data.supLow!=null && data.supHigh!=null && data.breakdown!=null && !shouldUseLiveZonesForTelegram(data.ticker, data))
         ? {supLow:data.supLow, supHigh:data.supHigh, breakdown:data.breakdown, resistances:(data.resistances||[]).slice(0,5)}
         : null;
       data = await buildFromYahoo(data.ticker, r, manualZones);
@@ -1958,6 +2139,7 @@ async function sendPreparedTickerToTelegram(data, e){
       sLog(`Telegram send prep failed for ${data.ticker}: ${err.message}`,'inf');
     }
   }
+  data.entryMode = requestedEntryMode;
   primeTelegramZoneData(data);
   await sendZoneMapToTelegram();
 }
@@ -1998,12 +2180,12 @@ async function runKalkiSearch() {
     const arr = a.change >= 0 ? '▲'  : '▼';
     document.getElementById('kaStockHeader').innerHTML =
       `<div><div class="ticker-name">${a.ticker}<span class="kalki-badge" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">Auto Swing V2</span></div>` +
-      `<div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div></div>` +
+      `<div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span></div></div>` +
       `<div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div>` +
       `<div class="price-change ${ud}">${arr} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div>` +
       `<div class="as-of">Auto-calculated zones · Support $${a.supLow?.toFixed(2)}–$${a.supHigh?.toFixed(2)} · Break $${a.breakdown?.toFixed(2)}</div></div>`;
 
-    renderScoreBanner(document.getElementById('kaScoreBanner'), a.shortScore, a.longScore, a.overall, a.stV, a.ltV, a.ovV);
+    renderScoreBanner(document.getElementById('kaScoreBanner'), a.shortScore, a.longScore, a.overall, a.stV, a.ltV, a.ovV, a.pattern);
     document.getElementById('kaInsightBox').innerHTML = `<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
     document.getElementById('kaChartBadge').textContent = a.priceHistory.length + ' DAYS LIVE';
 
@@ -2065,7 +2247,7 @@ function renderSc(){
           <button class="btn btn-sm btn-o" onclick="editTicker(${i},event)">Edit</button>
           <button class="btn btn-sm ${t.monitorTrend?'btn-o':'btn-p'}" onclick="toggleWatchMonitor(${i},event)">${t.monitorTrend?'Monitoring':'Monitor Trend'}</button>
           <button class="btn btn-sm ${inPf?'btn-o':'btn-p'}" ${inPf?'disabled':''} onclick="addWatchlistToPortfolio(${i},event)">${inPf?'In Portfolio':'Add to Portfolio'}</button>
-          <button class="btn btn-sm btn-o" onclick="sendPreparedTickerToTelegram({ticker:'${t.sym}',price:${t.price!=null?t.price:'null'},supLow:${t.supLow},supHigh:${t.supHigh},breakdown:${t.brk},resistances:[${t.res.join(',')}],shortScore:0,longScore:0,overall:0},event)">Send TG</button>
+          <button class="btn btn-sm btn-o" onclick="sendPreparedTickerToTelegram({ticker:'${t.sym}',price:${t.price!=null?t.price:'null'},supLow:${t.supLow},supHigh:${t.supHigh},breakdown:${t.brk},resistances:[${t.res.join(',')}],shortScore:0,longScore:0,overall:0,entryMode:'zone'},event)">Send TG</button>
         </div>
       </div>
       <div class="tc-price"><div class="tc-p">${pd}</div><div class="tc-s ${ss}">${sl}</div></div>
@@ -2386,9 +2568,11 @@ async function runBestAutoCycle(){
     bestScanLatest = combined;
     renderBestSetupResults(combined, bestScanLastCount);
     setBestScanStatus(combined.length?`TOP ${combined.length}`:'NO SETUPS', false);
+    if(gaTrackers.length) await gaRefresh({silent:true, allowAlerts:true});
     return;
   }
   await runBestSetupScan({mode:'auto', source});
+  if(gaTrackers.length) await gaRefresh({silent:true, allowAlerts:true});
 }
 async function toggleBestAuto(){
   bestAutoEnabled = !bestAutoEnabled;
@@ -2454,9 +2638,50 @@ function alertReasonText(r){
 function scoreOutOf8(v){
   return Math.max(1, Math.min(8, Math.round((v / 100) * 8)));
 }
+function saveGaUpgradeMemory(){
+  localStorage.setItem('kalki_ga_upgrade_memory', JSON.stringify(gaUpgradeMemory));
+}
+function buildGroupUpgradeAlert(item, a, prevGrade, prevOverall){
+  const trigger = a.timingSignals.filter(s=>s.ok).map(s=>s.label.replace(' + VWAP','')).join(', ') || 'Watch for trigger';
+  const whyBits = [];
+  if(a._patternBoostedGrade) whyBits.push('strong structure');
+  if(a.timingSignals[0]?.ok && a.timingSignals[1]?.ok) whyBits.push('1H/15m alignment');
+  else if(a.longScore >= 45) whyBits.push('timing improved');
+  if((a.metrics?.volRatio || 0) >= 1.15) whyBits.push(`volume ${a.metrics.volRatio.toFixed(2)}x`);
+  if(!whyBits.length) whyBits.push(bestReasonText(a));
+  return [
+    `⚡ *${a.ticker}* 〔GROUP TRACKER UPGRADE〕`,
+    `📊 Grade: *${prevGrade || '—'}* → *${a.grade}*  ·  Setup *${scoreOutOf8(a.overall)}/8*`,
+    ``,
+    `💰 Price: $${a.price.toFixed(2)}`,
+    `Why: ${whyBits.join(' + ')}`,
+    `Trigger: ${trigger}`,
+    prevOverall ? `Score change: ${prevOverall}% → ${a.overall}%` : null,
+    ``,
+    `⚡ _Kalki Group Tracker_`
+  ].filter(Boolean).join('\n');
+}
+function shouldAlertGroupUpgrade(item, a, prevGrade, prevOverall){
+  const linked = gaLinkedPosition(item);
+  if(!linked || linked.state !== 'open') return false;
+  const prevRank = gradeRank(prevGrade || '');
+  const newRank = gradeRank(a.grade || '');
+  if(newRank <= prevRank) return false;
+  const crossedIntoBuyable = prevRank <= 2 && newRank >= 3;
+  const scoreImproved = (a.overall || 0) >= (prevOverall || 0) + 4;
+  const bigScoreJump = (prevOverall || 0) < 55 && a.overall >= 64 && scoreImproved;
+  const timingReadyNow = !item.upgradeTimingReady && a.longScore >= 45 && newRank >= 3;
+  if(!(bigScoreJump || (crossedIntoBuyable && (scoreImproved || timingReadyNow)) || (timingReadyNow && scoreImproved))) return false;
+  const prevAlert = gaUpgradeMemory[item.sym];
+  if(prevAlert && gradeRank(prevAlert.grade || '') >= newRank && (prevAlert.overall || 0) >= a.overall - 3) return false;
+  return true;
+}
 function buildAPlusAlertMessage(r){
-  const entryRef = (r.supLow + r.supHigh) / 2;
-  const stop = alertStopLevel(r);
+  const entryRef = r.price;
+  const structuralStop = alertStopLevel(r);
+  const stop = Number.isFinite(structuralStop) && structuralStop < entryRef
+    ? structuralStop
+    : +(entryRef * 0.97).toFixed(2);
   const pct = v => {
     const p = ((v - entryRef) / entryRef) * 100;
     return `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`;
@@ -2468,7 +2693,7 @@ function buildAPlusAlertMessage(r){
     `📊 Grade: *${r.grade}*  ·  Setup *${scoreOutOf8(r.overall)}/8*`,
     ``,
     `💰 Price: $${r.price.toFixed(2)}`,
-    `📈 Entry: *$${r.supLow.toFixed(2)}–$${r.supHigh.toFixed(2)}*`,
+    `📈 Entry: *$${entryRef.toFixed(2)}*`,
     `🛑 Stop: $${stop.toFixed(2)} (${pct(stop)})`,
     `🎯 T1: $${r.stT1.toFixed(2)} (${pct(r.stT1)})`,
     `🎯 T2: $${r.stT2.toFixed(2)} (${pct(r.stT2)})`,
@@ -2727,13 +2952,26 @@ function gaSave(){
   localStorage.setItem('kalki_ga', JSON.stringify(gaTrackers));
   setGaSaveStatus('local');
 }
+function gaPortfolioSortStamp(pos){
+  if(!pos) return 0;
+  const primary = pos.entryDate || pos.addedAt || pos.closeDate || '';
+  const parsed = primary ? new Date(primary).getTime() : NaN;
+  return Number.isFinite(parsed) ? parsed : (Number(pos.id) || 0);
+}
 function gaLinkedPosition(item){
-  if(item.portfolioId){
-    const direct = pfPositions.find(p=>p.id===item.portfolioId);
-    if(direct) return direct;
+  const matches = pfPositions
+    .filter(p=>p.sym===item.sym)
+    .sort((a,b)=>{
+      const stateDelta = (a.state === 'open') === (b.state === 'open') ? 0 : (a.state === 'open' ? -1 : 1);
+      if(stateDelta) return stateDelta;
+      return gaPortfolioSortStamp(b) - gaPortfolioSortStamp(a);
+    });
+  if(!matches.length) return null;
+  const best = matches[0];
+  if(item.portfolioId !== best.id){
+    item.portfolioId = best.id;
   }
-  const matches = pfPositions.filter(p=>p.sym===item.sym).sort((a,b)=>(b.id||0)-(a.id||0));
-  return matches[0] || null;
+  return best;
 }
 function gaDaysHeld(item){
   const start = new Date(item.addedIso || Date.now());
@@ -2764,13 +3002,27 @@ function gaTargetProgress(item){
   const hitCount = levels.filter(r => price != null && price >= r).length;
   return { hitCount, total: levels.length, next: levels.find(r => price != null && price < r) || null };
 }
+function gaTouch(item, when = new Date().toISOString()){
+  if(!item) return;
+  item.updatedAt = when;
+}
+function gaMarkDirty(item, when = new Date().toISOString()){
+  if(!item) return;
+  gaTouch(item, when);
+  gaCloudIds.delete(String(item.id));
+  persistGaCloudIds();
+}
+function gaCloudState(item){
+  if(gaCloudIds.has(String(item?.id))) return { label:'Cloud synced', cls:'watch' };
+  return { label:'Local only', cls:'flat' };
+}
 async function gaAddBatch(){
   const raw = (document.getElementById('gaTickers')?.value || '').toUpperCase();
   const note = (document.getElementById('gaNote')?.value || '').trim();
   const syms = [...new Set(raw.split(',').map(s=>s.trim()).filter(Boolean))];
   if(!syms.length) return alert('Enter at least one ticker');
   for(const sym of syms){
-    if(gaTrackers.some(t=>t.sym===sym)) continue;
+    const existing = gaTrackers.find(t=>t.sym===sym);
     let price = null;
     let grade = '';
     try{
@@ -2784,17 +3036,33 @@ async function gaAddBatch(){
       const ad = await buildFromYahoo(sym, rd, null);
       grade = ad.grade || gradeFromOverall(ad.overall || 0);
     }catch(_e){}
+    const nowIso = new Date().toISOString();
+    const nowLabel = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    if(existing){
+      existing.note = note || existing.note || '';
+      existing.addedIso = nowIso;
+      existing.addedLabel = nowLabel;
+      existing.addedPrice = price;
+      existing.currentPrice = price;
+      existing.pctSinceAdd = 0;
+      existing.catalystScore = null;
+      existing.grade = grade || existing.grade || '';
+      gaMarkDirty(existing, nowIso);
+      gaTrackers = [existing, ...gaTrackers.filter(t=>t.id!==existing.id)];
+      continue;
+    }
     gaTrackers.unshift({
       id: Date.now() + Math.floor(Math.random()*1000),
       sym,
       note,
-      addedIso: new Date().toISOString(),
-      addedLabel: new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
+      addedIso: nowIso,
+      addedLabel: nowLabel,
       addedPrice: price,
       currentPrice: price,
       pctSinceAdd: 0,
       catalystScore: null,
-      grade
+      grade,
+      updatedAt: nowIso
     });
   }
   gaSave();
@@ -2803,10 +3071,14 @@ async function gaAddBatch(){
   document.getElementById('gaTickers').value='';
   document.getElementById('gaNote').value='';
 }
-async function gaRefresh(){
+async function gaRefresh(opts={}){
   if(!gaTrackers.length) return;
+  const silent = !!opts.silent;
+  const allowAlerts = opts.allowAlerts !== false;
   for(const item of gaTrackers){
     try{
+      const prevGrade = item.grade || '';
+      const prevOverall = item.overall || 0;
       const r = await fetchYahoo(item.sym,'3mo','1d');
       const a = await buildFromYahoo(item.sym, r, null);
       item.currentPrice = a.price;
@@ -2814,20 +3086,38 @@ async function gaRefresh(){
         item.pctSinceAdd = ((a.price - item.addedPrice) / item.addedPrice) * 100;
       }
       item.grade = a.grade || gradeFromOverall(a.overall || 0);
+      item.overall = a.overall;
+      item.shortScore = a.shortScore;
+      item.longScore = a.longScore;
+      item.upgradeTimingReady = a.longScore >= 45;
       const catalyst = Math.round(((a.metrics?.volRatio || 1) >= 1.5 ? 30 : (a.metrics?.volRatio || 1) >= 1.1 ? 20 : 10)
         + (a.changePct >= 5 ? 25 : a.changePct >= 2 ? 15 : 5)
         + (a.rsi14 >= 58 && a.rsi14 <= 82 ? 20 : 8)
         + (a.price > a.sma20v && a.price > (a.sma50v||0) ? 15 : 5)
         + (a.timingSignals?.[2]?.ok ? 10 : 0));
       item.catalystScore = Math.min(100, catalyst);
+      if(allowAlerts && shouldAlertGroupUpgrade(item, a, prevGrade, prevOverall)){
+        await sendTG(buildGroupUpgradeAlert(item, a, prevGrade, prevOverall));
+        gaUpgradeMemory[item.sym] = {
+          grade: a.grade,
+          overall: a.overall,
+          at: new Date().toISOString()
+        };
+        saveGaUpgradeMemory();
+        sLog(`${item.sym} group-tracker upgrade alert fired (${prevGrade || '—'} → ${a.grade})`,'ea');
+      }
+      gaMarkDirty(item);
     }catch(_e){}
   }
   gaSave();
   gaRender();
   autoSync();
+  if(!silent) sLog('Group tracker refreshed','inf');
 }
 function gaRemove(id){
   gaTrackers = gaTrackers.filter(t=>t.id!==id);
+  gaCloudIds.delete(String(id));
+  persistGaCloudIds();
   gaSave();
   gaRender();
   autoSync();
@@ -2838,6 +3128,7 @@ function gaAddToPortfolio(id){
   const existing = gaLinkedPosition(item);
   if(existing){
     item.portfolioId = existing.id;
+    gaMarkDirty(item);
     gaSave();
     gaRender();
     return;
@@ -2873,6 +3164,7 @@ function gaAddToPortfolio(id){
     addedAt:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
   });
   item.portfolioId = pfPositions[0].id;
+  gaMarkDirty(item);
   pfSave();
   gaSave();
   pfRender();
@@ -2882,6 +3174,8 @@ function gaAddToPortfolio(id){
 function gaClearAll(){
   if(!confirm('Remove all tracked group alerts?')) return;
   gaTrackers = [];
+  gaCloudIds = new Set();
+  persistGaCloudIds();
   gaSave();
   gaRender();
   autoSync();
@@ -2906,6 +3200,7 @@ function gaRender(){
   list.innerHTML = gaTrackers.map(item=>{
     const linked = gaLinkedPosition(item);
     const st = gaStatus(item);
+    const cloudState = gaCloudState(item);
     const linkedPnl = linked ? pfCalcPnl(linked) : null;
     const pct = linkedPnl ? linkedPnl.pct : (item.pctSinceAdd ?? 0);
     const tp = gaTargetProgress(item);
@@ -2927,6 +3222,7 @@ function gaRender(){
           ${item.catalystScore!=null?`<span class="ga-chip">Catalyst ${item.catalystScore}/100</span>`:''}
           ${linked?`<span class="ga-chip">${linked.state==='closed'?'Closed':'In Portfolio'}</span>`:''}
           ${tp.total?`<span class="ga-chip">${tp.hitCount ? `TP${tp.hitCount} hit` : tp.next ? `Next $${tp.next}` : 'Targets tracked'}</span>`:''}
+          <span class="ga-chip">${cloudState.label}</span>
         </div>
         <div class="ga-grid">
           <div class="ga-stat"><div class="ga-lbl">${linked?'Entry':'Added'}</div><div class="ga-val">${entryPx?`$${entryPx.toFixed(2)}`:'—'}</div></div>
@@ -2957,16 +3253,19 @@ let _lastZoneData = null;
 // Alert format toggle — 'compact' (new) or 'detailed' (old)
 let _alertFormat = localStorage.getItem('kalki_alert_fmt') || 'compact';
 
-function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null) {
+function buildZoneMapMessage(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null, entryMode='current') {
   return _alertFormat === 'compact'
-    ? buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride)
+    ? buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride, entryMode)
     : buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride);
 }
 
 // ── NEW COMPACT FORMAT ────────────────────────────────
-function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null) {
+function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null, entryMode='current') {
   const inZone = price >= supLow && price <= supHigh;
-  const entryRef = (supLow + supHigh) / 2;
+  const zoneEntry = (supLow + supHigh) / 2;
+  const useZoneEntry = entryMode === 'zone';
+  const entryRef = useZoneEntry ? zoneEntry : price;
+  const safeBreakdown = safeTelegramBreakdown(price, supLow, supHigh, breakdown);
 
   // Use the same grade model as calcScores/reporting.
   const grade = gradeOverride || gradeFromOverall(overall);
@@ -2978,8 +3277,7 @@ function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistan
     return (p >= 0 ? '+' : '') + p.toFixed(1) + '%';
   };
 
-  // Entry always shows support zone
-  const entry = `$${supLow === supHigh ? supLow.toFixed(2) : supLow + '–' + supHigh}`;
+  const entry = useZoneEntry ? `$${supLow}–$${supHigh}` : `$${entryRef.toFixed(2)}`;
 
   // Timestamp — date · time TZ
   const now = new Date();
@@ -2996,8 +3294,8 @@ function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistan
     `📊 Grade: *${grade}* | Score: *${scoreOf8}/8*`,
     ``,
     `💰 Price: $${price.toFixed(2)}`,
-    `📈 Entry: *$${supLow}–$${supHigh}*`,
-    `🛑 Stop: $${breakdown} (${pctFromEntry(breakdown)})`,
+    `📈 Entry: *${entry}*`,
+    `🛑 Stop: $${safeBreakdown} (${pctFromEntry(safeBreakdown)})`,
     tpLines,
     ``,
     `⏰ ${datePart} · ${timePart}`,
@@ -3008,8 +3306,9 @@ function buildZoneMapCompact(ticker, price, supLow, supHigh, breakdown, resistan
 
 // ── OLD DETAILED FORMAT ───────────────────────────────
 function buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resistances, shortScore, longScore, overall, stV, ovV, sma20, rsi14, volRatio, gradeOverride=null) {
+  const safeBreakdown = safeTelegramBreakdown(price, supLow, supHigh, breakdown);
   const inZone   = price >= supLow && price <= supHigh;
-  const belowBrk = price < breakdown;
+  const belowBrk = price < safeBreakdown;
   const pct = l => (((l-price)/price)*100);
   const nextR    = resistances.find(r => r > price);
   const nextRIdx = nextR ? resistances.indexOf(nextR) : -1;
@@ -3045,7 +3344,7 @@ function buildZoneMapDetailed(ticker, price, supLow, supHigh, breakdown, resista
     return emoji+' `'+label.padEnd(10)+'` *$'+val+'*  '+(tag ? '*'+p+'* ◄ NEXT' : p);
   };
   const levelRows = [];
-  levelRows.push(fmtRow('🛑','Stop Loss', breakdown.toFixed(2), pctSup(breakdown), false));
+  levelRows.push(fmtRow('🛑','Stop Loss', safeBreakdown.toFixed(2), pctSup(safeBreakdown), false));
   levelRows.push('🟠 `'+('Support').padEnd(10)+'` *$'+supLow+'–'+supHigh+'*  _entry zone_');
   resistances.forEach((r,i) => {
     levelRows.push(fmtRow('🎯','TP'+(i+1), r.toFixed(2), pctSup(r), r===nextR));
@@ -3095,11 +3394,22 @@ async function sendZoneMapToTelegram() {
   btn.style.opacity='0.6';
   btn.style.pointerEvents='none';
 
-  const d = _lastZoneData;
+  let d = _lastZoneData;
+  try{
+    if(d && shouldUseLiveZonesForTelegram(d.ticker, d)){
+      const r = await fetchYahoo(d.ticker, '3mo', '1d');
+      const fresh = await buildFromYahoo(d.ticker, r, null);
+      primeTelegramZoneData(fresh);
+      d = _lastZoneData;
+      sLog(`${d.ticker} Telegram alert used refreshed live zones instead of saved alert levels`,'inf');
+    }
+  }catch(e){
+    sLog(`Telegram zone refresh skipped for ${d?.ticker||'ticker'}: ${e.message}`,'inf');
+  }
   const msg = buildZoneMapMessage(
     d.ticker, d.price, d.supLow, d.supHigh, d.breakdown, d.resistances,
     d.shortScore, d.longScore, d.overall, d.stV, d.ovV,
-    d.sma20, d.rsi14, d.volRatio, d.grade
+    d.sma20, d.rsi14, d.volRatio, d.grade, d.entryMode || 'current'
   );
 
   try {
@@ -3192,9 +3502,22 @@ function pfEdit(id){
   if(invest===null)return;
   const notes=prompt('Notes:', pos.notes||'');
   if(notes===null)return;
+  let closedPrice = null, closeDate = null;
+  if(pos.state === 'closed'){
+    closedPrice = prompt('Closed price:', pos.closedPrice?.toFixed(2)||'');
+    if(closedPrice===null)return;
+    closeDate = prompt('Close date (YYYY-MM-DD):', pos.closeDate||'');
+    if(closeDate===null)return;
+  }
   if(entry) pos.entryPrice=parseFloat(entry)||pos.entryPrice;
   if(entryDate) pos.entryDate=entryDate;
   if(invest) pos.invest=parseFloat(invest)||pos.invest;
+  if(pos.state === 'closed'){
+    if(closedPrice) pos.closedPrice=parseFloat(closedPrice)||pos.closedPrice;
+    if(closeDate) pos.closeDate=closeDate;
+    pos.currentPrice = pos.closedPrice || pos.currentPrice;
+    pos.status = '🔒 Closed @ $'+(pos.closedPrice?.toFixed(2) || '0.00');
+  }
   pos.notes=notes;
   pfSave(); pfRender(); autoSync();
 }
@@ -4036,19 +4359,30 @@ function d1Status(msg, color='var(--green)') {
   if (el) { el.textContent = msg; el.style.color = color; }
 }
 function syncPayload() {
+  const groupTrackerPayload = gaTrackers.map(item => {
+    const linked = gaLinkedPosition(item);
+    return {
+      ...item,
+      added_at: item.addedIso || item.added_at || null,
+      entry_date: linked?.entryDate || item.entryDate || null,
+      linked_portfolio_id: linked?.id || item.portfolioId || null,
+      status: linked?.state || item.status || null
+    };
+  });
   return {
     portfolio: pfPositions,
     watchlist: scTickers,
-    groupTracker: gaTrackers,
+    groupTracker: groupTrackerPayload,
     subscribers: sbSubs,
     updatedAt: new Date().toISOString()
   };
 }
 function applySyncData(data) {
   if (!data) return;
+  noteCloudHydration(data.updatedAt || '');
   if (data.portfolio)    { pfPositions = data.portfolio;    pfSave(); pfRender(); }
   if (data.watchlist)    { scTickers   = data.watchlist;    saveSc(); renderSc(); }
-  if (data.groupTracker) { gaTrackers  = data.groupTracker; gaSave(); gaRender(); }
+  if (data.groupTracker) { gaTrackers  = data.groupTracker; noteGroupTrackerCloudSync(data.groupTracker); gaSave(); gaRender(); }
   if (data.subscribers)  { sbSubs      = data.subscribers;  sbSave(); sbRender(); }
   setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
 }
@@ -4072,6 +4406,9 @@ async function gsSyncAll() {
     if (!res.ok) throw new Error(d.message || 'Sync failed');
     localStorage.setItem('kalki_jb_bin', binId);
     localStorage.setItem('kalki_jb_key', apiKey);
+    noteCloudHydration(payload.updatedAt);
+    noteCloudSync(payload.updatedAt);
+    noteGroupTrackerCloudSync(gaTrackers);
     setGaSaveStatus('cloud', `Cloud synced ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     gsStatus('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
@@ -4094,11 +4431,15 @@ async function gsLoadAll() {
     applySyncData(d.record);
     localStorage.setItem('kalki_jb_bin', binId);
     localStorage.setItem('kalki_jb_key', apiKey);
+    noteCloudSync((d.record && d.record.updatedAt) || new Date().toISOString());
+    if (d.record?.groupTracker) noteGroupTrackerCloudSync(d.record.groupTracker);
     setGaSaveStatus('cloud', `Cloud loaded ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     gsStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+    return true;
   } catch(e) {
     setGaSaveStatus('warning', 'Saved locally · Cloud load failed');
     gsStatus('❌ ' + e.message, 'var(--red)');
+    return false;
   }
 }
 
@@ -4121,6 +4462,9 @@ async function cfSyncAll() {
     if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'Cloudflare sync failed');
     localStorage.setItem('kalki_cf_url', url);
     localStorage.setItem('kalki_cf_key', key);
+    noteCloudHydration(payload.updatedAt);
+    noteCloudSync(payload.updatedAt);
+    noteGroupTrackerCloudSync(gaTrackers);
     setGaSaveStatus('cloud', `Cloud synced ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     cfStatus('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
@@ -4144,11 +4488,15 @@ async function cfLoadAll() {
     applySyncData(record);
     localStorage.setItem('kalki_cf_url', url);
     localStorage.setItem('kalki_cf_key', key);
+    noteCloudSync((record && record.updatedAt) || (d && d.updatedAt) || new Date().toISOString());
+    if (record?.groupTracker) noteGroupTrackerCloudSync(record.groupTracker);
     setGaSaveStatus('cloud', `Cloud loaded ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     cfStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+    return !!record;
   } catch(e) {
     setGaSaveStatus('warning', 'Saved locally · Cloudflare load failed');
     cfStatus('❌ ' + e.message, 'var(--red)');
+    return false;
   }
 }
 
@@ -4189,6 +4537,9 @@ async function d1SyncAll() {
     if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 sync failed');
     localStorage.setItem('kalki_d1_url', url);
     localStorage.setItem('kalki_d1_key', key);
+    noteCloudHydration(payload.updatedAt);
+    noteCloudSync(payload.updatedAt);
+    noteGroupTrackerCloudSync(gaTrackers);
     d1Status('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
     d1Status('❌ ' + e.message, 'var(--red)');
@@ -4210,9 +4561,43 @@ async function d1LoadAll() {
     applySyncData(d.record);
     localStorage.setItem('kalki_d1_url', url);
     localStorage.setItem('kalki_d1_key', key);
+    noteCloudSync((d.record && d.record.updatedAt) || (d && d.updatedAt) || new Date().toISOString());
+    if (d.record?.groupTracker) noteGroupTrackerCloudSync(d.record.groupTracker);
     d1Status('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+    return !!d.record;
   } catch(e) {
     d1Status('❌ ' + e.message, 'var(--red)');
+    return false;
+  }
+}
+
+async function d1TestConnection() {
+  const url = d1SyncUrl();
+  const key = d1SyncKey();
+  if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
+  d1Status('Testing...', 'var(--accent)');
+  try {
+    const endpoint = url.replace(/\/+$/,'') + '/d1/query';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kalki-Key': key
+      },
+      body: JSON.stringify({ sql: 'SELECT 1 AS ok' })
+    });
+    const d = await res.json();
+    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 connection failed');
+    d1Status('✅ Connection OK', 'var(--green)');
+    alert('Cloudflare D1 connection is working.');
+    return true;
+  } catch(e) {
+    const msg = e?.message === 'Failed to fetch'
+      ? 'Browser could not reach the Cloudflare Worker.'
+      : e.message;
+    d1Status('❌ ' + msg, 'var(--red)');
+    alert(`D1 connection test failed.\n\n${msg}`);
+    return false;
   }
 }
 
@@ -4238,6 +4623,7 @@ UNION ALL SELECT 'app_state' AS name, COUNT(*) AS count FROM app_state`);
 let _syncTimer = null;
 function autoSync() {
   if (!hasJsonBinConfig() && !hasCloudflareBackupConfig() && !hasD1Config()) return;
+  if (!initialCloudHydrationDone) return;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
     if (hasJsonBinConfig()) gsSyncAll().catch(()=>{});
@@ -4300,6 +4686,10 @@ if (savedCfUrl)  document.getElementById('cfBackupUrl').value = savedCfUrl;
 if (savedCfKey)  document.getElementById('cfBackupKey').value = savedCfKey;
 if (savedD1Url)  document.getElementById('d1SyncUrl').value = savedD1Url;
 if (savedD1Key)  document.getElementById('d1SyncKey').value = savedD1Key;
+if (cfBackupUrl()) localStorage.setItem('kalki_cf_url', cfBackupUrl());
+if (cfBackupKey()) localStorage.setItem('kalki_cf_key', cfBackupKey());
+if (d1SyncUrl()) localStorage.setItem('kalki_d1_url', d1SyncUrl());
+if (d1SyncKey()) localStorage.setItem('kalki_d1_key', d1SyncKey());
 syncConnectionPill();
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSettingsPanel();
@@ -4308,66 +4698,65 @@ switchTab('sc');
 refreshMarketRegime().catch(()=>{});
 setInterval(() => refreshMarketRegime().catch(()=>{}), 10 * 60 * 1000);
 
-if (savedBinId && savedApiKey) {
-  gsStatus('Loading from JSONBin...', 'var(--accent)');
-  gsLoadAll().then(() => {
-    gsStatus('✅ Loaded from JSONBin');
+async function startupHydrateFromCloud(){
+  const sources = [];
+  if (hasJsonBinConfig()) {
+    sources.push({
+      label: 'JSONBin',
+      start(){ gsStatus('Loading from JSONBin...', 'var(--accent)'); },
+      done(){ gsStatus('✅ Loaded from JSONBin'); },
+      fail(){ gsStatus('⚠ Could not reach JSONBin', 'var(--warn)'); },
+      load: gsLoadAll
+    });
+  }
+  if (hasD1Config()) {
+    sources.push({
+      label: 'D1',
+      start(){ d1Status('Loading from D1...', 'var(--accent)'); },
+      done(){ d1Status('✅ Loaded from D1'); },
+      fail(){ d1Status('⚠ Could not reach D1', 'var(--warn)'); },
+      load: d1LoadAll
+    });
+  }
+  if (hasCloudflareBackupConfig()) {
+    sources.push({
+      label: 'Cloudflare',
+      start(){ cfStatus('Loading from Cloudflare...', 'var(--accent)'); },
+      done(){ cfStatus('✅ Loaded from Cloudflare'); },
+      fail(){ cfStatus('⚠ Could not reach Cloudflare', 'var(--warn)'); },
+      load: cfLoadAll
+    });
+  }
+
+  if (!sources.length) {
+    initialCloudHydrationDone = true;
     renderSc();
     gaRender();
+    setGaSaveStatus('local');
     setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
-  }).catch(() => {
-    if (savedCfUrl && savedCfKey) {
-      cfStatus('Loading from Cloudflare...', 'var(--accent)');
-      cfLoadAll().then(() => {
-        cfStatus('✅ Loaded from Cloudflare');
-        renderSc();
-        gaRender();
-        setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
-      }).catch(() => {
-        gsStatus('⚠ Could not reach JSONBin', 'var(--warn)');
-        cfStatus('⚠ Could not reach Cloudflare — using local data', 'var(--warn)');
-        renderSc();
-        gaRender();
-      });
-    } else {
-      gsStatus('⚠ Could not reach JSONBin — using local data', 'var(--warn)');
+    return;
+  }
+
+  for (const source of sources) {
+    source.start();
+    const ok = await source.load();
+    if (ok) {
+      source.done();
+      initialCloudHydrationDone = true;
       renderSc();
       gaRender();
+      setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
+      return;
     }
-  });
-} else if (savedCfUrl && savedCfKey) {
-  cfStatus('Loading from Cloudflare...', 'var(--accent)');
-  cfLoadAll().then(() => {
-    cfStatus('✅ Loaded from Cloudflare');
-    renderSc();
-    gaRender();
-    setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
-  }).catch(() => {
-    cfStatus('⚠ Could not reach Cloudflare — using local data', 'var(--warn)');
-    renderSc();
-    gaRender();
-  });
-} else if (savedD1Url && savedD1Key) {
-  d1Status('Loading from D1...', 'var(--accent)');
-  d1LoadAll().then(() => {
-    d1Status('✅ Loaded from D1');
-    renderSc();
-    gaRender();
-  }).catch(() => {
-    d1Status('⚠ Could not reach D1 — using local data', 'var(--warn)');
-    renderSc();
-    gaRender();
-  });
-} else {
-  if(!scTickers.length){
-    scTickers.push({sym:'AXTI',supLow:38,supHigh:40,brk:37,res:[42,44,46,50,55,60],price:null,status:'neutral'});
-    saveSc();
+    source.fail();
   }
+
+  initialCloudHydrationDone = true;
   renderSc();
   gaRender();
-  setGaSaveStatus('local');
-  setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
+  setGaSaveStatus('warning', 'Saved locally · Cloud load failed');
 }
+startupHydrateFromCloud();
 </script>
 </body>
 </html>
