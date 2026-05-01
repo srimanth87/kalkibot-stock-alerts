@@ -379,6 +379,32 @@ textarea:focus{border-color:var(--accent);}
 .ga-badge.flat{color:var(--dim);background:rgba(100,116,139,0.08);}
 .ga-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
 .ga-save{font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;margin:6px 0 12px;}
+.ai-runner{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+.ai-status{font-family:'DM Mono',monospace;font-size:11px;color:var(--dim);}
+.ai-toplist{display:flex;flex-direction:column;gap:10px;margin-top:12px;}
+.ai-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;grid-template-columns:90px 1fr auto;gap:12px;align-items:start;}
+.ai-card strong{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:1px;}
+.ai-score{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);}
+.ai-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.ai-tag{font-size:10px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);font-family:'DM Mono',monospace;color:var(--dim);}
+.ai-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px;}
+.ai-stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+.ai-stat .lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
+.ai-stat .val{font-family:'DM Mono',monospace;font-size:12px;color:#fff;}
+.ai-why{font-size:12px;color:#cbd5e1;line-height:1.5;margin-top:10px;}
+.ai-output{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;white-space:pre-wrap;font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#dbe7ff;min-height:180px;}
+.ai-trades{display:flex;flex-direction:column;gap:8px;}
+.ai-trade{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text);}
+.opt-history{display:flex;flex-direction:column;gap:10px;}
+.opt-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.opt-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.opt-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;color:#fff;line-height:1;}
+.opt-sub{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;}
+.opt-raw{background:rgba(6,10,18,0.45);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;color:#dbe7ff;line-height:1.6;}
+@media(max-width:800px){
+  .ai-card{grid-template-columns:1fr;}
+  .ai-grid{grid-template-columns:1fr 1fr;}
+}
 
 @media(max-width:640px){
   .wrap{padding:16px 12px 44px;}
@@ -478,11 +504,98 @@ textarea:focus{border-color:var(--accent);}
 <div class="tab-bar">
   <button class="tab active" id="t-sc" onclick="switchTab('sc')">🔔 Scanner</button>
   <button class="tab" id="t-an" onclick="switchTab('an')">📊 Analysis</button>
+  <button class="tab" id="t-ai" onclick="switchTab('ai')">🤖 AI</button>
+  <button class="tab" id="t-op" onclick="switchTab('op')">📞 Options</button>
   <button class="tab" id="t-ga" onclick="switchTab('ga')">🚀 Group Tracker</button>
   <button class="tab" id="t-ka" onclick="switchTab('ka')" style="display:none;">⚡ Swing Workspace</button>
   <button class="tab" id="t-pf" onclick="switchTab('pf')">💼 Portfolio</button>
   <button class="tab" id="t-sb" onclick="switchTab('sb')" style="display:none;">👥 Subscribers</button>
   <button class="tab" id="t-rp" onclick="switchTab('rp')">📋 Report</button>
+</div>
+
+<!-- ══ TAB: OPTIONS ALERTS ══ -->
+<div id="opTab" style="display:none;">
+  <div class="scanner-section">
+    <div class="sec-title">📞 Options Alert Builder</div>
+    <div class="hint">Paste a plain-English entry like <strong>BEEM june $2 call at .30</strong> and the app will turn it into a structured options alert you can preview or send to Telegram.</div>
+    <div class="field full" style="margin-top:12px;">
+      <label>Option Alert Text</label>
+      <textarea id="optInput" rows="3" placeholder="BEEM june $2 call at .30"></textarea>
+    </div>
+    <div class="settings-grid" style="margin-top:12px;">
+      <div class="field">
+        <label>NVIDIA API Key</label>
+        <input id="optNvidiaKey" type="password" placeholder="nvapi-..." />
+      </div>
+      <div class="field">
+        <label>NVIDIA Model</label>
+        <input id="optNvidiaModel" value="meta/llama-3.3-70b-instruct" placeholder="meta/llama-3.3-70b-instruct" />
+      </div>
+    </div>
+    <div class="hint" style="margin-top:8px;">Smart parser uses NVIDIA chat completions when the text is loose or not in exact format.</div>
+    <div class="scanner-toolbar" style="margin-top:12px;">
+      <button class="scan-btn-big" onclick="optionsParseInput()">⚡ Smart Create Alert</button>
+      <button class="btn btn-o" onclick="optionsRefreshLiveMarks()">🔄 Live Marks</button>
+      <button class="btn btn-o" onclick="optionsSendLatest()">📤 Send to Telegram</button>
+      <button class="btn btn-d" onclick="optionsClearHistory()">Clear History</button>
+      <div class="spill" id="optSpill"><div class="dot" id="optSpillDot"></div><span id="optSpillTxt">READY</span></div>
+    </div>
+    <div id="optStatus" class="hint" style="margin-bottom:14px;">Waiting for an options line.</div>
+    <div class="score-banner" id="optSummary" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:18px;">
+      <div class="score-item"><div class="score-lbl">Open Trades</div><div class="score-val ov" id="optOpenCount" style="font-size:28px;">0</div><div class="score-sub">active options ideas</div></div>
+      <div class="score-item"><div class="score-lbl">Mark Value</div><div class="score-val lt" id="optMarkValue" style="font-size:28px;">$0</div><div class="score-sub">open position estimate</div></div>
+      <div class="score-item"><div class="score-lbl">Total P&L</div><div class="score-val" id="optTotalPnl" style="font-size:28px;">$0</div><div class="score-sub" id="optTotalPct">0.0%</div></div>
+      <div class="score-item"><div class="score-lbl">Win / Loss</div><div class="score-val st" id="optWinCount" style="font-size:28px;">0</div><div class="score-sub" id="optWinLoss">0W / 0L</div></div>
+    </div>
+    <div class="grid2">
+      <div class="acard">
+        <h3>🧾 Parsed Alert</h3>
+        <div id="optPreview"><div class="empty-s">No options alert parsed yet</div></div>
+      </div>
+      <div class="acard">
+        <h3>📤 Telegram Preview</h3>
+        <div id="optTelegramPreview" class="ai-output">Build an alert to generate the outgoing Telegram message.</div>
+      </div>
+    </div>
+    <div class="acard">
+      <h3>🕘 Recent Option Alerts</h3>
+      <div id="optHistory" class="opt-history"><div class="empty-s">No options alerts yet</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TAB: AI SCANNER ══ -->
+<div id="aiTab" style="display:none;">
+  <div class="scanner-section">
+    <div class="sec-title">🤖 AI Scanner Integration</div>
+    <div class="hint">Ports your `kalki_scanner.py` logic into the browser: Nasdaq-100 daily scan, setup classification, score ranking, and paper-trade logging.</div>
+    <div class="ai-runner">
+      <button class="scan-btn-big" id="aiScanBtn" onclick="runAiScanner()">▶ Run AI Scanner</button>
+      <button class="btn btn-o" onclick="aiSendTop5Telegram()">📤 Send Top 5 TG</button>
+      <button class="btn btn-d" onclick="aiClearPaperTrades()">Clear Paper Trades</button>
+      <div class="spill" id="aiSpill"><div class="dot" id="aiSpillDot"></div><span id="aiSpillTxt">READY</span></div>
+      <div class="ai-status" id="aiStatusMsg">Waiting to scan the NDX100 universe.</div>
+    </div>
+    <div class="score-banner" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:18px;">
+      <div class="score-item"><div class="score-lbl">Candidates</div><div class="score-val ov" id="aiCandidateCount" style="font-size:34px;">0</div><div class="score-sub">qualified names</div></div>
+      <div class="score-item"><div class="score-lbl">Top Score</div><div class="score-val st" id="aiTopScore" style="font-size:34px;">0</div><div class="score-sub">best scanner score</div></div>
+      <div class="score-item"><div class="score-lbl">New Paper Trades</div><div class="score-val lt" id="aiNewTrades" style="font-size:34px;">0</div><div class="score-sub">newly logged</div></div>
+    </div>
+    <div class="grid2">
+      <div class="acard">
+        <h3>🏁 Top 5 Setups</h3>
+        <div id="aiTopList" class="ai-toplist"><div class="empty-s">No AI scan run yet</div></div>
+      </div>
+      <div class="acard">
+        <h3>🧠 AI Output</h3>
+        <div id="aiOutput" class="ai-output">Run the AI scanner to generate the ranked swing summary.</div>
+      </div>
+    </div>
+    <div class="acard">
+      <h3>📝 Paper Trades</h3>
+      <div id="aiPaperTrades" class="ai-trades"><div class="empty-s">No paper trades logged yet</div></div>
+    </div>
+  </div>
 </div>
 
 <!-- ══ TAB 1: LIVE ANALYSIS ══ -->
@@ -526,6 +639,7 @@ textarea:focus{border-color:var(--accent);}
     </div>
     <div class="grid2"><div class="acard" id="stCard"></div><div class="acard" id="ltCard"></div></div>
     <div class="acard" style="margin-bottom:18px;" id="targetsCard"></div>
+    <div class="acard" style="margin-bottom:18px;" id="aiAnalysisCard"></div>
     <div class="acard" id="stratCard"></div>
   </div>
 </div>
@@ -625,9 +739,15 @@ textarea:focus{border-color:var(--accent);}
         <div class="field"><label>Chat ID</label><input id="chatId" placeholder="1026720092"/></div>
       </div>
       <div class="field" style="margin-top:10px;"><label>Yahoo Proxy URL</label><input id="proxyUrl" value="https://yahoo-proxy.srimanthgada87.workers.dev"/><span class="hint">Used for Analysis + Scanner · format: ?url=YAHOO_URL</span></div>
+      <div class="settings-grid" style="margin-top:10px;">
+        <div class="field"><label>NVIDIA API Key</label><input id="settingsNvidiaKey" type="password" placeholder="nvapi-..."/><span class="hint">Used by the Options smart parser</span></div>
+        <div class="field"><label>NVIDIA Model</label><input id="settingsNvidiaModel" value="meta/llama-3.3-70b-instruct" placeholder="meta/llama-3.3-70b-instruct"/><span class="hint">Default model for options text parsing</span></div>
+      </div>
       <div class="settings-actions">
+        <button class="btn btn-o btn-sm" onclick="testNvidiaModel()">🧪 Test NVIDIA</button>
         <button class="auto-btn" id="tgEnableBtn" onclick="toggleTelegramEnabled()">Telegram Alerts: OFF</button>
       </div>
+      <div class="hint" id="nvidiaTestStatus" style="margin-top:8px;"></div>
     </div>
 
     <div class="settings-section">
@@ -752,6 +872,9 @@ textarea:focus{border-color:var(--accent);}
 
     <!-- Targets -->
     <div class="acard" style="margin-bottom:18px;" id="kaTargetsCard"></div>
+
+    <!-- AI setup -->
+    <div class="acard" style="margin-bottom:18px;" id="kaAiCard"></div>
 
     <!-- Strategy -->
     <div class="acard" id="kaStratCard"></div>
@@ -931,11 +1054,14 @@ let bestScanLastCount = 0;
 let bestScanLastSource = localStorage.getItem('kalki_best_source') || 'ndx100';
 let bestAutoSource = localStorage.getItem('kalki_best_auto_source') || 'ndx100';
 let gaTrackers = JSON.parse(localStorage.getItem('kalki_ga')||'[]');
+let aiTopCandidates = [];
+let aiPaperTrades = JSON.parse(localStorage.getItem('kalki_ai_paper_trades')||'[]');
 let bestAutoIv = null;
 let bestAutoEnabled = localStorage.getItem('kalki_best_auto') === '1';
 let bestAutoRunning = false;
 let bestAlertMemory = JSON.parse(localStorage.getItem('kalki_best_alert_memory') || '{}');
 let gaUpgradeMemory = JSON.parse(localStorage.getItem('kalki_ga_upgrade_memory') || '{}');
+let optionAlerts = JSON.parse(localStorage.getItem('kalki_option_alerts')||'[]');
 let telegramEnabled = localStorage.getItem('kalki_tg_enabled') === '1';
 let watchExcludePortfolio = localStorage.getItem('kalki_watch_ex_pf') === '1';
 let gaCloudStatus = localStorage.getItem('kalki_ga_cloud_status') || '';
@@ -945,12 +1071,93 @@ let lastCloudSyncAt = localStorage.getItem('kalki_last_cloud_sync_at') || '';
 let gaCloudIds = new Set(JSON.parse(localStorage.getItem('kalki_ga_cloud_ids')||'[]'));
 const ADMIN_PASSWORD = '1515';
 let adminUnlocked = false;
+function optionsDefaultEntryDate(){
+  return new Date().toISOString().split('T')[0];
+}
+function optionsHydrateRecord(alert){
+  if(!alert) return alert;
+  const entryPremium = Number.isFinite(+alert.entryPremium) ? +alert.entryPremium : +alert.premium || 0;
+  const qty = Math.max(1, parseInt(alert.qty || alert.contracts || 1, 10) || 1);
+  const state = alert.state === 'closed' ? 'closed' : 'open';
+  const currentPremium = Number.isFinite(+alert.currentPremium) ? +alert.currentPremium : state === 'closed' && Number.isFinite(+alert.closedPremium) ? +alert.closedPremium : entryPremium;
+  return {
+    ...alert,
+    id: String(alert.id ?? Date.now()),
+    entryDate: alert.entryDate || optionsDefaultEntryDate(),
+    entryPremium,
+    currentPremium,
+    qty,
+    state,
+    closedPremium: state === 'closed' && Number.isFinite(+alert.closedPremium) ? +alert.closedPremium : null,
+    closeDate: state === 'closed' ? (alert.closeDate || optionsDefaultEntryDate()) : '',
+    notes: alert.notes || ''
+  };
+}
+optionAlerts = optionAlerts.map(optionsHydrateRecord);
+let optionLatest = optionAlerts[0] || null;
+const WATCHLIST_RECOVERY_20260428 = [
+  {sym:'AAOI',supLow:145,supHigh:148,brk:144,res:[155,160,165,170],price:null,status:'neutral',monitorTrend:false,grade:'C'},
+  {sym:'AI',supLow:8.5,supHigh:9,brk:8,res:[10,11,12],price:null,status:'neutral',monitorTrend:false,grade:'C'},
+  {sym:'ATOM',supLow:7.5,supHigh:8,brk:7,res:[9,10,11,12],price:null,status:'neutral',monitorTrend:false,grade:'C'},
+  {sym:'AZZ',supLow:140,supHigh:142,brk:137,res:[150,155,160],price:null,status:'neutral',monitorTrend:false,grade:'A'},
+  {sym:'COHR',supLow:315,supHigh:316,brk:304,res:[320,324,330,335,340],price:null,status:'neutral',monitorTrend:false,grade:'C'},
+  {sym:'DIS',supLow:101,supHigh:102,brk:99.5,res:[104,106,108,110],price:null,status:'neutral',monitorTrend:false,grade:'C'},
+  {sym:'NBIS',supLow:148,supHigh:150,brk:147,res:[155,160,165,170],price:null,status:'neutral',monitorTrend:false,grade:'C'}
+];
+const AI_NDX100 = [
+  "ADBE", "AMD", "ABNB", "GOOGL", "GOOG", "AMZN", "AEP", "AMGN", "ADI",
+  "AAPL", "AMAT", "APP", "ARM", "ASML", "AZN", "TEAM", "ADSK", "ADP", "AXON",
+  "BKR", "BIIB", "BKNG", "AVGO", "CDNS", "CDW", "CHTR", "CTAS", "CSCO", "CCEP",
+  "CTSH", "CMCSA", "CEG", "CPRT", "CSGP", "COST", "CRWD", "CSX", "DDOG", "DXCM",
+  "FANG", "DASH", "EA", "EXC", "FAST", "FTNT", "GEHC", "GILD", "GFS", "HON",
+  "IDXX", "INTC", "INTU", "ISRG", "KDP", "KLAC", "KHC", "LRCX", "LIN", "LULU",
+  "MAR", "MRVL", "MELI", "META", "MCHP", "MU", "MSFT", "MSTR", "MDLZ", "MNST",
+  "NFLX", "NVDA", "NXPI", "ORLY", "ODFL", "ON", "PCAR", "PLTR", "PANW", "PAYX",
+  "PYPL", "PDD", "PEP", "QCOM", "REGN", "ROP", "ROST", "SHOP", "SBUX", "SNPS",
+  "TTWO", "TMUS", "TRI", "TSLA", "TXN", "TTD", "VRSK", "VRTX", "WBD", "WDAY", "XEL", "ZS"
+];
 
 function proxy(){ return (document.getElementById('proxyUrl').value||'https://yahoo-proxy.srimanthgada87.workers.dev').trim(); }
 function cfBackupUrl(){ return (document.getElementById('cfBackupUrl')?.value||'').trim(); }
 function cfBackupKey(){ return (document.getElementById('cfBackupKey')?.value||'').trim(); }
 function d1SyncUrl(){ return (document.getElementById('d1SyncUrl')?.value||'').trim(); }
 function d1SyncKey(){ return (document.getElementById('d1SyncKey')?.value||'').trim(); }
+function nvidiaApiKey(){
+  return (document.getElementById('settingsNvidiaKey')?.value
+    || document.getElementById('optNvidiaKey')?.value
+    || '').trim();
+}
+function nvidiaModel(){
+  return (document.getElementById('settingsNvidiaModel')?.value
+    || document.getElementById('optNvidiaModel')?.value
+    || 'meta/llama-3.3-70b-instruct').trim();
+}
+function syncNvidiaInputs(source=''){
+  const key = source === 'settings'
+    ? (document.getElementById('settingsNvidiaKey')?.value || '')
+    : source === 'options'
+      ? (document.getElementById('optNvidiaKey')?.value || '')
+      : (localStorage.getItem('kalki_nvidia_key') || '');
+  const model = source === 'settings'
+    ? (document.getElementById('settingsNvidiaModel')?.value || 'meta/llama-3.3-70b-instruct')
+    : source === 'options'
+      ? (document.getElementById('optNvidiaModel')?.value || 'meta/llama-3.3-70b-instruct')
+      : (localStorage.getItem('kalki_nvidia_model') || 'meta/llama-3.3-70b-instruct');
+  const optKey=document.getElementById('optNvidiaKey');
+  const optModel=document.getElementById('optNvidiaModel');
+  const setKey=document.getElementById('settingsNvidiaKey');
+  const setModel=document.getElementById('settingsNvidiaModel');
+  if(optKey && optKey.value !== key) optKey.value = key;
+  if(setKey && setKey.value !== key) setKey.value = key;
+  if(optModel && optModel.value !== model) optModel.value = model;
+  if(setModel && setModel.value !== model) setModel.value = model;
+}
+function setNvidiaTestStatus(msg='', color='var(--dim)'){
+  const el = document.getElementById('nvidiaTestStatus');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.color = color;
+}
 function noteCloudHydration(updatedAt=''){
   if(!updatedAt) return;
   cloudHydratedAt = updatedAt;
@@ -967,6 +1174,18 @@ function persistGaCloudIds(){
 function noteGroupTrackerCloudSync(items = gaTrackers){
   gaCloudIds = new Set((items || []).map(t => String(t.id)));
   persistGaCloudIds();
+}
+function applyWatchlistRecovery(){
+  const recoveryKey = 'kalki_watchlist_recovery_20260428';
+  const present = new Set((scTickers || []).map(t => String(t.sym || '').toUpperCase()).filter(Boolean));
+  const missing = WATCHLIST_RECOVERY_20260428.filter(t => !present.has(t.sym));
+  if(!missing.length){
+    localStorage.setItem(recoveryKey, 'done');
+    return;
+  }
+  scTickers = [...(scTickers || []), ...missing];
+  saveSc();
+  localStorage.setItem(recoveryKey, 'done');
 }
 function ensureAdminAccess(){
   if(adminUnlocked) return true;
@@ -1098,20 +1317,22 @@ async function refreshMarketRegime(){
 // TABS
 // ══════════════════════════════════════════════════════
 function switchTab(t) {
-  const visibleTabs = ['an','ga','sc','pf','sb','rp'];
-  const panelMap = {an:'ka', ga:'ga', sc:'sc', pf:'pf', sb:'sb', rp:'rp', ka:'ka'};
+  const visibleTabs = ['an','ai','op','ga','sc','pf','sb','rp'];
+  const panelMap = {an:'ka', ai:'ai', op:'op', ga:'ga', sc:'sc', pf:'pf', sb:'sb', rp:'rp', ka:'ka'};
   const targetPanel = panelMap[t] || 'sc';
 
   visibleTabs.forEach(id => {
     const btn = document.getElementById('t-'+id);
     if (btn) btn.classList.toggle('active', t===id);
   });
-  ['an','ga','sc','ka','pf','sb','rp'].forEach(id => {
+  ['an','ai','op','ga','sc','ka','pf','sb','rp'].forEach(id => {
     const panel = document.getElementById(id+'Tab');
     if (panel) panel.style.display = id===targetPanel ? 'block' : 'none';
   });
 
   if (targetPanel === 'ka') refreshKaTab();
+  if (t === 'ai') aiRender();
+  if (t === 'op') optionsRender();
   if (t === 'ga') gaRender();
   if (t === 'pf') pfRender();
   if (t === 'sb') sbRender();
@@ -1133,6 +1354,17 @@ async function fetchYahoo(ticker, range, interval) {
   if (data.chart?.error) throw new Error(data.chart.error.description || 'Yahoo error');
   const result = data?.chart?.result?.[0];
   if (!result) throw new Error('No data for ' + ticker);
+  return result;
+}
+async function fetchYahooOptionsRaw(ticker, expiryUnix='') {
+  const base = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(ticker)}`;
+  const yahooUrl = expiryUnix ? `${base}?date=${expiryUnix}` : base;
+  const url = `${proxy()}?url=${encodeURIComponent(yahooUrl)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} — options lookup failed`);
+  const data = await res.json();
+  const result = data?.optionChain?.result?.[0];
+  if (!result) throw new Error('No options data for ' + ticker);
   return result;
 }
 
@@ -1637,6 +1869,1180 @@ function renderStrategy(el, price, supLow, supHigh, breakdown, resistances, stSt
   const inZ=price>=supLow&&price<=supHigh, belowBrk=price<breakdown;
   el.innerHTML=`<h3>📋 Kalki Swing V2 Plan</h3><div class="risk-list"><div class="risk-item lo"><span class="ri">1️⃣</span><div class="rt"><span class="rl lo">WHAT TO BUY</span>${inZ?`Swing candidate is already inside the support zone ($${supLow}–$${supHigh}). Start with 30% size, add only if the trigger filter turns fully bullish.`:`Keep it on watch. Best risk/reward is a pullback into $${supLow}–$${supHigh}, not a chase above resistance.`}</div></div><div class="risk-item lo"><span class="ri">2️⃣</span><div class="rt"><span class="rl lo">WHEN TO BUY</span>Prefer entry only when 1H trend is stacked bullish, 15m is pulling into EMA20, and 5m reclaims above VWAP. Targets: $${stT1} → $${stT2} → $${stT3} over the next 3–5 sessions.</div></div><div class="risk-item hi"><span class="ri">⛔</span><div class="rt"><span class="rl hi">RISK RULE</span>${belowBrk?`Setup is broken right now because price is below $${breakdown}. Wait for reclaim before treating this as a swing.`:`Hard stop sits under structure at $${stStop}. A close below $${breakdown} invalidates the swing thesis.`}</div></div></div>`;
 }
+function renderAiSetupCard(el, analysis){
+  if(!el) return;
+  const ai = analysis?.aiScan;
+  if(!ai){
+    el.innerHTML = `<h3>🤖 AI Scanner Read</h3><div class="hint">AI setup logic needs more price history before it can classify this ticker.</div>`;
+    return;
+  }
+  const confidence = aiScoreToConfidence(ai);
+  const confCls = confidence >= 7 ? 'buy' : confidence >= 5 ? 'caution' : 'avoid';
+  const setupLabel = ai.setup.replace(/_/g,' ');
+  const blend = analysis.aiBlendScore ?? Math.round(((analysis.overall || 0) * 0.6) + (Math.min(100, (ai.scanner_score || 0) * 10) * 0.4));
+  const idealEntry = ai.setup === 'support_bounce' || ai.setup === 'breakout_retest'
+    ? `$${analysis.supLow.toFixed(2)}–$${analysis.supHigh.toFixed(2)}`
+    : `$${ai.entry.toFixed(2)}`;
+  const bias = ai.setup === 'overextended' ? 'Too extended' : confidence >= 7 ? 'Actionable now' : confidence >= 5 ? 'Watch for confirmation' : 'Low edge';
+  el.innerHTML = `
+    <h3>🤖 AI Scanner Read <span class="vpill ${confCls}">${confidence}/10</span></h3>
+    <div class="grid2" style="gap:10px;margin-bottom:12px;">
+      <div class="targets">
+        <div class="trow"><span class="tlbl">Setup Type</span><span class="tprice t1">${setupLabel}</span><span class="tpct">${bias}</span></div>
+        <div class="trow"><span class="tlbl">Scanner Score</span><span class="tprice t2">${ai.scanner_score}</span><span class="tpct">python logic</span></div>
+        <div class="trow"><span class="tlbl">Blend Score</span><span class="tprice t3">${blend}%</span><span class="tpct">Kalki + AI</span></div>
+        <div class="trow"><span class="tlbl">Ideal Entry</span><span class="tprice t1">${idealEntry}</span><span class="tpct">${analysis.supLow && analysis.supHigh ? 'use support box' : 'market entry'}</span></div>
+      </div>
+      <div class="targets">
+        <div class="trow"><span class="tlbl">AI Stop</span><span class="tprice stop">$${ai.stop.toFixed(2)}</span><span class="tpct">${aiFormatPct(ai.entry, ai.stop)}</span></div>
+        <div class="trow"><span class="tlbl">AI Target 1</span><span class="tprice t1">$${ai.target1.toFixed(2)}</span><span class="tpct">${aiFormatPct(ai.entry, ai.target1)}</span></div>
+        <div class="trow"><span class="tlbl">AI Target 2</span><span class="tprice t2">$${ai.target2.toFixed(2)}</span><span class="tpct">${aiFormatPct(ai.entry, ai.target2)}</span></div>
+        <div class="trow"><span class="tlbl">Risk / Reward</span><span class="tprice t3">${ai.rr.toFixed(1)}R</span><span class="tpct">daily model</span></div>
+      </div>
+    </div>
+    <div class="risk-list">
+      <div class="risk-item ${confidence >= 7 ? 'lo' : confidence >= 5 ? 'md' : 'hi'}">
+        <span class="ri">🧠</span>
+        <div class="rt"><span class="rl ${confidence >= 7 ? 'lo' : confidence >= 5 ? 'md' : 'hi'}">WHY IT QUALIFIES</span>${aiCandidateWhy(ai)}</div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// AI SCANNER TAB
+// ══════════════════════════════════════════════════════
+function aiSavePaperTrades(){
+  localStorage.setItem('kalki_ai_paper_trades', JSON.stringify(aiPaperTrades));
+}
+function aiSetStatus(text, active=false){
+  const box=document.getElementById('aiSpill');
+  const dot=document.getElementById('aiSpillDot');
+  const lbl=document.getElementById('aiSpillTxt');
+  const msg=document.getElementById('aiStatusMsg');
+  if(lbl) lbl.textContent=text;
+  if(msg) msg.textContent = active ? `${text}...` : text;
+  if(box) box.className='spill'+(active?' active':'');
+  if(dot) dot.className='dot'+(active?' on':'');
+}
+function aiAvg(arr){
+  return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+}
+function aiGetUniverse(){
+  return [...AI_NDX100];
+}
+function aiAnalyzeTicker(ticker, result){
+  const valid = buildValidSeries(result);
+  if(valid.length < 60) return null;
+
+  const closes = valid.map(d=>d.c);
+  const highs = valid.map(d=>d.h ?? d.c);
+  const lows = valid.map(d=>d.l ?? d.c);
+  const vols = valid.map(d=>d.v || 0);
+
+  const price = closes[closes.length-1];
+  const sma20v = sma(closes,20);
+  const sma50v = sma(closes,50);
+  const currentRsi = rsi(closes,14);
+  const volAvg20 = aiAvg(vols.slice(-20));
+  const volumeRatio = volAvg20 ? (vols[vols.length-1] / volAvg20) : 0;
+  const atrLike = aiAvg(highs.slice(-14).map((h,i)=>h - lows[lows.length-14+i]));
+
+  const aboveSma20 = price > sma20v;
+  const aboveSma50 = price > sma50v;
+  const overextended = currentRsi >= 72;
+
+  const recent20High = Math.max(...closes.slice(-21,-1));
+  const recent20Low = Math.min(...closes.slice(-21,-1));
+  const recent10High = Math.max(...closes.slice(-11,-1));
+  const last3Low = Math.min(...closes.slice(-3));
+
+  const breakout = price > recent20High;
+  const breakoutRetest = (
+    price > recent10High &&
+    last3Low <= recent10High * 1.02 &&
+    last3Low >= recent10High * 0.97
+  );
+  const distanceFromSupport = (price - recent20Low) / Math.max(price, 0.01);
+  const supportBounce = (
+    distanceFromSupport <= 0.05 &&
+    price > recent20Low &&
+    currentRsi >= 45
+  );
+
+  let setup = 'weak';
+  if(overextended) setup = 'overextended';
+  else if(breakoutRetest) setup = 'breakout_retest';
+  else if(breakout) setup = 'breakout';
+  else if(supportBounce) setup = 'support_bounce';
+  else if(aboveSma20 && aboveSma50) setup = 'trend_follow';
+
+  const stop = +(price - atrLike * 1.5).toFixed(2);
+  const risk = price - stop;
+  const target1 = +(price + risk * 2).toFixed(2);
+  const target2 = +(price + risk * 3).toFixed(2);
+  const rr = risk > 0 ? 2 : 0;
+
+  let score = 0;
+  if(currentRsi >= 50 && currentRsi <= 65) score += 3;
+  else if(currentRsi >= 45 && currentRsi < 50) score += 1;
+  else if(currentRsi > 65 && currentRsi < 72) score += 1;
+
+  if(volumeRatio >= 1.5) score += 3;
+  else if(volumeRatio >= 1.3) score += 2;
+  else if(volumeRatio >= 1.0) score += 1;
+
+  if(aboveSma20) score += 1;
+  if(aboveSma50) score += 1;
+
+  if(setup === 'breakout_retest') score += 4;
+  else if(setup === 'breakout') score += 3;
+  else if(setup === 'support_bounce') score += 3;
+  else if(setup === 'trend_follow') score += 1;
+
+  if(rr >= 2) score += 2;
+  if(overextended) score -= 4;
+
+  return {
+    ticker,
+    price:+price.toFixed(2),
+    rsi:+currentRsi.toFixed(2),
+    volume_ratio:+volumeRatio.toFixed(2),
+    above_sma20: aboveSma20,
+    above_sma50: aboveSma50,
+    setup,
+    entry:+price.toFixed(2),
+    stop,
+    target1,
+    target2,
+    rr,
+    scanner_score: score
+  };
+}
+function aiScoreToConfidence(candidate){
+  return Math.max(1, Math.min(10, Math.round((candidate?.scanner_score || 0) / 1.5)));
+}
+function aiCandidateWhy(candidate){
+  const reasons = [
+    `RSI ${candidate.rsi}`,
+    `volume_ratio ${candidate.volume_ratio}`,
+    `scanner_score ${candidate.scanner_score}`,
+    `setup ${candidate.setup}`,
+    `RR ${candidate.rr}`
+  ];
+  if(candidate.above_sma20 && candidate.above_sma50) reasons.push('above_sma20 and above_sma50');
+  else if(candidate.above_sma20) reasons.push('above_sma20');
+  else if(candidate.above_sma50) reasons.push('above_sma50');
+  return reasons.join(', ') + '.';
+}
+function aiBuildOutput(candidates){
+  return candidates.map(candidate => {
+    const confidence = aiScoreToConfidence(candidate);
+    return [
+      `**${candidate.ticker}**`,
+      `Confidence: ${confidence}/10`,
+      `Setup: ${candidate.setup}`,
+      `Entry: ${candidate.entry}`,
+      `Stop: ${candidate.stop}`,
+      `Target1: ${candidate.target1}`,
+      `Target2: ${candidate.target2}`,
+      `Why: ${aiCandidateWhy(candidate)}`,
+      ``
+    ].join('\n');
+  }).join('\n').trim();
+}
+function aiFormatPct(current, target){
+  if(!current) return '0.0%';
+  const move = ((target-current)/current)*100;
+  return `${move>=0?'+':''}${move.toFixed(1)}%`;
+}
+function aiLogPaperTrades(topCandidates){
+  const openTickers = new Set(aiPaperTrades.filter(t => ['open','partial_win'].includes(t.status)).map(t => t.ticker));
+  const newLogs = [];
+  topCandidates.forEach(c => {
+    if(openTickers.has(c.ticker)) return;
+    const trade = {
+      ticker: c.ticker,
+      setup: c.setup,
+      entry: c.entry,
+      stop: c.stop,
+      target1: c.target1,
+      target2: c.target2,
+      rsi: c.rsi,
+      volume_ratio: c.volume_ratio,
+      scanner_score: c.scanner_score,
+      status: 'open',
+      result: null,
+      opened_at: new Date().toLocaleString('en-US',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    };
+    aiPaperTrades.unshift(trade);
+    newLogs.push(trade);
+  });
+  aiSavePaperTrades();
+  return newLogs;
+}
+function aiBuildTelegramMessage(candidates, newLogs){
+  const lines = [
+    '<b>KALKI TOP 5</b>',
+    `<code>${new Date().toLocaleString('en-US',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})}</code>`,
+    ''
+  ];
+  candidates.forEach((candidate, idx) => {
+    const ticker = candidate.ticker;
+    const setup = candidate.setup.replace(/_/g, ' ');
+    const confidence = aiScoreToConfidence(candidate);
+    lines.push(
+      `<b>${idx+1}. ${ticker}</b>  <code>${confidence}/10</code>  ${setup}`,
+      `<code>E ${candidate.entry} | S ${candidate.stop} (${aiFormatPct(candidate.entry, candidate.stop)}) | T1 ${candidate.target1} (${aiFormatPct(candidate.entry, candidate.target1)}) | T2 ${candidate.target2} (${aiFormatPct(candidate.entry, candidate.target2)})</code>`,
+      `<code>RSI ${candidate.rsi} | Vol ${candidate.volume_ratio}x | Score ${candidate.scanner_score}</code>`,
+      ''
+    );
+  });
+  lines.push(newLogs.length
+    ? `<b>New paper trades:</b> <code>${newLogs.map(t => t.ticker).join(', ')}</code>`
+    : '<b>New paper trades:</b> <code>none</code>');
+  return lines.join('\n').trim();
+}
+async function aiSendHtmlTelegram(message){
+  const tok=document.getElementById('botToken').value.trim();
+  const cid=document.getElementById('chatId').value.trim();
+  if(!tok || !cid) throw new Error('Set Bot Token and Chat ID first');
+  const res = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      chat_id: cid,
+      text: message,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true
+    })
+  });
+  const data = await res.json();
+  if(!data.ok) throw new Error(data.description || 'Telegram error');
+}
+function aiRender(){
+  const topList = document.getElementById('aiTopList');
+  const output = document.getElementById('aiOutput');
+  const paper = document.getElementById('aiPaperTrades');
+  document.getElementById('aiCandidateCount').textContent = String(aiTopCandidates.length);
+  document.getElementById('aiTopScore').textContent = aiTopCandidates.length ? String(aiTopCandidates[0].scanner_score) : '0';
+  if(topList){
+    if(!aiTopCandidates.length){
+      topList.innerHTML = '<div class="empty-s">No AI scan run yet</div>';
+    } else {
+      topList.innerHTML = aiTopCandidates.map((c, idx) => `
+        <div class="ai-card">
+          <div>
+            <strong>#${idx+1} ${c.ticker}</strong>
+            <div class="ai-score">Confidence ${aiScoreToConfidence(c)}/10 · Score ${c.scanner_score}</div>
+            <div class="ai-tags">
+              <span class="ai-tag">${c.setup}</span>
+              <span class="ai-tag">RSI ${c.rsi}</span>
+              <span class="ai-tag">Vol ${c.volume_ratio}x</span>
+            </div>
+          </div>
+          <div>
+            <div class="ai-grid">
+              <div class="ai-stat"><div class="lbl">Entry</div><div class="val">$${c.entry}</div></div>
+              <div class="ai-stat"><div class="lbl">Stop</div><div class="val">$${c.stop}</div></div>
+              <div class="ai-stat"><div class="lbl">Target 1</div><div class="val">$${c.target1}</div></div>
+              <div class="ai-stat"><div class="lbl">Target 2</div><div class="val">$${c.target2}</div></div>
+            </div>
+            <div class="ai-why">${aiCandidateWhy(c)}</div>
+          </div>
+          <div class="best-cta">
+            <button class="btn btn-p btn-sm" onclick="addAiCandidateToWatchlist('${c.ticker}')">Add</button>
+            <button class="btn btn-o btn-sm" onclick="document.getElementById('kaSearchInput').value='${c.ticker}';switchTab('an');runKalkiSearch();">Open</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+  if(output){
+    output.textContent = aiTopCandidates.length ? aiBuildOutput(aiTopCandidates) : 'Run the AI scanner to generate the ranked swing summary.';
+  }
+  if(paper){
+    paper.innerHTML = aiPaperTrades.length
+      ? aiPaperTrades.slice(0,12).map(t => `<div class="ai-trade"><strong>${t.ticker}</strong> · ${t.setup} · entry $${t.entry} · stop $${t.stop} · T1 $${t.target1} · ${t.opened_at}</div>`).join('')
+      : '<div class="empty-s">No paper trades logged yet</div>';
+  }
+}
+function addAiCandidateToWatchlist(sym){
+  const hit = aiTopCandidates.find(c => c.ticker === sym);
+  if(!hit) return;
+  if(scTickers.some(t => t.sym === sym)){
+    sLog(`${sym} already exists in watchlist`,'inf');
+    return;
+  }
+  scTickers.unshift({
+    sym,
+    supLow: +(hit.entry * 0.98).toFixed(2),
+    supHigh: +(hit.entry * 1.01).toFixed(2),
+    brk: hit.stop,
+    res: [hit.target1, hit.target2].filter(Boolean),
+    price: hit.price,
+    status:'neutral',
+    monitorTrend:false,
+    grade: hit.scanner_score >= 10 ? 'A' : hit.scanner_score >= 8 ? 'B' : 'C'
+  });
+  saveSc();
+  renderSc();
+  autoSync();
+}
+async function runAiScanner(){
+  const btn = document.getElementById('aiScanBtn');
+  if(btn) btn.disabled = true;
+  aiSetStatus('SCANNING', true);
+  try {
+    const tickers = aiGetUniverse();
+    const candidates = [];
+    const batchSize = 5;
+    for(let i=0;i<tickers.length;i+=batchSize){
+      const batch = tickers.slice(i, i + batchSize);
+      aiSetStatus(`SCAN ${Math.min(i + batch.length, tickers.length)}/${tickers.length}`, true);
+      const results = await Promise.allSettled(batch.map(async ticker => {
+        const data = await fetchYahoo(ticker,'6mo','1d');
+        return aiAnalyzeTicker(ticker, data);
+      }));
+      results.forEach((res) => {
+        if(res.status === 'fulfilled' && res.value) candidates.push(res.value);
+      });
+    }
+    const qualified = candidates
+      .filter(c => !['weak','overextended'].includes(c.setup) && c.scanner_score >= 6)
+      .sort((a,b) => b.scanner_score - a.scanner_score);
+    aiTopCandidates = qualified.slice(0,5);
+    const newLogs = aiLogPaperTrades(aiTopCandidates);
+    document.getElementById('aiNewTrades').textContent = String(newLogs.length);
+    aiSetStatus(aiTopCandidates.length ? `TOP ${aiTopCandidates.length}` : 'NO SETUPS', false);
+    const msg=document.getElementById('aiStatusMsg');
+    if(msg) msg.textContent = aiTopCandidates.length
+      ? `Scanned ${tickers.length} NDX100 names. Ranked ${qualified.length} candidates using the Python scanner rules.`
+      : `Scanned ${tickers.length} NDX100 names. No strong 3–5 day swing setups met the filter.`;
+    aiRender();
+  } catch(err) {
+    aiSetStatus('ERROR', false);
+    const msg=document.getElementById('aiStatusMsg');
+    if(msg) msg.textContent = `AI scanner failed: ${err.message}`;
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+async function aiSendTop5Telegram(){
+  if(!aiTopCandidates.length) return alert('Run the AI scanner first');
+  try{
+    const openTickers = new Set(aiPaperTrades.filter(t => ['open','partial_win'].includes(t.status)).map(t => t.ticker));
+    const newLogs = aiTopCandidates.filter(c => !openTickers.has(c.ticker)).map(c => ({ticker:c.ticker}));
+    await aiSendHtmlTelegram(aiBuildTelegramMessage(aiTopCandidates, newLogs));
+    aiSetStatus('SENT', false);
+    const msg=document.getElementById('aiStatusMsg');
+    if(msg) msg.textContent = 'AI Top 5 alert sent to Telegram.';
+  }catch(err){
+    alert(`Telegram send failed: ${err.message}`);
+  }
+}
+function aiClearPaperTrades(){
+  if(!confirm('Clear AI paper trades?')) return;
+  aiPaperTrades = [];
+  aiSavePaperTrades();
+  aiRender();
+}
+
+function optionsSaveHistory(){
+  optionAlerts = optionAlerts.map(optionsHydrateRecord);
+  localStorage.setItem('kalki_option_alerts', JSON.stringify(optionAlerts.slice(0,25)));
+}
+function optionsSetStatus(text, active=false){
+  const box=document.getElementById('optSpill');
+  const dot=document.getElementById('optSpillDot');
+  const lbl=document.getElementById('optSpillTxt');
+  const msg=document.getElementById('optStatus');
+  if(lbl) lbl.textContent=text;
+  if(msg) msg.textContent=text;
+  if(box) box.className='spill'+(active?' active':'');
+  if(dot) dot.className='dot'+(active?' on':'');
+}
+function optionsMonthIndex(monthText){
+  const raw = String(monthText||'').trim().toLowerCase();
+  if(!raw) return -1;
+  if(/^\d{1,2}$/.test(raw)){
+    const num = parseInt(raw, 10);
+    return num >= 1 && num <= 12 ? num - 1 : -1;
+  }
+  const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
+  return months.findIndex(m => m.startsWith(raw));
+}
+function optionsNormalizeExpiry(monthText, expiryDay=''){
+  const rawMonth = String(monthText||'').trim();
+  const rawDay = String(expiryDay||'').trim();
+  const slashMatch = rawMonth.match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/);
+  if(slashMatch){
+    const idx = optionsMonthIndex(slashMatch[1]);
+    return {
+      monthLabel: idx < 0 ? rawMonth.toUpperCase() : new Date(2026, idx, 1).toLocaleString('en-US',{month:'long'}),
+      expiryDay: slashMatch[2]
+    };
+  }
+  const idx = optionsMonthIndex(rawMonth);
+  return {
+    monthLabel: idx < 0 ? rawMonth.toUpperCase() : new Date(2026, idx, 1).toLocaleString('en-US',{month:'long'}),
+    expiryDay: rawDay
+  };
+}
+function optionsExpiryLabel(monthText){
+  const idx = optionsMonthIndex(monthText);
+  if(idx < 0) return String(monthText || '').toUpperCase();
+  return new Date(2026, idx, 1).toLocaleString('en-US',{month:'long'});
+}
+function optionsBuildSingleAlert({raw, ticker, month, strike, side, premium, parseSource='regex', expiryDay=null}){
+  const expiry = optionsNormalizeExpiry(month, expiryDay);
+  const monthLabel = expiry.monthLabel;
+  const strikeNum = +parseFloat(strike).toFixed(2);
+  const premiumNum = +parseFloat(premium).toFixed(2);
+  const breakeven = +(side==='put' ? (strikeNum - premiumNum) : (strikeNum + premiumNum)).toFixed(2);
+  return {
+    id: Date.now(),
+    raw: String(raw||'').trim().replace(/\s+/g,' '),
+    structure:'single',
+    ticker,
+    month: monthLabel,
+    expiryDay: expiry.expiryDay,
+    strike: strikeNum,
+    side,
+    premium: premiumNum,
+    breakeven,
+    contract: `${ticker} ${monthLabel}${expiry.expiryDay ? ' ' + expiry.expiryDay : ''} $${strikeNum}${side==='call'?'C':'P'}`,
+    premiumPct: ((premiumNum / Math.max(strikeNum, 0.01)) * 100).toFixed(1),
+    createdAt:new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
+    parseSource
+  };
+}
+function optionsBuildSpreadAlert({raw, ticker, month, expiryDay='', side, longStrike, shortStrike, premium, parseSource='regex', debitCredit='debit'}){
+  const expiry = optionsNormalizeExpiry(month, expiryDay);
+  const monthLabel = expiry.monthLabel;
+  const longNum = +parseFloat(longStrike).toFixed(2);
+  const shortNum = +parseFloat(shortStrike).toFixed(2);
+  const netPremium = +parseFloat(premium).toFixed(2);
+  const width = Math.abs(shortNum - longNum);
+  const isDebit = debitCredit !== 'credit';
+  const maxLoss = isDebit ? netPremium : Math.max(0, width - netPremium);
+  const maxProfit = isDebit ? Math.max(0, width - netPremium) : netPremium;
+  const breakeven = side === 'call'
+    ? (longNum + (isDebit ? netPremium : -netPremium))
+    : (longNum - (isDebit ? netPremium : -netPremium));
+  const spreadLabel = `${side === 'call' ? 'Call' : 'Put'} ${isDebit ? 'Debit' : 'Credit'} Spread`;
+  return {
+    id: Date.now(),
+    raw: String(raw||'').trim().replace(/\s+/g,' '),
+    structure:'vertical_spread',
+    ticker,
+    month: monthLabel,
+    expiryDay: expiry.expiryDay,
+    side,
+    longStrike: longNum,
+    shortStrike: shortNum,
+    premium: netPremium,
+    debitCredit: isDebit ? 'debit' : 'credit',
+    width:+width.toFixed(2),
+    maxProfit:+maxProfit.toFixed(2),
+    maxLoss:+maxLoss.toFixed(2),
+    breakeven:+breakeven.toFixed(2),
+    contract:`${ticker} ${monthLabel}${expiry.expiryDay ? ' ' + expiry.expiryDay : ''} $${longNum}/$${shortNum} ${spreadLabel}`,
+    premiumPct: ((netPremium / Math.max(longNum, 0.01)) * 100).toFixed(1),
+    createdAt:new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
+    parseSource
+  };
+}
+function optionRatingLabel(score){
+  if(score >= 80) return 'A';
+  if(score >= 70) return 'B+';
+  if(score >= 60) return 'B';
+  if(score >= 50) return 'C';
+  return 'D';
+}
+function optionRatingTone(score){
+  return score >= 70 ? 'buy' : score >= 55 ? 'caution' : 'avoid';
+}
+function optionRatingSummary(score){
+  return score >= 75 ? 'Actionable'
+    : score >= 60 ? 'Watchlist Ready'
+    : score >= 45 ? 'Speculative'
+    : 'Low Edge';
+}
+function optionsMonthDayMatch(dateUnix, monthText='', dayText=''){
+  const monthIdx = optionsMonthIndex(monthText);
+  const dayNum = parseInt(dayText || '0', 10);
+  const dt = new Date(Number(dateUnix) * 1000);
+  if(monthIdx < 0) return false;
+  if(dt.getUTCMonth() !== monthIdx) return false;
+  if(dayNum && dt.getUTCDate() !== dayNum) return false;
+  return true;
+}
+async function optionsResolveExpiryUnix(alert){
+  if(alert.expiryUnix) return alert.expiryUnix;
+  const raw = await fetchYahooOptionsRaw(alert.ticker);
+  const expiries = raw.expirationDates || [];
+  if(!expiries.length) throw new Error(`No expiries found for ${alert.ticker}`);
+  const exact = expiries.find(ts => optionsMonthDayMatch(ts, alert.month, alert.expiryDay));
+  const chosen = exact || expiries[0];
+  alert.expiryUnix = chosen;
+  return chosen;
+}
+function optionsOptionMark(contract){
+  const bid = Number(contract?.bid || 0);
+  const ask = Number(contract?.ask || 0);
+  const last = Number(contract?.lastPrice || 0);
+  const mark = bid > 0 && ask > 0 ? (bid + ask) / 2 : 0;
+  return +(mark || last || 0).toFixed(2);
+}
+function optionsFindContract(alert, chain){
+  const bucket = alert.side === 'put' ? (chain?.puts || []) : (chain?.calls || []);
+  if(alert.structure === 'vertical_spread') return null;
+  const targetStrike = +alert.strike;
+  return bucket.find(c => Math.abs((+c.strike || 0) - targetStrike) < 0.001) || null;
+}
+function optionsDirection(alert){
+  return alert?.structure === 'vertical_spread' && alert?.debitCredit === 'credit' ? -1 : 1;
+}
+function optionsMarkPremium(alert){
+  if(alert?.state === 'closed' && Number.isFinite(+alert?.closedPremium)) return +alert.closedPremium;
+  return Number.isFinite(+alert?.currentPremium) ? +alert.currentPremium : +alert?.entryPremium || +alert?.premium || 0;
+}
+function optionsCalcPnl(alert){
+  const entry = +alert.entryPremium || +alert.premium || 0;
+  const mark = optionsMarkPremium(alert);
+  const qty = Math.max(1, parseInt(alert.qty || 1, 10) || 1);
+  const dir = optionsDirection(alert);
+  const delta = (mark - entry) * dir;
+  const perContractPnl = delta * 100;
+  const pnl = delta * 100 * qty;
+  const invested = entry * 100 * qty;
+  const value = mark * 100 * qty;
+  const pct = entry ? (delta / entry) * 100 : 0;
+  return {entry, mark, qty, perContractPnl, pnl, invested, value, pct};
+}
+function optionsDaysHeld(alert){
+  const start = new Date(alert?.entryDate || Date.now());
+  const end = alert?.state === 'closed' && alert?.closeDate ? new Date(alert.closeDate) : new Date();
+  return Math.max(0, Math.round((end - start) / 86400000));
+}
+function optionsUpdateSummary(){
+  const open = optionAlerts.filter(a=>a.state !== 'closed');
+  const all = optionAlerts;
+  const totalInvested = all.reduce((sum,a)=>sum + optionsCalcPnl(a).invested, 0);
+  const totalValue = all.reduce((sum,a)=>sum + optionsCalcPnl(a).value, 0);
+  const totalPnl = all.reduce((sum,a)=>sum + optionsCalcPnl(a).pnl, 0);
+  const winners = all.filter(a=>optionsCalcPnl(a).pnl > 0).length;
+  const losers = all.filter(a=>optionsCalcPnl(a).pnl < 0).length;
+  const pnlPct = totalInvested ? (totalPnl / totalInvested) * 100 : 0;
+  const openCount=document.getElementById('optOpenCount');
+  const markValue=document.getElementById('optMarkValue');
+  const totalPnlEl=document.getElementById('optTotalPnl');
+  const totalPctEl=document.getElementById('optTotalPct');
+  const winCount=document.getElementById('optWinCount');
+  const winLoss=document.getElementById('optWinLoss');
+  if(openCount) openCount.textContent=String(open.length);
+  if(markValue) markValue.textContent='$'+Math.round(open.reduce((sum,a)=>sum + optionsCalcPnl(a).value, 0)).toLocaleString();
+  if(totalPnlEl){
+    totalPnlEl.textContent=(totalPnl>=0?'+':'-')+'$'+Math.abs(Math.round(totalPnl)).toLocaleString();
+    totalPnlEl.style.color=totalPnl>=0?'var(--green)':'var(--red)';
+  }
+  if(totalPctEl) totalPctEl.textContent=(pnlPct>=0?'+':'')+pnlPct.toFixed(1)+'%';
+  if(winCount) winCount.textContent=String(winners);
+  if(winLoss) winLoss.textContent=`${winners}W / ${losers}L`;
+}
+function optionEventRiskFromRaw(raw='', expiryMonth='', expiryDay=''){
+  const text = String(raw||'').toLowerCase();
+  let risk = 78;
+  const earningsMatch = text.match(/\bearnings?\s+(?:on|after|before)?\s*(\d{1,2})\s*\/\s*(\d{1,2})\b/);
+  const hasSpeculative = /\bspeculative\b/.test(text);
+  if(hasSpeculative) risk -= 10;
+  if(earningsMatch && expiryMonth){
+    const expIdx = optionsMonthIndex(expiryMonth);
+    const expDay = parseInt(expiryDay || '0', 10);
+    const earningsMonth = parseInt(earningsMatch[1], 10);
+    const earningsDay = parseInt(earningsMatch[2], 10);
+    if(expIdx >= 0 && expDay){
+      const year = 2026;
+      const expiryDate = new Date(year, expIdx, expDay);
+      const eventDate = new Date(year, earningsMonth - 1, earningsDay);
+      const diffDays = Math.round((expiryDate - eventDate) / 86400000);
+      if(diffDays >= -1 && diffDays <= 3) risk -= 22;
+      else if(diffDays > 3 && diffDays <= 10) risk -= 10;
+      else if(diffDays < -1) risk -= 14;
+    } else {
+      risk -= 10;
+    }
+  }
+  if(/\b(fda|phase\s?[123]|guidance|decision|lawsuit|downgrade|upgrade)\b/.test(text)) risk -= 8;
+  return Math.max(20, Math.min(95, risk));
+}
+async function optionsEnrichWithTickerRating(alert){
+  if(!alert?.ticker) return alert;
+  try{
+    const r = await fetchYahoo(alert.ticker,'3mo','1d');
+    const a = await buildFromYahoo(alert.ticker, r, null);
+    const aiConf = a.aiScan ? aiScoreToConfidence(a.aiScan) : 0;
+    const underlyingScore = Math.max(0, Math.min(100, Math.round(
+      (a.aiBlendScore || a.overall || 0) * 0.60 +
+      (a.overall || 0) * 0.25 +
+      (a.longScore || 0) * 0.10 +
+      aiConf * 1.5
+    )));
+    const premPct = parseFloat(alert.premiumPct) || 0;
+    let contractScore = 58;
+    if(alert.structure === 'vertical_spread') contractScore += 14;
+    if(alert.structure === 'single'){
+      if(premPct <= 4) contractScore += 18;
+      else if(premPct <= 8) contractScore += 10;
+      else if(premPct <= 12) contractScore += 3;
+      else if(premPct >= 18) contractScore -= 18;
+      else if(premPct >= 12) contractScore -= 10;
+    }
+    if(alert.expiryDay) contractScore += 4;
+    if(alert.structure === 'vertical_spread' && alert.width && alert.maxLoss){
+      const capitalEfficiency = 1 - (alert.maxLoss / Math.max(alert.width, 0.01));
+      contractScore += Math.round(capitalEfficiency * 12);
+    }
+    contractScore = Math.max(0, Math.min(100, contractScore));
+    let eventRiskScore = optionEventRiskFromRaw(alert.raw, alert.month, alert.expiryDay);
+    if(a.aiScan?.setup === 'overextended') eventRiskScore -= 8;
+    eventRiskScore = Math.max(0, Math.min(100, eventRiskScore));
+    let score = Math.round(
+      underlyingScore * 0.55 +
+      contractScore * 0.25 +
+      eventRiskScore * 0.20
+    );
+    score = Math.max(0, Math.min(100, score));
+    alert.optionRating = score;
+    alert.optionGrade = optionRatingLabel(score);
+    alert.optionRatingText = optionRatingSummary(score);
+    alert.ratingBreakdown = {
+      underlying: underlyingScore,
+      contract: contractScore,
+      eventRisk: eventRiskScore
+    };
+    alert.underlyingGrade = a.grade || '';
+    alert.underlyingOverall = a.overall ?? null;
+    alert.underlyingAiBlend = a.aiBlendScore ?? null;
+    alert.underlyingAiSetup = a.aiScan?.setup || '';
+    alert.underlyingAiConfidence = aiConf || null;
+    alert.underlyingPrice = a.price ?? null;
+  }catch(_e){
+    alert.optionRating = alert.optionRating ?? null;
+    alert.optionGrade = alert.optionGrade || '';
+  }
+  return alert;
+}
+function optionsExpiryContext(text){
+  const normalized = String(text||'').trim().replace(/\s+/g,' ');
+  const slash = normalized.match(/\b(\d{1,2})\s*\/\s*(\d{1,2})\b/);
+  if(slash){
+    return { month: slash[1], day: slash[2] };
+  }
+  const named = normalized.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b(?:\s+(\d{1,2}))?/i);
+  if(named){
+    return { month: named[1], day: named[2] || '' };
+  }
+  return { month: '', day: '' };
+}
+function optionsTryParseVerticalSpread(raw){
+  const text = String(raw||'').trim().replace(/\s+/g,' ');
+  const tickerMatch = text.match(/\b([A-Za-z]{1,6})\b/);
+  const sideMatch = text.match(/\b(call|put|calls|puts)\b/i);
+  const paidMatch = text.match(/\b(paid|debit)\s+\$?(\.\d+|\d+(?:\.\d+)?)/i);
+  const creditMatch = text.match(/\b(received|credit)\s+\$?(\.\d+|\d+(?:\.\d+)?)/i);
+  const longLeg = text.match(/\b(?:added|bought|buy|long)\b[\s\S]*?\$?(\d+(?:\.\d+)?)\s*(call|put|c|p)\b/i);
+  const shortLeg = text.match(/\b(?:sold|sell|short)\b[\s\S]*?\$?(\d+(?:\.\d+)?)\s*(call|put|c|p)\b/i);
+  if(!tickerMatch || !sideMatch || !longLeg || !shortLeg) return null;
+  const longExpiry = optionsExpiryContext(text.slice(0, longLeg.index));
+  const shortExpiry = optionsExpiryContext(text.slice(0, shortLeg.index));
+  const expiry = longExpiry.month ? longExpiry : shortExpiry;
+  if(!expiry.month) return null;
+  const side = sideMatch[1].toLowerCase().startsWith('p') ? 'put' : 'call';
+  const debitCredit = paidMatch ? 'debit' : creditMatch ? 'credit' : 'debit';
+  const premium = paidMatch ? parseFloat(paidMatch[2]) : creditMatch ? parseFloat(creditMatch[2]) : NaN;
+  if(!Number.isFinite(premium)) return null;
+  return optionsBuildSpreadAlert({
+    raw:text,
+    ticker:tickerMatch[1].toUpperCase(),
+    month:expiry.month,
+    expiryDay:expiry.day,
+    side,
+    longStrike:parseFloat(longLeg[1]),
+    shortStrike:parseFloat(shortLeg[1]),
+    premium,
+    parseSource:'regex',
+    debitCredit
+  });
+}
+function parseOptionAlertText(raw){
+  const text = String(raw||'').trim().replace(/\s+/g,' ');
+  const spread = optionsTryParseVerticalSpread(text);
+  if(spread) return spread;
+  const tickerMatch = text.match(/\b([A-Za-z]{1,6})\b/);
+  const nearbyExpiryLeg = text.match(/(?:(\d{1,2})\s*\/\s*(\d{1,2})|(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)(?:\s+(\d{1,2}))?)\s+\$?(\d+(?:\.\d+)?)\s*(call|put|c|p)\b[\s\S]{0,80}?(?:at|@|for|paid)\s+\$?(\.\d+|\d+(?:\.\d+)?)/i);
+  if(tickerMatch && nearbyExpiryLeg){
+    const monthRaw = nearbyExpiryLeg[1] ? nearbyExpiryLeg[1] : nearbyExpiryLeg[3];
+    const expiryDay = nearbyExpiryLeg[2] || nearbyExpiryLeg[4] || '';
+    const strike = parseFloat(nearbyExpiryLeg[5]);
+    const side = nearbyExpiryLeg[6].toLowerCase().startsWith('p') ? 'put' : 'call';
+    const premium = parseFloat(nearbyExpiryLeg[7]);
+    if(Number.isFinite(strike) && Number.isFinite(premium)){
+      return optionsBuildSingleAlert({
+        raw:text,
+        ticker:tickerMatch[1].toUpperCase(),
+        month:monthRaw,
+        expiryDay,
+        strike,
+        side,
+        premium,
+        parseSource:'regex'
+      });
+    }
+  }
+  const m = text.match(/^([A-Za-z]{1,6})\s+([A-Za-z]+)\s+\$?(\d+(?:\.\d+)?)\s+(call|put)s?\s+(?:at|@)\s+\$?(\.\d+|\d+(?:\.\d+)?)$/i);
+  if(!m) throw new Error('Use format like BEEM june $2 call at .30');
+  const ticker = m[1].toUpperCase();
+  const monthRaw = m[2];
+  const strike = parseFloat(m[3]);
+  const side = m[4].toLowerCase();
+  const premium = parseFloat(m[5]);
+  if(!Number.isFinite(strike) || !Number.isFinite(premium)) throw new Error('Strike and premium must be valid numbers');
+  return optionsBuildSingleAlert({raw:text, ticker, month:monthRaw, strike, side, premium, parseSource:'regex'});
+}
+function optionsExtractJson(text){
+  const raw = String(text||'').trim();
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1].trim() : raw;
+  try{
+    return JSON.parse(candidate);
+  }catch(_e){}
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  if(start >= 0 && end > start){
+    return JSON.parse(candidate.slice(start, end + 1));
+  }
+  throw new Error('Model did not return valid JSON');
+}
+function normalizeAiOptionAlert(raw, parsed){
+  const ticker = String(parsed.ticker || '').trim().toUpperCase();
+  let month = String(parsed.month || '').trim();
+  const sideRaw = String(parsed.side || '').trim().toLowerCase();
+  const strike = parseFloat(parsed.strike);
+  const premium = parseFloat(parsed.premium ?? parsed.net_premium);
+  const side = sideRaw.startsWith('p') ? 'put' : sideRaw.startsWith('c') ? 'call' : '';
+  const structure = String(parsed.structure || '').toLowerCase();
+  let expiryDay = parsed.expiry_day || parsed.day || '';
+  const longStrike = parseFloat(parsed.long_strike);
+  const shortStrike = parseFloat(parsed.short_strike);
+  const debitCredit = String(parsed.debit_credit || parsed.spread_type || 'debit').toLowerCase();
+  const slashExpiry = month.match(/^(\d{1,2})\s*\/\s*(\d{1,2})$/);
+  if(slashExpiry){
+    month = slashExpiry[1];
+    if(!expiryDay) expiryDay = slashExpiry[2];
+  }
+  if(structure.includes('spread') || (Number.isFinite(longStrike) && Number.isFinite(shortStrike))){
+    if(!ticker || !month || !side || !Number.isFinite(longStrike) || !Number.isFinite(shortStrike) || !Number.isFinite(premium)){
+      throw new Error('AI spread parse was missing ticker, month, strikes, side, or premium');
+    }
+    return optionsBuildSpreadAlert({
+      raw,
+      ticker,
+      month,
+      expiryDay,
+      side,
+      longStrike,
+      shortStrike,
+      premium,
+      parseSource:'nvidia',
+      debitCredit
+    });
+  }
+  if(!ticker || !month || !Number.isFinite(strike) || !side || !Number.isFinite(premium)){
+    throw new Error('AI parse was missing ticker, month, strike, side, or premium');
+  }
+  return optionsBuildSingleAlert({raw, ticker, month, strike, side, premium, parseSource:'nvidia', expiryDay});
+}
+async function parseOptionAlertWithNvidia(raw){
+  const key = nvidiaApiKey();
+  if(!key) throw new Error('Add your NVIDIA API key to use smart parsing');
+  const model = nvidiaModel();
+  const relayBase = cfBackupUrl();
+  const relayAuth = cfBackupKey();
+  const useRelay = !!(relayBase && relayAuth);
+  const endpoint = useRelay ? `${relayBase.replace(/\/+$/,'')}/nvidia/parse` : 'https://integrate.api.nvidia.com/v1/chat/completions';
+  let res;
+  try{
+    res = await fetch(endpoint, {
+      method:'POST',
+      headers: useRelay ? {
+        'Content-Type':'application/json',
+        'X-Kalki-Key': relayAuth
+      } : {
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${key}`
+      },
+      body:JSON.stringify(useRelay ? {
+        raw,
+        model,
+        apiKey:key
+      } : {
+        model,
+        temperature:0,
+        max_tokens:250,
+        messages:[
+          {
+            role:'system',
+            content:'Extract an options alert from messy trader text. Return only valid JSON. For single-leg options use keys: structure, ticker, month, expiry_day, strike, side, premium. For vertical spreads use keys: structure, ticker, month, expiry_day, side, long_strike, short_strike, premium, debit_credit. Normalize side to call or put. Normalize premium and strikes as numbers. Set structure to single or vertical_spread. If uncertain, infer the most likely intended structure from the text but do not invent a missing ticker.'
+          },
+          {
+            role:'user',
+            content:`Convert this trader text into JSON only: ${raw}`
+          }
+        ]
+      })
+    });
+  }catch(err){
+    if(err?.message === 'Failed to fetch'){
+      throw new Error(useRelay ? 'Could not reach your Cloudflare NVIDIA relay' : 'Browser could not reach NVIDIA directly. Use the Cloudflare relay path.');
+    }
+    throw err;
+  }
+  const data = await res.json();
+  if(!res.ok) throw new Error(data?.error?.message || data?.error || `NVIDIA HTTP ${res.status}`);
+  const payload = useRelay ? data?.result : data;
+  const content = payload?.choices?.[0]?.message?.content;
+  if(!content) throw new Error('NVIDIA response was empty');
+  return normalizeAiOptionAlert(raw, optionsExtractJson(content));
+}
+async function testNvidiaModel(){
+  const key = nvidiaApiKey();
+  const model = nvidiaModel();
+  if(!key) return alert('Add your NVIDIA API key first');
+  if(!model) return alert('Add a NVIDIA model first');
+  const relayBase = cfBackupUrl();
+  const relayAuth = cfBackupKey();
+  const useRelay = !!(relayBase && relayAuth);
+  const endpoint = useRelay ? `${relayBase.replace(/\/+$/,'')}/nvidia/parse` : 'https://integrate.api.nvidia.com/v1/chat/completions';
+  setNvidiaTestStatus(`Testing ${model}...`, 'var(--accent)');
+  try{
+    const res = await fetch(endpoint, {
+      method:'POST',
+      headers: useRelay ? {
+        'Content-Type':'application/json',
+        'X-Kalki-Key': relayAuth
+      } : {
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${key}`
+      },
+      body:JSON.stringify(useRelay ? {
+        raw:'test',
+        model,
+        apiKey:key,
+        messages:[
+          { role:'system', content:'Reply with exactly OK.' },
+          { role:'user', content:'Say OK' }
+        ]
+      } : {
+        model,
+        temperature:0,
+        max_tokens:20,
+        messages:[
+          { role:'system', content:'Reply with exactly OK.' },
+          { role:'user', content:'Say OK' }
+        ]
+      })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data?.error?.message || data?.error || `NVIDIA HTTP ${res.status}`);
+    const payload = useRelay ? data?.result : data;
+    const content = payload?.choices?.[0]?.message?.content?.trim() || '';
+    const cleaned = content && content !== '{}' ? content : '';
+    setNvidiaTestStatus(`✅ NVIDIA OK · ${model}${cleaned ? ` · ${cleaned}` : ''}`, 'var(--green)');
+    return true;
+  }catch(err){
+    setNvidiaTestStatus(`❌ ${err.message}`, 'var(--red)');
+    return false;
+  }
+}
+async function parseOptionAlertSmart(raw){
+  try{
+    return parseOptionAlertText(raw);
+  }catch(_e){
+    return parseOptionAlertWithNvidia(raw);
+  }
+}
+function buildOptionTelegramMessage(alert){
+  const sideLabel = alert.side.toUpperCase();
+  if(alert.structure === 'vertical_spread'){
+    const spreadLabel = `${sideLabel} ${alert.debitCredit === 'credit' ? 'CREDIT' : 'DEBIT'} SPREAD`;
+    return [
+      `📞 *${alert.ticker}* 〔OPTIONS ALERT〕`,
+      `🧾 Structure: *${alert.month}${alert.expiryDay ? ' ' + alert.expiryDay : ''} $${alert.longStrike}/$${alert.shortStrike} ${spreadLabel}*`,
+      ``,
+      `${alert.optionRating!=null ? `⭐ Grade / Score: *${alert.optionGrade}* · *${alert.optionRating}/100*` : ''}`,
+      `💰 Net ${alert.debitCredit === 'credit' ? 'Credit' : 'Debit'}: *$${alert.premium.toFixed(2)}*`,
+      `${alert.underlyingPrice!=null ? `📈 Current Price: *$${alert.underlyingPrice.toFixed(2)}*` : ''}`,
+      `⚖️ Breakeven: *$${alert.breakeven.toFixed(2)}*`,
+      `📈 Long Leg: $${alert.longStrike} ${sideLabel}`,
+      `📉 Short Leg: $${alert.shortStrike} ${sideLabel}`,
+      `⚡ Type: ${spreadLabel}`,
+      ``,
+      `Raw: \`${alert.raw}\``,
+    ].join('\n');
+  }
+  return [
+    `📞 *${alert.ticker}* 〔OPTIONS ALERT〕`,
+    `🧾 Contract: *${alert.month}${alert.expiryDay ? ' ' + alert.expiryDay : ''} $${alert.strike} ${sideLabel}*`,
+    ``,
+    `${alert.optionRating!=null ? `⭐ Grade / Score: *${alert.optionGrade}* · *${alert.optionRating}/100*` : ''}`,
+    `💰 Premium: *$${alert.premium.toFixed(2)}*`,
+    `${alert.underlyingPrice!=null ? `📈 Current Price: *$${alert.underlyingPrice.toFixed(2)}*` : ''}`,
+    `⚖️ Breakeven: *$${alert.breakeven.toFixed(2)}*`,
+    `⚡ Type: ${sideLabel}`,
+    `🧮 Premium / Strike: ${alert.premiumPct}%`,
+    ``,
+    `Raw: \`${alert.raw}\``
+  ].join('\n');
+}
+async function optionsRefreshOneLiveMark(id){
+  const trade = optionAlerts.find(a => String(a.id) === String(id));
+  if(!trade) return false;
+  try{
+    if(trade.structure === 'vertical_spread'){
+      trade.markSource = 'manual';
+      trade.markError = 'Live spread pricing not wired yet';
+      optionsSaveHistory();
+      return false;
+    }
+    const expiryUnix = await optionsResolveExpiryUnix(trade);
+    const raw = await fetchYahooOptionsRaw(trade.ticker, expiryUnix);
+    const chain = raw?.options?.[0];
+    const contract = optionsFindContract(trade, chain);
+    if(!contract) throw new Error(`Contract not found for ${trade.contract}`);
+    const mark = optionsOptionMark(contract);
+    if(!(mark > 0)) throw new Error(`No live mark for ${trade.contract}`);
+    trade.currentPremium = mark;
+    trade.markSource = 'yahoo';
+    trade.markError = '';
+    trade.underlyingPrice = Number(raw?.quote?.regularMarketPrice || raw?.quote?.postMarketPrice || trade.underlyingPrice || 0) || trade.underlyingPrice || null;
+    trade.contractSymbol = contract?.contractSymbol || trade.contractSymbol || '';
+    optionsSaveHistory();
+    return true;
+  }catch(err){
+    trade.markSource = 'manual';
+    trade.markError = err.message;
+    optionsSaveHistory();
+    return false;
+  }
+}
+async function optionsRefreshLiveMarks(){
+  const openTrades = optionAlerts.filter(a => a.state !== 'closed');
+  if(!openTrades.length) return alert('No open options trades to refresh');
+  optionsSetStatus('Refreshing live option marks...', true);
+  let ok = 0;
+  for(const trade of openTrades){
+    if(await optionsRefreshOneLiveMark(trade.id)) ok++;
+  }
+  optionsRender();
+  optionsSetStatus(`Live marks refreshed: ${ok}/${openTrades.length}`, false);
+  sLog(`Options live marks refreshed ${ok}/${openTrades.length}`,'inf');
+}
+function optionsEditTrade(id){
+  const trade = optionAlerts.find(a => String(a.id) === String(id));
+  if(!trade) return;
+  const entryDate = prompt('Entry date (YYYY-MM-DD):', trade.entryDate || optionsDefaultEntryDate());
+  if(entryDate===null) return;
+  const entryPremium = prompt('Entry premium:', String((trade.entryPremium ?? trade.premium ?? 0).toFixed(2)));
+  if(entryPremium===null) return;
+  const qty = prompt('Contracts:', String(trade.qty || 1));
+  if(qty===null) return;
+  const notes = prompt('Notes:', trade.notes || '');
+  if(notes===null) return;
+  trade.entryDate = entryDate || trade.entryDate;
+  trade.entryPremium = parseFloat(entryPremium) || trade.entryPremium || trade.premium;
+  trade.qty = Math.max(1, parseInt(qty,10) || 1);
+  trade.notes = notes;
+  if(trade.state !== 'closed') trade.currentPremium = trade.currentPremium ?? trade.entryPremium;
+  optionsSaveHistory();
+  optionsRender();
+}
+function optionsUpdateMark(id){
+  const trade = optionAlerts.find(a => String(a.id) === String(id));
+  if(!trade) return;
+  const next = prompt(`Current premium for ${trade.contract}:`, String(optionsMarkPremium(trade).toFixed(2)));
+  if(next===null) return;
+  const val = parseFloat(next);
+  if(!Number.isFinite(val) || val < 0) return window.alert('Enter a valid premium');
+  trade.currentPremium = val;
+  if(trade.state === 'closed') trade.closedPremium = val;
+  optionsSaveHistory();
+  optionsRender();
+}
+function optionsCloseTrade(id){
+  const trade = optionAlerts.find(a => String(a.id) === String(id));
+  if(!trade) return;
+  const closePremium = prompt(`Close premium for ${trade.contract}:`, String(optionsMarkPremium(trade).toFixed(2)));
+  if(closePremium===null) return;
+  const closeDate = prompt('Close date (YYYY-MM-DD):', optionsDefaultEntryDate());
+  if(closeDate===null) return;
+  const val = parseFloat(closePremium);
+  if(!Number.isFinite(val) || val < 0) return window.alert('Enter a valid premium');
+  trade.state = 'closed';
+  trade.closedPremium = val;
+  trade.currentPremium = val;
+  trade.closeDate = closeDate || optionsDefaultEntryDate();
+  optionsSaveHistory();
+  optionsRender();
+}
+function optionsReopenTrade(id){
+  const trade = optionAlerts.find(a => String(a.id) === String(id));
+  if(!trade) return;
+  trade.state = 'open';
+  trade.currentPremium = Number.isFinite(+trade.closedPremium) ? +trade.closedPremium : optionsMarkPremium(trade);
+  trade.closedPremium = null;
+  trade.closeDate = '';
+  optionsSaveHistory();
+  optionsRender();
+}
+function optionsRemoveTrade(id){
+  if(!confirm('Remove this options trade?')) return;
+  optionAlerts = optionAlerts.filter(a => String(a.id) !== String(id));
+  if(optionLatest && String(optionLatest.id) === String(id)) optionLatest = optionAlerts[0] || null;
+  optionsSaveHistory();
+  optionsRender();
+}
+function optionsRender(){
+  const preview=document.getElementById('optPreview');
+  const tg=document.getElementById('optTelegramPreview');
+  const history=document.getElementById('optHistory');
+  optionsUpdateSummary();
+  if(preview){
+    if(!optionLatest){
+      preview.innerHTML='<div class="empty-s">No options alert parsed yet</div>';
+    }else{
+      preview.innerHTML = `<div class="opt-card">
+        <div class="opt-card-top">
+          <div><div class="opt-title">${optionLatest.contract}</div><div class="opt-sub">${optionLatest.createdAt}</div></div>
+          <span class="vpill ${optionRatingTone(optionLatest.optionRating ?? 0)}">${optionLatest.optionRating!=null ? `${optionLatest.optionGrade} · ${optionLatest.optionRating}` : optionLatest.side.toUpperCase()}</span>
+        </div>
+        <div class="targets">
+          <div class="trow"><span class="tlbl">Ticker</span><span class="tprice t1">${optionLatest.ticker}</span><span class="tpct">underlying</span></div>
+          <div class="trow"><span class="tlbl">Expiry</span><span class="tprice t2">${optionLatest.month}${optionLatest.expiryDay ? ' ' + optionLatest.expiryDay : ''}</span><span class="tpct">parsed</span></div>
+          <div class="trow"><span class="tlbl">Option Rating</span><span class="tprice ${optionLatest.optionRating>=70?'t3':optionLatest.optionRating>=55?'t2':'stop'}">${optionLatest.optionRating!=null ? `${optionLatest.optionRating}/100` : '—'}</span><span class="tpct">${optionLatest.optionRatingText || 'pending'}</span></div>
+          <div class="trow"><span class="tlbl">Breakdown</span><span class="tprice t2">${optionLatest.ratingBreakdown ? `${optionLatest.ratingBreakdown.underlying}/${optionLatest.ratingBreakdown.contract}/${optionLatest.ratingBreakdown.eventRisk}` : '—'}</span><span class="tpct">underlying / contract / event</span></div>
+          <div class="trow"><span class="tlbl">Current / BE</span><span class="tprice t1">${optionLatest.underlyingPrice!=null ? `$${optionLatest.underlyingPrice.toFixed(2)}` : '—'} / $${optionLatest.breakeven.toFixed(2)}</span><span class="tpct">spot / breakeven</span></div>
+          <div class="trow"><span class="tlbl">Underlying AI</span><span class="tprice t1">${optionLatest.underlyingAiBlend!=null ? `${optionLatest.underlyingAiBlend}%` : '—'}</span><span class="tpct">${optionLatest.underlyingAiSetup ? `${optionLatest.underlyingAiSetup.replace(/_/g,' ')} · ${optionLatest.underlyingAiConfidence || 0}/10` : (optionLatest.underlyingGrade || 'pending')}</span></div>
+          ${optionLatest.structure === 'vertical_spread'
+            ? `<div class="trow"><span class="tlbl">Long / Short</span><span class="tprice t3">$${optionLatest.longStrike.toFixed(2)} / $${optionLatest.shortStrike.toFixed(2)}</span><span class="tpct">${optionLatest.side} spread</span></div>
+               <div class="trow"><span class="tlbl">Net ${optionLatest.debitCredit === 'credit' ? 'Credit' : 'Debit'}</span><span class="tprice stop">$${optionLatest.premium.toFixed(2)}</span><span class="tpct">width $${optionLatest.width.toFixed(2)}</span></div>
+               <div class="trow"><span class="tlbl">Max P / L</span><span class="tprice t1">$${optionLatest.maxProfit.toFixed(2)} / $${optionLatest.maxLoss.toFixed(2)}</span><span class="tpct">BE $${optionLatest.breakeven.toFixed(2)}</span></div>`
+            : `<div class="trow"><span class="tlbl">Strike</span><span class="tprice t3">$${optionLatest.strike.toFixed(2)}</span><span class="tpct">${optionLatest.side}</span></div>
+               <div class="trow"><span class="tlbl">Premium</span><span class="tprice stop">$${optionLatest.premium.toFixed(2)}</span><span class="tpct">${optionLatest.premiumPct}% strike</span></div>`}
+          <div class="trow"><span class="tlbl">Parser</span><span class="tprice t2">${optionLatest.parseSource==='nvidia'?'NVIDIA AI':'Pattern match'}</span><span class="tpct">source</span></div>
+        </div>
+        <div class="opt-raw" style="margin-top:10px;">${optionLatest.raw}</div>
+      </div>`;
+    }
+  }
+  if(tg) tg.textContent = optionLatest ? buildOptionTelegramMessage(optionLatest) : 'Build an alert to generate the outgoing Telegram message.';
+  if(history){
+    if(!optionAlerts.length){
+      history.innerHTML='<div class="empty-s">No options alerts yet</div>';
+    }else{
+      history.innerHTML = optionAlerts.map(alert => {
+        const pnl = optionsCalcPnl(alert);
+        const isPos = pnl.pnl >= 0;
+        const stateLabel = alert.state === 'closed' ? 'CLOSED' : 'OPEN';
+        return `
+        <div class="opt-card">
+          <div class="opt-card-top">
+            <div><div class="opt-title">${alert.contract}</div><div class="opt-sub">${alert.createdAt}</div></div>
+            <span class="vpill ${optionRatingTone(alert.optionRating ?? 0)}">${alert.optionRating!=null ? `${alert.optionGrade} · ${alert.optionRating}` : '—'}</span>
+            <div class="tc-actions">
+              <button class="btn btn-sm btn-o" onclick="optionsReuse('${alert.id}')">Reuse</button>
+              <button class="btn btn-sm btn-o" onclick="optionsEditTrade('${alert.id}')">Edit</button>
+              <button class="btn btn-sm btn-o" onclick="optionsUpdateMark('${alert.id}')">Mark</button>
+              ${alert.state==='closed'
+                ? `<button class="btn btn-sm btn-o" onclick="optionsReopenTrade('${alert.id}')">Reopen</button>`
+                : `<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="optionsCloseTrade('${alert.id}')">Close</button>`}
+              <button class="btn btn-sm btn-o" onclick="optionsSendById('${alert.id}')">Send TG</button>
+              <button class="btn btn-sm btn-d" onclick="optionsRemoveTrade('${alert.id}')">✕</button>
+            </div>
+          </div>
+          <div class="hint" style="margin-bottom:6px;">${alert.optionRatingText || 'No rating yet'}${alert.underlyingAiBlend!=null ? ` · underlying AI ${alert.underlyingAiBlend}%` : ''}${alert.ratingBreakdown ? ` · U/C/E ${alert.ratingBreakdown.underlying}/${alert.ratingBreakdown.contract}/${alert.ratingBreakdown.eventRisk}` : ''}</div>
+          <div class="targets" style="margin-bottom:8px;">
+            <div class="trow"><span class="tlbl">State</span><span class="tprice ${alert.state==='closed'?'t2':'t1'}">${stateLabel}</span><span class="tpct">${optionsDaysHeld(alert)}d held</span></div>
+            <div class="trow"><span class="tlbl">Entry Date</span><span class="tprice t2">${alert.entryDate || '—'}</span><span class="tpct">${alert.qty || 1} contract${(alert.qty||1)!==1?'s':''}</span></div>
+            <div class="trow"><span class="tlbl">Entry / Mark</span><span class="tprice t3">$${pnl.entry.toFixed(2)} / $${pnl.mark.toFixed(2)}</span><span class="tpct">${alert.state==='closed' ? (alert.closeDate || 'closed') : (alert.markSource === 'yahoo' ? 'Yahoo live' : 'manual mark')}</span></div>
+            <div class="trow"><span class="tlbl">Cost / Value</span><span class="tprice t2">$${Math.round(pnl.invested).toLocaleString()} / $${Math.round(pnl.value).toLocaleString()}</span><span class="tpct">${alert.qty || 1} contract${(alert.qty||1)!==1?'s':''}</span></div>
+            <div class="trow"><span class="tlbl">P&L</span><span class="tprice ${isPos?'t1':'stop'}">${isPos?'+':'-'}$${Math.abs(Math.round(pnl.pnl)).toLocaleString()}</span><span class="tpct">${isPos?'+':'-'}$${Math.abs(Math.round(pnl.perContractPnl)).toLocaleString()}/contract · ${isPos?'+':''}${pnl.pct.toFixed(1)}%</span></div>
+          </div>
+          ${alert.notes ? `<div class="hint" style="margin-bottom:6px;">${alert.notes}</div>` : ''}
+          ${alert.markError ? `<div class="hint" style="margin-bottom:6px;color:var(--warn);">${alert.markError}</div>` : ''}
+          <div class="opt-raw">${alert.raw}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+async function optionsParseInput(){
+  const raw=(document.getElementById('optInput')?.value||'').trim();
+  if(!raw) return alert('Enter an options line first');
+  try{
+    optionsSetStatus('Parsing options text...', true);
+    const parsed = await parseOptionAlertSmart(raw);
+    optionsSetStatus(`Parsed ${parsed.contract}. Pulling ticker rating...`, true);
+    await optionsEnrichWithTickerRating(parsed);
+    parsed.entryDate = optionsDefaultEntryDate();
+    parsed.entryPremium = parsed.premium;
+    parsed.currentPremium = parsed.premium;
+    parsed.qty = 1;
+    parsed.state = 'open';
+    parsed.closedPremium = null;
+    parsed.closeDate = '';
+    parsed.notes = '';
+    optionLatest = parsed;
+    optionAlerts = [parsed, ...optionAlerts.filter(a => a.raw !== parsed.raw)].slice(0,25);
+    optionsSaveHistory();
+    optionsRender();
+    optionsSetStatus(`Parsed ${parsed.contract} · ${parsed.optionRating!=null ? `rating ${parsed.optionRating}/100` : 'rating unavailable'} · via ${parsed.parseSource==='nvidia'?'NVIDIA AI':'pattern match'}`, false);
+    sLog(`Options alert created for ${parsed.contract} @ $${parsed.premium.toFixed(2)}`,'ea');
+  }catch(err){
+    optionsSetStatus(`Parse failed: ${err.message}`, false);
+    alert(err.message);
+  }
+}
+function optionsReuse(id){
+  const alert = optionAlerts.find(a => String(a.id)===String(id));
+  if(!alert) return;
+  optionLatest = alert;
+  const input=document.getElementById('optInput');
+  if(input) input.value = alert.raw;
+  optionsRender();
+  optionsSetStatus(`Loaded ${alert.contract}`, false);
+}
+async function optionsSendLatest(){
+  if(!optionLatest) return alert('Create an options alert first');
+  await sendTG(buildOptionTelegramMessage(optionLatest));
+  optionsSetStatus(`Sent ${optionLatest.contract} to Telegram`, false);
+  sLog(`Options Telegram sent for ${optionLatest.contract}`,'ea');
+}
+async function optionsSendById(id){
+  const alert = optionAlerts.find(a => String(a.id)===String(id));
+  if(!alert) return;
+  optionLatest = alert;
+  optionsRender();
+  await optionsSendLatest();
+}
+function optionsClearHistory(){
+  if(!confirm('Clear options alert history?')) return;
+  optionAlerts = [];
+  optionLatest = null;
+  optionsSaveHistory();
+  optionsRender();
+  optionsSetStatus('Options history cleared', false);
+}
 
 // ══════════════════════════════════════════════════════
 // BUILD ANALYSIS DATA from Yahoo result
@@ -1670,6 +3076,7 @@ async function buildFromYahoo(ticker, r, manualZones) {
     calcTimingSignal(timingData.m15,'15m'),
     calcTimingSignal(timingData.m5,'5m')
   ];
+  const aiScan = aiAnalyzeTicker(ticker, r);
 
   const scores = calcScores({price,high52,low52,sma20:sma20v,sma50:sma50v,rsi14,atr14,changePct,avgVol,lastVol,supLow,supHigh,breakdown,resistances,stock20,spy20,qqq20,timingSignals});
   const {shortScore,longScore,overall,factors,metrics,timingBonus,timingAvailableCount,grade:baseGrade} = scores;
@@ -1728,7 +3135,9 @@ async function buildFromYahoo(ticker, r, manualZones) {
   const timingTxt=timingSignals.map(s=>`${s.label}: ${s.available===false?'n/a':s.ok?'yes':'no'}`).join(' · ');
   const gradeAdjTxt = grade !== baseGrade ? `Pattern structure adjusted the grade from ${baseGrade} to ${grade}.` : '';
   const patternTxt = pattern.reasons.length ? `Pattern score is ${pattern.score}% (${pattern.verdict}) because ${pattern.reasons.join(' · ')}.` : `Pattern score is ${pattern.score}% (${pattern.verdict}).`;
-  const insight=`${ticker} has a swing-core score of ${shortScore}% and a final setup score of ${overall}% (${grade}). ${gradeAdjTxt} ${patternTxt} Trend is ${trendTxt}, RSI is ${rsiTxt}, and price is ${zoneTxt}. Relative strength is ${(metrics.rsSpread>=0?'+':'')+rsSpread}% vs SPY/QQQ. Timing filter: ${timingTxt}.${timingBonus?` Added +${timingBonus} points for 1H + 15m alignment.`:''} ${manualZones?'Zones loaded from your Kalki alert.':'Zones auto-calculated from price structure.'}`;
+  const aiBlendScore = aiScan ? Math.max(0, Math.min(100, Math.round((overall * 0.6) + (Math.min(100, aiScan.scanner_score * 10) * 0.4)))) : overall;
+  const aiTxt = aiScan ? `AI scanner tags this as ${aiScan.setup.replace(/_/g,' ')} with score ${aiScan.scanner_score} and confidence ${aiScoreToConfidence(aiScan)}/10.` : 'AI scanner does not have enough history yet.';
+  const insight=`${ticker} has a swing-core score of ${shortScore}% and a final setup score of ${overall}% (${grade}). ${gradeAdjTxt} ${patternTxt} Trend is ${trendTxt}, RSI is ${rsiTxt}, and price is ${zoneTxt}. Relative strength is ${(metrics.rsSpread>=0?'+':'')+rsSpread}% vs SPY/QQQ. Timing filter: ${timingTxt}.${timingBonus?` Added +${timingBonus} points for 1H + 15m alignment.`:''} ${aiTxt} ${manualZones?'Zones loaded from your Kalki alert.':'Zones auto-calculated from price structure.'}`;
 
   // Bullets
   const sBull=[],sBear=[],lBull=[],lBear=[];
@@ -1755,7 +3164,7 @@ async function buildFromYahoo(ticker, r, manualZones) {
   return {ticker,name:meta.longName||meta.shortName||ticker,exch:meta.exchangeName||'',
     price,change,changePct,high52,low52,sma20v,sma50v,rsi14,atr14,atr,avgVol,lastVol,
     shortScore,longScore,overall,stV,ltV,ovV,factors,stats,revBars,priceHistory,pattern,baseGrade,_patternBoostedGrade:patternBoostedGrade,
-    supLow,supHigh,breakdown,resistances,stStop,stT1,stT2,stT3,sBull,sBear,lBull,lBear,insight,timingSignals,timingBonus,grade};
+    supLow,supHigh,breakdown,resistances,stStop,stT1,stT2,stT3,sBull,sBear,lBull,lBear,insight,timingSignals,timingBonus,grade,aiScan,aiBlendScore};
 }
 
 // ══════════════════════════════════════════════════════
@@ -1783,7 +3192,8 @@ async function runAnalysis() {
 function renderLiveAnalysis(a) {
   document.getElementById('resultsArea').style.display='block';
   const ud=a.change>=0?'up':'dn', sym=a.change>=0?'▲':'▼';
-  document.getElementById('stockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span></div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live swing read · 52W $${a.low52.toFixed(2)} – $${a.high52.toFixed(2)}</div></div>`;
+  const aiMeta = a.aiScan ? `<span class="meta-chip">AI <strong>${a.aiScan.setup.replace(/_/g,' ')}</strong></span><span class="meta-chip">AI Conf <strong>${aiScoreToConfidence(a.aiScan)}/10</strong></span>` : '';
+  document.getElementById('stockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span>${aiMeta}</div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live swing read · 52W $${a.low52.toFixed(2)} – $${a.high52.toFixed(2)}</div></div>`;
   renderScoreBanner(document.getElementById('scoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV,a.pattern);
   document.getElementById('insightBox').innerHTML=`<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
   document.getElementById('chartBadge').textContent=a.priceHistory.length+' DAYS';
@@ -1797,6 +3207,7 @@ function renderLiveAnalysis(a) {
   renderSTCard(document.getElementById('stCard'),a.shortScore,a.sBull,a.sBear);
   renderLTCard(document.getElementById('ltCard'),a.longScore,a.lBull,a.lBear);
   renderTargets(document.getElementById('targetsCard'),a.price,a.stStop,a.stT1,a.stT2,a.stT3,a.resistances,a.breakdown);
+  renderAiSetupCard(document.getElementById('aiAnalysisCard'), a);
   renderStrategy(document.getElementById('stratCard'),a.price,a.supLow,a.supHigh,a.breakdown,a.resistances,a.stStop,a.stT1,a.stT2,a.stT3,a.atr);
 }
 
@@ -1877,7 +3288,8 @@ async function loadKalki(idx) {
 
     // Stock header
     const ud=a.change>=0?'up':'dn', sym=a.change>=0?'▲':'▼';
-    document.getElementById('kaStockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Alert + Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span></div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live price · Alert zones: $${t.supLow}–$${t.supHigh} support · Break $${t.brk}</div></div>`;
+    const aiMeta = a.aiScan ? `<span class="meta-chip">AI <strong>${a.aiScan.setup.replace(/_/g,' ')}</strong></span><span class="meta-chip">AI Conf <strong>${aiScoreToConfidence(a.aiScan)}/10</strong></span>` : '';
+    document.getElementById('kaStockHeader').innerHTML=`<div><div class="ticker-name">${a.ticker}<span class="kalki-badge">Alert + Swing V2</span></div><div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span>${aiMeta}</div></div><div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div><div class="price-change ${ud}">${sym} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div><div class="as-of">Live price · Alert zones: $${t.supLow}–$${t.supHigh} support · Break $${t.brk}</div></div>`;
 
     renderScoreBanner(document.getElementById('kaScoreBanner'),a.shortScore,a.longScore,a.overall,a.stV,a.ltV,a.ovV,a.pattern);
     document.getElementById('kaInsightBox').innerHTML=`<strong>⚡ Kalki Insight — ${a.ticker}:</strong> ${a.insight}`;
@@ -1919,6 +3331,7 @@ async function loadKalki(idx) {
     renderSTCard(document.getElementById('kaStCard'),a.shortScore,a.sBull,a.sBear);
     renderLTCard(document.getElementById('kaLtCard'),a.longScore,a.lBull,a.lBear);
     renderTargets(document.getElementById('kaTargetsCard'),a.price,a.stStop,a.stT1,a.stT2,a.stT3,t.res,t.brk);
+    renderAiSetupCard(document.getElementById('kaAiCard'), a);
     renderStrategy(document.getElementById('kaStratCard'),a.price,t.supLow,t.supHigh,t.brk,t.res,a.stStop,a.stT1,a.stT2,a.stT3,a.atr);
 
   } catch(err) {
@@ -2180,7 +3593,7 @@ async function runKalkiSearch() {
     const arr = a.change >= 0 ? '▲'  : '▼';
     document.getElementById('kaStockHeader').innerHTML =
       `<div><div class="ticker-name">${a.ticker}<span class="kalki-badge" style="background:rgba(96,165,250,0.15);color:#60a5fa;border-color:rgba(96,165,250,0.3);">Auto Swing V2</span></div>` +
-      `<div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span></div></div>` +
+      `<div class="ticker-full">${a.name}${a.exch?' · '+a.exch:''}</div><div class="ticker-meta"><span class="meta-chip">Grade <strong>${a.grade}</strong></span><span class="meta-chip">Setup <strong>${scoreOutOf8(a.overall)}/8</strong></span><span class="meta-chip">Pattern <strong>${a.pattern?.score ?? 0}%</strong></span>${a.aiScan ? `<span class="meta-chip">AI <strong>${a.aiScan.setup.replace(/_/g,' ')}</strong></span><span class="meta-chip">AI Conf <strong>${aiScoreToConfidence(a.aiScan)}/10</strong></span>` : ''}</div></div>` +
       `<div class="price-block"><div class="price-big">$${a.price.toFixed(2)}</div>` +
       `<div class="price-change ${ud}">${arr} $${Math.abs(a.change).toFixed(2)} (${a.changePct.toFixed(2)}%)</div>` +
       `<div class="as-of">Auto-calculated zones · Support $${a.supLow?.toFixed(2)}–$${a.supHigh?.toFixed(2)} · Break $${a.breakdown?.toFixed(2)}</div></div>`;
@@ -2207,6 +3620,7 @@ async function runKalkiSearch() {
     renderSTCard(document.getElementById('kaStCard'),  a.shortScore, a.sBull, a.sBear);
     renderLTCard(document.getElementById('kaLtCard'),  a.longScore,  a.lBull, a.lBear);
     renderTargets(document.getElementById('kaTargetsCard'), a.price, a.stStop, a.stT1, a.stT2, a.stT3, a.resistances, a.breakdown);
+    renderAiSetupCard(document.getElementById('kaAiCard'), a);
     renderStrategy(document.getElementById('kaStratCard'),  a.price, a.supLow, a.supHigh, a.breakdown, a.resistances, a.stStop, a.stT1, a.stT2, a.stT3, a.atr);
 
     // Enable Telegram send for any analyzed ticker using auto-calculated zones
@@ -3089,6 +4503,11 @@ async function gaRefresh(opts={}){
       item.overall = a.overall;
       item.shortScore = a.shortScore;
       item.longScore = a.longScore;
+      item.aiSetup = a.aiScan?.setup || '';
+      item.aiScore = a.aiScan?.scanner_score ?? null;
+      item.aiConfidence = a.aiScan ? aiScoreToConfidence(a.aiScan) : null;
+      item.aiWhy = a.aiScan ? aiCandidateWhy(a.aiScan) : '';
+      item.aiBlendScore = a.aiBlendScore ?? a.overall;
       item.upgradeTimingReady = a.longScore >= 45;
       const catalyst = Math.round(((a.metrics?.volRatio || 1) >= 1.5 ? 30 : (a.metrics?.volRatio || 1) >= 1.1 ? 20 : 10)
         + (a.changePct >= 5 ? 25 : a.changePct >= 2 ? 15 : 5)
@@ -3220,6 +4639,8 @@ function gaRender(){
           <span class="ga-chip">${linked?'Entry':'Added'} ${entryLbl}</span>
           <span class="ga-chip">${holdDays}d held</span>
           ${item.catalystScore!=null?`<span class="ga-chip">Catalyst ${item.catalystScore}/100</span>`:''}
+          ${item.aiSetup?`<span class="ga-chip">AI ${item.aiSetup.replace(/_/g,' ')}</span>`:''}
+          ${item.aiConfidence!=null?`<span class="ga-chip">AI Conf ${item.aiConfidence}/10</span>`:''}
           ${linked?`<span class="ga-chip">${linked.state==='closed'?'Closed':'In Portfolio'}</span>`:''}
           ${tp.total?`<span class="ga-chip">${tp.hitCount ? `TP${tp.hitCount} hit` : tp.next ? `Next $${tp.next}` : 'Targets tracked'}</span>`:''}
           <span class="ga-chip">${cloudState.label}</span>
@@ -3229,7 +4650,10 @@ function gaRender(){
           <div class="ga-stat"><div class="ga-lbl">${linked&&linked.state==='closed'?'Closed':'Current'}</div><div class="ga-val">${currentPx?`$${currentPx.toFixed(2)}`:'—'}</div></div>
           <div class="ga-stat"><div class="ga-lbl">Return</div><div class="ga-val ${pct>=0?'pos':'neg'}">${pct>=0?'+':''}${pct.toFixed(1)}%</div></div>
           <div class="ga-stat"><div class="ga-lbl">${linked?'Trade':'Target'}</div><div class="ga-val ${tp.hitCount>0?'pos':''}">${linked?linked.state==='closed'?'Closed':'Open':tp.hitCount>0?`TP${tp.hitCount}`:tp.next?`Next $${tp.next}`:'Track'}</div></div>
+          <div class="ga-stat"><div class="ga-lbl">AI Setup</div><div class="ga-val">${item.aiSetup ? item.aiSetup.replace(/_/g,' ') : '—'}</div></div>
+          <div class="ga-stat"><div class="ga-lbl">AI Blend</div><div class="ga-val ${item.aiBlendScore>=70?'pos':item.aiBlendScore>=55?'':'neg'}">${item.aiBlendScore!=null?`${item.aiBlendScore}%`:'—'}</div></div>
         </div>
+        ${item.aiWhy?`<div class="ga-save" style="margin-top:8px;">${item.aiWhy}</div>`:''}
       </div>
       <div class="ga-right">
         <span class="ga-badge ${st.cls}">${st.label}</span>
@@ -3447,6 +4871,12 @@ let pfPositions = JSON.parse(localStorage.getItem('kalki_pf')||'[]');
 let pfFilter = 'all';
 
 function pfSave(){ localStorage.setItem('kalki_pf', JSON.stringify(pfPositions)); }
+function pfIdEq(a, b){
+  return String(a) === String(b);
+}
+function pfFindById(id){
+  return pfPositions.find(p => pfIdEq(p.id, id));
+}
 
 function pfAutoLog(sym, entryPrice, grade, status, resistances, breakdown, supLow, supHigh){
   // Only auto-log if not already an open position for this sym
@@ -3492,7 +4922,7 @@ function pfAdd(){
 }
 
 function pfEdit(id){
-  const pos=pfPositions.find(p=>p.id===id);
+  const pos=pfFindById(id);
   if(!pos)return;
   const entry=prompt('Entry price:', pos.entryPrice?.toFixed(2)||'');
   if(entry===null)return;
@@ -3523,7 +4953,7 @@ function pfEdit(id){
 }
 
 function pfClose(id){
-  const pos=pfPositions.find(p=>p.id===id);
+  const pos=pfFindById(id);
   if(!pos)return;
   const input=prompt('Close '+pos.sym+' — Enter exit price:', pos.currentPrice.toFixed(2));
   if(input===null)return;
@@ -3541,7 +4971,7 @@ function pfClose(id){
 
 function pfRemove(id){
   if(!confirm('Remove this position?'))return;
-  pfPositions=pfPositions.filter(p=>p.id!==id);
+  pfPositions=pfPositions.filter(p=>!pfIdEq(p.id, id));
   pfSave(); pfRender(); autoSync();
 }
 
@@ -3670,9 +5100,9 @@ function pfRender(){
         <div class="pf-status">${pos.status}${pos.notes?' · <span style="color:var(--dim)">'+pos.notes+'</span>':''} · <span style="color:var(--dim2)">${pos.addedAt}</span></div>
         ${tpPills?`<div class="pf-tp-row">${tpPills}</div>`:''}
         <div class="pf-actions">
-          <button class="btn btn-sm" onclick="pfEdit(${pos.id})" style="background:rgba(59,130,246,0.1);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);">✏ Edit</button>
-          ${pos.state!=='closed'?`<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="pfClose(${pos.id})">✓ Close Position</button>`:'<span style="font-size:10px;color:var(--dim);padding:5px 0;">CLOSED</span>'}
-          <button class="btn btn-d btn-sm" onclick="pfRemove(${pos.id})">✕</button>
+          <button class="btn btn-sm" onclick='pfEdit(${JSON.stringify(String(pos.id))})' style="background:rgba(59,130,246,0.1);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);">✏ Edit</button>
+          ${pos.state!=='closed'?`<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick='pfClose(${JSON.stringify(String(pos.id))})'>✓ Close Position</button>`:'<span style="font-size:10px;color:var(--dim);padding:5px 0;">CLOSED</span>'}
+          <button class="btn btn-d btn-sm" onclick='pfRemove(${JSON.stringify(String(pos.id))})'>✕</button>
         </div>
       </div>
       <div class="pf-pnl">
@@ -4358,7 +5788,103 @@ function d1Status(msg, color='var(--green)') {
   const el = document.getElementById('d1SyncStatus');
   if (el) { el.textContent = msg; el.style.color = color; }
 }
-function syncPayload() {
+function finiteOrNull(v) {
+  return Number.isFinite(v) ? v : null;
+}
+function textOrNull(v) {
+  if (v == null) return null;
+  const txt = String(v).trim();
+  return txt ? txt : null;
+}
+function isoOrNow(v) {
+  const txt = textOrNull(v);
+  return txt || new Date().toISOString();
+}
+function d1SanitizeWatchlist(items = []) {
+  const deduped = new Map();
+  items.forEach(item => {
+    const sym = textOrNull(item?.sym)?.toUpperCase();
+    if (!sym) return;
+    deduped.set(sym, {
+      ...item,
+      sym,
+      supLow: finiteOrNull(item?.supLow),
+      supHigh: finiteOrNull(item?.supHigh),
+      brk: finiteOrNull(item?.brk),
+      res: Array.isArray(item?.res) ? item.res.map(finiteOrNull).filter(v => v != null) : [],
+      price: finiteOrNull(item?.price),
+      status: textOrNull(item?.status),
+      grade: textOrNull(item?.grade),
+      monitorTrend: !!item?.monitorTrend
+    });
+  });
+  return [...deduped.values()];
+}
+function d1SanitizePortfolio(items = []) {
+  return items.map((item, idx) => ({
+    ...item,
+    id: textOrNull(item?.id) || `pf-${idx}-${Date.now()}`,
+    sym: textOrNull(item?.sym)?.toUpperCase(),
+    grade: textOrNull(item?.grade),
+    state: textOrNull(item?.state) || 'open',
+    entryPrice: finiteOrNull(item?.entryPrice),
+    currentPrice: finiteOrNull(item?.currentPrice),
+    closedPrice: finiteOrNull(item?.closedPrice),
+    invest: finiteOrNull(item?.invest),
+    breakdown: finiteOrNull(item?.breakdown),
+    supLow: finiteOrNull(item?.supLow),
+    supHigh: finiteOrNull(item?.supHigh),
+    resistances: Array.isArray(item?.resistances) ? item.resistances.map(finiteOrNull).filter(v => v != null) : [],
+    tpsHit: finiteOrNull(item?.tpsHit),
+    nextTP: finiteOrNull(item?.nextTP),
+    notes: textOrNull(item?.notes),
+    status: textOrNull(item?.status),
+    entryDate: textOrNull(item?.entryDate),
+    closeDate: textOrNull(item?.closeDate),
+    addedAt: textOrNull(item?.addedAt)
+  })).filter(item => item.sym);
+}
+function d1SanitizeGroupTracker(items = []) {
+  return items.map((item, idx) => ({
+    ...item,
+    id: textOrNull(item?.id) || `ga-${idx}-${Date.now()}`,
+    sym: textOrNull(item?.sym)?.toUpperCase(),
+    note: textOrNull(item?.note),
+    addedIso: textOrNull(item?.addedIso),
+    addedLabel: textOrNull(item?.addedLabel),
+    addedPrice: finiteOrNull(item?.addedPrice),
+    currentPrice: finiteOrNull(item?.currentPrice),
+    pctSinceAdd: finiteOrNull(item?.pctSinceAdd),
+    catalystScore: finiteOrNull(item?.catalystScore),
+    grade: textOrNull(item?.grade),
+    updatedAt: isoOrNow(item?.updatedAt),
+    portfolioId: textOrNull(item?.portfolioId),
+    overall: finiteOrNull(item?.overall),
+    shortScore: finiteOrNull(item?.shortScore),
+    longScore: finiteOrNull(item?.longScore),
+    upgradeTimingReady: !!item?.upgradeTimingReady,
+    added_at: textOrNull(item?.added_at || item?.addedIso),
+    entry_date: textOrNull(item?.entry_date || item?.entryDate),
+    linked_portfolio_id: textOrNull(item?.linked_portfolio_id || item?.portfolioId),
+    status: textOrNull(item?.status)
+  })).filter(item => item.sym);
+}
+function d1SanitizeSubscribers(items = []) {
+  return items.map((item, idx) => ({
+    ...item,
+    id: textOrNull(item?.id) || `sb-${idx}-${Date.now()}`,
+    name: textOrNull(item?.name),
+    handle: textOrNull(item?.handle),
+    method: textOrNull(item?.method),
+    amount: finiteOrNull(item?.amount),
+    paidDate: textOrNull(item?.paidDate),
+    expiryDate: textOrNull(item?.expiryDate),
+    notes: textOrNull(item?.notes),
+    addedAt: textOrNull(item?.addedAt)
+  })).filter(item => item.name || item.handle);
+}
+function syncPayload(opts = {}) {
+  const forD1 = !!opts.forD1;
   const groupTrackerPayload = gaTrackers.map(item => {
     const linked = gaLinkedPosition(item);
     return {
@@ -4369,12 +5895,20 @@ function syncPayload() {
       status: linked?.state || item.status || null
     };
   });
-  return {
+  const payload = {
     portfolio: pfPositions,
     watchlist: scTickers,
     groupTracker: groupTrackerPayload,
     subscribers: sbSubs,
     updatedAt: new Date().toISOString()
+  };
+  if (!forD1) return payload;
+  return {
+    portfolio: d1SanitizePortfolio(payload.portfolio),
+    watchlist: d1SanitizeWatchlist(payload.watchlist),
+    groupTracker: d1SanitizeGroupTracker(payload.groupTracker),
+    subscribers: d1SanitizeSubscribers(payload.subscribers),
+    updatedAt: payload.updatedAt
   };
 }
 function applySyncData(data) {
@@ -4417,22 +5951,30 @@ async function gsSyncAll() {
   }
 }
 
+async function gsFetchRecord() {
+  const binId  = jbBinId();
+  const apiKey = jbApiKey();
+  if (!binId || !apiKey) return null;
+  const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+    headers: { 'X-Master-Key': apiKey }
+  });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.message || 'Load failed');
+  return d.record || null;
+}
+
 async function gsLoadAll() {
   const binId  = jbBinId();
   const apiKey = jbApiKey();
   if (!binId || !apiKey) return alert('Enter JSONBin Bin ID and API Key first');
   gsStatus('Loading...', 'var(--accent)');
   try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-      headers: { 'X-Master-Key': apiKey }
-    });
-    const d = await res.json();
-    if (!res.ok) throw new Error(d.message || 'Load failed');
-    applySyncData(d.record);
+    const record = await gsFetchRecord();
+    applySyncData(record);
     localStorage.setItem('kalki_jb_bin', binId);
     localStorage.setItem('kalki_jb_key', apiKey);
-    noteCloudSync((d.record && d.record.updatedAt) || new Date().toISOString());
-    if (d.record?.groupTracker) noteGroupTrackerCloudSync(d.record.groupTracker);
+    noteCloudSync((record && record.updatedAt) || new Date().toISOString());
+    if (record?.groupTracker) noteGroupTrackerCloudSync(record.groupTracker);
     setGaSaveStatus('cloud', `Cloud loaded ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     gsStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
     return true;
@@ -4473,22 +6015,29 @@ async function cfSyncAll() {
   }
 }
 
+async function cfFetchRecord() {
+  const url = cfBackupUrl();
+  const key = cfBackupKey();
+  if (!url || !key) return null;
+  const res = await fetch(url, {
+    headers: { 'X-Kalki-Key': key }
+  });
+  const d = await res.json();
+  if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'Cloudflare load failed');
+  return d.record ? d.record : (d.portfolio || d.watchlist || d.groupTracker || d.subscribers ? d : null);
+}
+
 async function cfLoadAll() {
   const url = cfBackupUrl();
   const key = cfBackupKey();
   if (!url || !key) return alert('Enter Cloudflare Backup URL and Key first');
   cfStatus('Loading...', 'var(--accent)');
   try {
-    const res = await fetch(url, {
-      headers: { 'X-Kalki-Key': key }
-    });
-    const d = await res.json();
-    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'Cloudflare load failed');
-    const record = d.record ? d.record : (d.portfolio || d.watchlist || d.groupTracker || d.subscribers ? d : null);
+    const record = await cfFetchRecord();
     applySyncData(record);
     localStorage.setItem('kalki_cf_url', url);
     localStorage.setItem('kalki_cf_key', key);
-    noteCloudSync((record && record.updatedAt) || (d && d.updatedAt) || new Date().toISOString());
+    noteCloudSync((record && record.updatedAt) || new Date().toISOString());
     if (record?.groupTracker) noteGroupTrackerCloudSync(record.groupTracker);
     setGaSaveStatus('cloud', `Cloud loaded ${new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`);
     cfStatus('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
@@ -4517,13 +6066,99 @@ async function d1Query(sql, params=[]) {
   return d.result;
 }
 
+async function d1FetchPortfolioRows() {
+  const result = await d1Query(`
+    SELECT
+      id,
+      sym,
+      grade,
+      state,
+      entry_date,
+      entry_price,
+      current_price,
+      closed_price,
+      pnl_pct,
+      updated_at,
+      raw_json
+    FROM portfolio_positions
+  `);
+  return result?.results || [];
+}
+
+function d1MergePortfolioRows(record, rows = []) {
+  const base = record ? { ...record } : {};
+  const currentPortfolio = Array.isArray(base.portfolio) ? base.portfolio : [];
+  const byId = new Map(currentPortfolio.map(item => [String(item?.id), item]));
+  const bySym = new Map(currentPortfolio.map(item => [String(item?.sym || '').toUpperCase(), item]));
+
+  const merged = rows.map((row, idx) => {
+    let raw = {};
+    try {
+      raw = row?.raw_json ? JSON.parse(row.raw_json) : {};
+    } catch (_e) {}
+    const existing = byId.get(String(row?.id)) || bySym.get(String(row?.sym || '').toUpperCase()) || {};
+    return {
+      ...existing,
+      ...raw,
+      id: textOrNull(row?.id) || textOrNull(raw?.id) || `pf-row-${idx}`,
+      sym: textOrNull(row?.sym || raw?.sym)?.toUpperCase(),
+      grade: textOrNull(row?.grade ?? raw?.grade),
+      state: textOrNull(row?.state ?? raw?.state) || 'open',
+      entryDate: textOrNull(row?.entry_date ?? raw?.entryDate),
+      entryPrice: finiteOrNull(row?.entry_price) ?? finiteOrNull(raw?.entryPrice),
+      currentPrice: finiteOrNull(row?.current_price) ?? finiteOrNull(raw?.currentPrice),
+      closedPrice: finiteOrNull(row?.closed_price) ?? finiteOrNull(raw?.closedPrice),
+      invest: finiteOrNull(raw?.invest),
+      breakdown: finiteOrNull(raw?.breakdown),
+      supLow: finiteOrNull(raw?.supLow),
+      supHigh: finiteOrNull(raw?.supHigh),
+      resistances: Array.isArray(raw?.resistances) ? raw.resistances.map(finiteOrNull).filter(v => v != null) : [],
+      tpsHit: finiteOrNull(raw?.tpsHit),
+      nextTP: finiteOrNull(raw?.nextTP),
+      notes: textOrNull(raw?.notes),
+      status: textOrNull(raw?.status),
+      closeDate: textOrNull(raw?.closeDate),
+      addedAt: textOrNull(raw?.addedAt),
+      pnlPct: finiteOrNull(row?.pnl_pct) ?? finiteOrNull(raw?.pnlPct)
+    };
+  }).filter(item => item.sym);
+
+  base.portfolio = merged;
+  const latestRowStamp = rows.reduce((max, row) => {
+    const stamp = Date.parse(row?.updated_at || '') || 0;
+    return stamp > max ? stamp : max;
+  }, 0);
+  if (latestRowStamp) {
+    const iso = new Date(latestRowStamp).toISOString();
+    if (!base.updatedAt || latestRowStamp > (Date.parse(base.updatedAt) || 0)) {
+      base.updatedAt = iso;
+    }
+  }
+  return base;
+}
+
+async function d1FetchRecord() {
+  const url = d1SyncUrl();
+  const key = d1SyncKey();
+  if (!url || !key) return null;
+  const endpoint = url.replace(/\/+$/,'') + '/d1/load';
+  const res = await fetch(endpoint, {
+    headers: { 'X-Kalki-Key': key }
+  });
+  const d = await res.json();
+  if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 load failed');
+  const record = d.record || null;
+  const portfolioRows = await d1FetchPortfolioRows();
+  return d1MergePortfolioRows(record, portfolioRows);
+}
+
 async function d1SyncAll() {
   const url = d1SyncUrl();
   const key = d1SyncKey();
   if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
   d1Status('Syncing...', 'var(--accent)');
   try {
-    const payload = syncPayload();
+    const payload = syncPayload({ forD1: true });
     const endpoint = url.replace(/\/+$/,'') + '/d1/save';
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -4542,7 +6177,10 @@ async function d1SyncAll() {
     noteGroupTrackerCloudSync(gaTrackers);
     d1Status('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
-    d1Status('❌ ' + e.message, 'var(--red)');
+    const msg = e?.message === 'Failed to fetch'
+      ? 'Browser could not complete the D1 save request.'
+      : e.message;
+    d1Status('❌ ' + msg, 'var(--red)');
   }
 }
 
@@ -4552,19 +6190,14 @@ async function d1LoadAll() {
   if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
   d1Status('Loading...', 'var(--accent)');
   try {
-    const endpoint = url.replace(/\/+$/,'') + '/d1/load';
-    const res = await fetch(endpoint, {
-      headers: { 'X-Kalki-Key': key }
-    });
-    const d = await res.json();
-    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 load failed');
-    applySyncData(d.record);
+    const record = await d1FetchRecord();
+    applySyncData(record);
     localStorage.setItem('kalki_d1_url', url);
     localStorage.setItem('kalki_d1_key', key);
-    noteCloudSync((d.record && d.record.updatedAt) || (d && d.updatedAt) || new Date().toISOString());
-    if (d.record?.groupTracker) noteGroupTrackerCloudSync(d.record.groupTracker);
+    noteCloudSync((record && record.updatedAt) || new Date().toISOString());
+    if (record?.groupTracker) noteGroupTrackerCloudSync(record.groupTracker);
     d1Status('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
-    return !!d.record;
+    return !!record;
   } catch(e) {
     d1Status('❌ ' + e.message, 'var(--red)');
     return false;
@@ -4672,6 +6305,7 @@ scheduleBestAutoFromSettings();
 if (bestAutoEnabled) {
   setTimeout(() => runBestAutoCycle(), 600);
 }
+applyWatchlistRecovery();
 
 // Restore JSONBin credentials and auto-load on start
 const savedBinId  = localStorage.getItem('kalki_jb_bin');
@@ -4680,21 +6314,33 @@ const savedCfUrl  = localStorage.getItem('kalki_cf_url');
 const savedCfKey  = localStorage.getItem('kalki_cf_key');
 const savedD1Url  = localStorage.getItem('kalki_d1_url');
 const savedD1Key  = localStorage.getItem('kalki_d1_key');
+const savedNvidiaKey = localStorage.getItem('kalki_nvidia_key');
+const savedNvidiaModel = localStorage.getItem('kalki_nvidia_model');
 if (savedBinId)  document.getElementById('jbBinId').value  = savedBinId;
 if (savedApiKey) document.getElementById('jbApiKey').value = savedApiKey;
 if (savedCfUrl)  document.getElementById('cfBackupUrl').value = savedCfUrl;
 if (savedCfKey)  document.getElementById('cfBackupKey').value = savedCfKey;
 if (savedD1Url)  document.getElementById('d1SyncUrl').value = savedD1Url;
 if (savedD1Key)  document.getElementById('d1SyncKey').value = savedD1Key;
+if (savedNvidiaKey) document.getElementById('optNvidiaKey').value = savedNvidiaKey;
+if (savedNvidiaModel) document.getElementById('optNvidiaModel').value = savedNvidiaModel;
+if (savedNvidiaKey) document.getElementById('settingsNvidiaKey').value = savedNvidiaKey;
+if (savedNvidiaModel) document.getElementById('settingsNvidiaModel').value = savedNvidiaModel;
+syncNvidiaInputs();
 if (cfBackupUrl()) localStorage.setItem('kalki_cf_url', cfBackupUrl());
 if (cfBackupKey()) localStorage.setItem('kalki_cf_key', cfBackupKey());
 if (d1SyncUrl()) localStorage.setItem('kalki_d1_url', d1SyncUrl());
 if (d1SyncKey()) localStorage.setItem('kalki_d1_key', d1SyncKey());
+document.getElementById('optNvidiaKey').addEventListener('change', e => { localStorage.setItem('kalki_nvidia_key', e.target.value); syncNvidiaInputs('options'); });
+document.getElementById('optNvidiaModel').addEventListener('change', e => { localStorage.setItem('kalki_nvidia_model', e.target.value); syncNvidiaInputs('options'); });
+document.getElementById('settingsNvidiaKey').addEventListener('change', e => { localStorage.setItem('kalki_nvidia_key', e.target.value); syncNvidiaInputs('settings'); });
+document.getElementById('settingsNvidiaModel').addEventListener('change', e => { localStorage.setItem('kalki_nvidia_model', e.target.value); syncNvidiaInputs('settings'); });
 syncConnectionPill();
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSettingsPanel();
 });
 switchTab('sc');
+optionsRender();
 refreshMarketRegime().catch(()=>{});
 setInterval(() => refreshMarketRegime().catch(()=>{}), 10 * 60 * 1000);
 
@@ -4706,7 +6352,7 @@ async function startupHydrateFromCloud(){
       start(){ gsStatus('Loading from JSONBin...', 'var(--accent)'); },
       done(){ gsStatus('✅ Loaded from JSONBin'); },
       fail(){ gsStatus('⚠ Could not reach JSONBin', 'var(--warn)'); },
-      load: gsLoadAll
+      fetchRecord: gsFetchRecord
     });
   }
   if (hasD1Config()) {
@@ -4715,7 +6361,7 @@ async function startupHydrateFromCloud(){
       start(){ d1Status('Loading from D1...', 'var(--accent)'); },
       done(){ d1Status('✅ Loaded from D1'); },
       fail(){ d1Status('⚠ Could not reach D1', 'var(--warn)'); },
-      load: d1LoadAll
+      fetchRecord: d1FetchRecord
     });
   }
   if (hasCloudflareBackupConfig()) {
@@ -4724,7 +6370,7 @@ async function startupHydrateFromCloud(){
       start(){ cfStatus('Loading from Cloudflare...', 'var(--accent)'); },
       done(){ cfStatus('✅ Loaded from Cloudflare'); },
       fail(){ cfStatus('⚠ Could not reach Cloudflare', 'var(--warn)'); },
-      load: cfLoadAll
+      fetchRecord: cfFetchRecord
     });
   }
 
@@ -4737,18 +6383,34 @@ async function startupHydrateFromCloud(){
     return;
   }
 
+  let best = null;
   for (const source of sources) {
     source.start();
-    const ok = await source.load();
-    if (ok) {
-      source.done();
-      initialCloudHydrationDone = true;
-      renderSc();
-      gaRender();
-      setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
-      return;
+    try {
+      const record = await source.fetchRecord();
+      if (record) {
+        const stamp = Date.parse(record.updatedAt || '') || 0;
+        if (!best || stamp > best.stamp) {
+          best = { source, record, stamp };
+        }
+        continue;
+      }
+      source.fail();
+    } catch (_e) {
+      source.fail();
     }
-    source.fail();
+  }
+
+  if (best) {
+    applySyncData(best.record);
+    best.source.done();
+    noteCloudSync(best.record.updatedAt || new Date().toISOString());
+    if (best.record?.groupTracker) noteGroupTrackerCloudSync(best.record.groupTracker);
+    initialCloudHydrationDone = true;
+    renderSc();
+    gaRender();
+    setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
+    return;
   }
 
   initialCloudHydrationDone = true;
