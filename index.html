@@ -1,1 +1,115 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0; url=kalki-analysis.html"><title>Kalki Analysis</title></head><body><script>window.location.href='kalki-analysis.html';</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kalki Launch</title>
+  <style>
+    :root{
+      --bg:#060810;
+      --panel:#0d1120;
+      --border:#1f2d45;
+      --accent:#f59e0b;
+      --accent2:#3b82f6;
+      --text:#e2e8f0;
+      --dim:#64748b;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background:
+        radial-gradient(circle at top left, rgba(245,158,11,0.18), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(59,130,246,0.14), transparent 30%),
+        var(--bg);
+      color:var(--text);
+      font-family:Arial, Helvetica, sans-serif;
+    }
+    .card{
+      width:min(720px, 100%);
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:28px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.35);
+    }
+    h1{
+      font-size:34px;
+      letter-spacing:1px;
+      margin-bottom:8px;
+    }
+    p{
+      color:var(--dim);
+      line-height:1.6;
+      margin-bottom:22px;
+      max-width:58ch;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+    .launch{
+      display:block;
+      text-decoration:none;
+      color:var(--text);
+      padding:18px;
+      border-radius:16px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.02);
+      transition:transform .15s ease,border-color .15s ease,background .15s ease;
+    }
+    .launch:hover{
+      transform:translateY(-2px);
+      border-color:var(--accent);
+      background:rgba(245,158,11,0.06);
+    }
+    .launch.experimental:hover{
+      border-color:var(--accent2);
+      background:rgba(59,130,246,0.06);
+    }
+    .eyebrow{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:1.4px;
+      color:var(--dim);
+      margin-bottom:8px;
+    }
+    .title{
+      font-size:22px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+    .desc{
+      font-size:14px;
+      color:var(--dim);
+      line-height:1.5;
+    }
+    @media (max-width:640px){
+      .grid{grid-template-columns:1fr;}
+      h1{font-size:28px;}
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Kalki Launch</h1>
+    <p>Choose which version of the app to open. The stable build stays conservative, while the experimental build includes the latest active changes.</p>
+    <div class="grid">
+      <a class="launch" href="kalki-swing-v2.html">
+        <div class="eyebrow">Stable</div>
+        <div class="title">Kalki Swing V2</div>
+        <div class="desc">Open the main V2 build.</div>
+      </a>
+      <a class="launch experimental" href="kalki-swing-v2-experimental.html">
+        <div class="eyebrow">Experimental</div>
+        <div class="title">Kalki Swing V2 Experimental</div>
+        <div class="desc">Open the latest in-progress version with new features and tuning.</div>
+      </a>
+    </div>
+  </main>
+</body>
+</html>
