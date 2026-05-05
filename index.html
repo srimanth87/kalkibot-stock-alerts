@@ -3,113 +3,249 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kalki Launch</title>
+  <title>KalkiBot</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
     :root{
-      --bg:#060810;
-      --panel:#0d1120;
-      --border:#1f2d45;
-      --accent:#f59e0b;
-      --accent2:#3b82f6;
-      --text:#e2e8f0;
-      --dim:#64748b;
+      --bg:#0a0b11;
+      --panel:#12131a;
+      --border:rgba(255,255,255,0.10);
+      --grid:rgba(255,255,255,0.045);
+      --text:#f5f2ee;
+      --dim:#8d8897;
+      --gold:#e0b23f;
+      --teal:#28d1b2;
     }
-    *{box-sizing:border-box;margin:0;padding:0;}
+
+    *{box-sizing:border-box;margin:0;padding:0}
+
     body{
       min-height:100vh;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:24px;
+      padding:32px 18px;
       background:
-        radial-gradient(circle at top left, rgba(245,158,11,0.18), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(59,130,246,0.14), transparent 30%),
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
         var(--bg);
+      background-size:44px 44px;
       color:var(--text);
-      font-family:Arial, Helvetica, sans-serif;
+      font-family:'Space Grotesk',sans-serif;
     }
-    .card{
-      width:min(720px, 100%);
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:20px;
-      padding:28px;
-      box-shadow:0 20px 60px rgba(0,0,0,0.35);
+
+    .wrap{
+      width:min(980px, 100%);
     }
+
+    .hero{
+      text-align:center;
+      margin-bottom:42px;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      color:var(--gold);
+      font-family:'DM Mono',monospace;
+      font-size:12px;
+      letter-spacing:2px;
+      text-transform:uppercase;
+      margin-bottom:26px;
+      opacity:.9;
+    }
+
+    .dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--gold);
+      box-shadow:0 0 12px rgba(224,178,63,.5);
+    }
+
     h1{
-      font-size:34px;
-      letter-spacing:1px;
-      margin-bottom:8px;
+      font-size:clamp(54px, 10vw, 88px);
+      line-height:.92;
+      letter-spacing:-3px;
+      margin-bottom:18px;
+      font-weight:700;
     }
-    p{
+
+    h1 .accent{
+      color:var(--gold);
+    }
+
+    .sub{
+      max-width:620px;
+      margin:0 auto;
       color:var(--dim);
-      line-height:1.6;
-      margin-bottom:22px;
-      max-width:58ch;
+      font-family:'DM Mono',monospace;
+      font-size:15px;
+      line-height:1.7;
     }
+
     .grid{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:14px;
+      gap:16px;
+      max-width:680px;
+      margin:0 auto;
     }
-    .launch{
-      display:block;
-      text-decoration:none;
-      color:var(--text);
-      padding:18px;
-      border-radius:16px;
+
+    .card{
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      min-height:250px;
+      padding:24px;
+      border-radius:20px;
       border:1px solid var(--border);
-      background:rgba(255,255,255,0.02);
-      transition:transform .15s ease,border-color .15s ease,background .15s ease;
+      background:rgba(18,19,26,.92);
+      color:var(--text);
+      text-decoration:none;
+      transition:transform .16s ease,border-color .16s ease,background .16s ease;
     }
-    .launch:hover{
-      transform:translateY(-2px);
-      border-color:var(--accent);
-      background:rgba(245,158,11,0.06);
+
+    .card:hover{
+      transform:translateY(-3px);
     }
-    .launch.experimental:hover{
-      border-color:var(--accent2);
-      background:rgba(59,130,246,0.06);
+
+    .card.gold:hover{
+      border-color:rgba(224,178,63,.45);
+      background:rgba(22,20,16,.96);
     }
-    .eyebrow{
-      font-size:11px;
+
+    .card.teal:hover{
+      border-color:rgba(40,209,178,.4);
+      background:rgba(14,21,22,.96);
+    }
+
+    .label{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-family:'DM Mono',monospace;
+      font-size:12px;
+      letter-spacing:1.8px;
       text-transform:uppercase;
-      letter-spacing:1.4px;
-      color:var(--dim);
-      margin-bottom:8px;
+      margin-bottom:18px;
     }
+
+    .label .dot{
+      width:7px;
+      height:7px;
+      box-shadow:none;
+    }
+
+    .gold .label{color:var(--gold)}
+    .gold .label .dot{background:var(--gold)}
+    .teal .label{color:var(--teal)}
+    .teal .label .dot{background:var(--teal)}
+
     .title{
-      font-size:22px;
+      font-size:36px;
+      line-height:1;
+      letter-spacing:-1.4px;
+      margin-bottom:16px;
       font-weight:700;
-      margin-bottom:6px;
     }
-    .desc{
-      font-size:14px;
+
+    .copy{
       color:var(--dim);
-      line-height:1.5;
+      font-family:'DM Mono',monospace;
+      font-size:14px;
+      line-height:1.8;
+      margin-bottom:22px;
+      max-width:28ch;
     }
-    @media (max-width:640px){
-      .grid{grid-template-columns:1fr;}
-      h1{font-size:28px;}
+
+    .tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .tag{
+      border-radius:999px;
+      padding:6px 10px;
+      border:1px solid rgba(255,255,255,0.12);
+      font-family:'DM Mono',monospace;
+      font-size:11px;
+      color:var(--dim);
+    }
+
+    .gold .tag{
+      border-color:rgba(224,178,63,.22);
+      color:var(--gold);
+    }
+
+    .teal .tag{
+      border-color:rgba(40,209,178,.22);
+      color:var(--teal);
+    }
+
+    .arrow{
+      margin-top:24px;
+      color:var(--dim);
+      font-size:22px;
+    }
+
+    .foot{
+      text-align:center;
+      margin-top:28px;
+      font-family:'DM Mono',monospace;
+      font-size:12px;
+      color:var(--dim);
+    }
+
+    @media (max-width:720px){
+      .grid{grid-template-columns:1fr}
+      .card{min-height:220px}
+      h1{letter-spacing:-2px}
     }
   </style>
 </head>
 <body>
-  <main class="card">
-    <h1>Kalki Launch</h1>
-    <p>Choose which version of the app to open. The stable build stays conservative, while the experimental build includes the latest active changes.</p>
-    <div class="grid">
-      <a class="launch" href="kalki-swing-v2.html">
-        <div class="eyebrow">Stable</div>
-        <div class="title">Kalki Swing V2</div>
-        <div class="desc">Open the main V2 build.</div>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow"><span class="dot"></span> Live · Market Scanners</div>
+      <h1>Kalki<span class="accent">Bot</span></h1>
+      <div class="sub">Real-time stock alerts and technical analysis, with one path for the stable build and one for the latest experimental workspace.</div>
+    </section>
+
+    <section class="grid">
+      <a class="card gold" href="kalki-swing-v2.html">
+        <div>
+          <div class="label"><span class="dot"></span> Stable Build</div>
+          <div class="title">Kalki Swing V2</div>
+          <div class="copy">Main production workspace for regular usage, cleaner flows, and the safer default experience.</div>
+          <div class="tags">
+            <span class="tag">Scanner</span>
+            <span class="tag">Analysis</span>
+            <span class="tag">Portfolio</span>
+          </div>
+        </div>
+        <div class="arrow">↗</div>
       </a>
-      <a class="launch experimental" href="kalki-swing-v2-experimental.html">
-        <div class="eyebrow">Experimental</div>
-        <div class="title">Kalki Swing V2 Experimental</div>
-        <div class="desc">Open the latest in-progress version with new features and tuning.</div>
+
+      <a class="card teal" href="kalki-swing-v2-experimental.html">
+        <div>
+          <div class="label"><span class="dot"></span> Experimental</div>
+          <div class="title">Swing Experimental</div>
+          <div class="copy">Latest feature branch with new grading logic, report filters, admin tools, options, and Telegram workflow updates.</div>
+          <div class="tags">
+            <span class="tag">Options</span>
+            <span class="tag">Reports</span>
+            <span class="tag">Testing</span>
+          </div>
+        </div>
+        <div class="arrow">↗</div>
       </a>
-    </div>
+    </section>
+
+    <div class="foot">github.com/srimanth87/kalkibot-stock-alerts</div>
   </main>
 </body>
 </html>
