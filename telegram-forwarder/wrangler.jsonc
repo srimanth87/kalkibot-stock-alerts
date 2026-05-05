@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kalki-telegram-forwarder",
+  "main": "src/index.js",
+  "compatibility_date": "2026-04-21",
+  "vars": {
+    "SOURCE_CHAT_ID": "-1003967721534",
+    "SOURCE_CHANNEL_ID": "-1003967721534",
+    "TARGET_CHANNEL_IDS": "-1003923372289,-1003812424739,-1003563826357,-1003895273715,-1003958865660",
+    "FORWARD_MODE": "copy",
+    "DISABLE_NOTIFICATION": "false",
+    "PROTECT_CONTENT": "false",
+    "FORWARD_EDITED_POSTS": "false",
+    "TELEGRAM_WEBHOOK_PATH": "/telegram/webhook",
+    "DEDUPE_TTL_SECONDS": "604800",
+    "MESSAGE_MAP_TTL_SECONDS": "5184000"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
