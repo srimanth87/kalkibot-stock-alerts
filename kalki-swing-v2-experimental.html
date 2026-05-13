@@ -6050,6 +6050,22 @@ function rpFilterSlug() {
     : rpFilter === 'lastmonth' ? 'last-month'
     : 'all';
 }
+function rpReviewModeSlug() {
+  return rpReviewMode === 'entered' ? 'entry'
+    : rpReviewMode === 'closed' ? 'closed'
+    : 'all';
+}
+function rpReviewMonthSlug() {
+  if (rpReviewMonth === '') return 'any-month';
+  return ['january','february','march','april','may','june','july','august','september','october','november','december'][Number(rpReviewMonth)] || 'any-month';
+}
+function rpReviewYearSlug() {
+  return rpReviewYear === '' ? 'any-year' : String(rpReviewYear);
+}
+function rpTelegramFilename(mode='static') {
+  const dateStamp = new Date().toLocaleDateString('en-CA').replace(/-/g,'');
+  return `kalki-reporting-${rpReviewModeSlug()}-${rpReviewMonthSlug()}-${rpReviewYearSlug()}-${mode}-${dateStamp}.png`;
+}
 
 function rpGetFiltered() {
   const q = (document.getElementById('rpSearch')?.value||'').trim().toUpperCase();
@@ -6303,10 +6319,8 @@ async function rpSendTelegramMode(mode='static') {
     const svg = rpBuildTelegramCardSvg(data);
     const pngBlob = await rpSvgToPngBlob(svg, 3);
     const form = new FormData();
-    const dateStamp = new Date().toLocaleDateString('en-CA').replace(/-/g,'');
-    const filterSlug = data.filterSlug || 'all';
     form.append('chat_id', cid);
-    form.append('document', pngBlob, `kalki-report-${filterSlug}-${data.capitalMethod}-${dateStamp}.png`);
+    form.append('document', pngBlob, rpTelegramFilename(data.capitalMethod));
     form.append('caption', `${data.captionTitle} · ${data.filterLabel} · ${data.dateShort}`);
     const r = await fetch(`https://api.telegram.org/bot${tok}/sendDocument`, { method:'POST', body:form });
     const d = await r.json();
