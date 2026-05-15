@@ -4,7 +4,7 @@ This Worker listens for Telegram messages or channel posts on a webhook and fans
 
 ## What it does
 
-- Watches one source chat/channel, or a configured list of source chats.
+- Watches one source chat/channel.
 - Copies or forwards each new message/post to every destination chat.
 - Verifies Telegram webhook requests with `X-Telegram-Bot-Api-Secret-Token`.
 - Optionally uses a KV binding named `FORWARD_STATE` to prevent duplicate fan-out during retries.
@@ -30,7 +30,6 @@ This Worker listens for Telegram messages or channel posts on a webhook and fans
 Required:
 
 - `TELEGRAM_BOT_TOKEN`: Bot token from BotFather.
-- `SOURCE_CHAT_IDS`: Optional comma-separated list of source chats. Use this for all-to-all mirroring.
 - `SOURCE_CHAT_ID` or `SOURCE_CHANNEL_ID`: Numeric id for one source chat, usually like `-100...`.
 - `TARGET_CHANNEL_IDS`: Comma-separated or newline-separated destination chat ids.
 
