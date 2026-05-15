@@ -12,6 +12,7 @@ export default {
         ok: true,
         service: "telegram-channel-forwarder",
         webhook_path: env.TELEGRAM_WEBHOOK_PATH || DEFAULT_WEBHOOK_PATH,
+        set_webhook_paths: ["/set-webhook", "/telegram/set-webhook"],
         source_chat_id: getSourceChatId(env) || null,
         source_chat_ids: getSourceChatIds(env),
         target_count: parseChatList(env.TARGET_CHANNEL_IDS).length,
@@ -30,7 +31,10 @@ export default {
       return jsonResponse({ ok: true, telegram: await getTelegramWebhookInfo(env) });
     }
 
-    if (request.method === "GET" && url.pathname === "/telegram/set-webhook") {
+    if (
+      request.method === "GET" &&
+      (url.pathname === "/set-webhook" || url.pathname === "/telegram/set-webhook")
+    ) {
       return setTelegramWebhook(url, env);
     }
 
