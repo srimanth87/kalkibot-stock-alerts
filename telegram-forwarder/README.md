@@ -4,7 +4,7 @@ This Worker listens for Telegram messages or channel posts on a webhook and fans
 
 ## What it does
 
-- Watches one source chat or channel.
+- Watches one source chat/channel, or a configured list of source chats.
 - Copies or forwards each new message/post to every destination chat.
 - Verifies Telegram webhook requests with `X-Telegram-Bot-Api-Secret-Token`.
 - Optionally uses a KV binding named `FORWARD_STATE` to prevent duplicate fan-out during retries.
@@ -21,15 +21,17 @@ This Worker listens for Telegram messages or channel posts on a webhook and fans
 1. Create a Telegram bot with [@BotFather](https://t.me/BotFather).
 2. Add the bot as an admin in the source channel and every destination channel.
 3. Give the bot permission to read the source chat and post messages in the destination chats.
-4. Deploy the Worker to Cloudflare.
-5. Point Telegram to your Worker webhook URL with `setWebhook`.
+4. Create a KV namespace for reply mapping and bind it as `FORWARD_STATE`.
+5. Deploy the Worker to Cloudflare.
+6. Point Telegram to your Worker webhook URL with `setWebhook`.
 
 ## Environment variables
 
 Required:
 
 - `TELEGRAM_BOT_TOKEN`: Bot token from BotFather.
-- `SOURCE_CHAT_ID` or `SOURCE_CHANNEL_ID`: Numeric id for the source chat, usually like `-100...`.
+- `SOURCE_CHAT_IDS`: Optional comma-separated list of source chats. Use this for all-to-all mirroring.
+- `SOURCE_CHAT_ID` or `SOURCE_CHANNEL_ID`: Numeric id for one source chat, usually like `-100...`.
 - `TARGET_CHANNEL_IDS`: Comma-separated or newline-separated destination chat ids.
 
 Optional:
@@ -56,7 +58,11 @@ You can keep the non-secret values in `wrangler.jsonc` vars later, or provide th
 
 ## Optional KV dedupe
 
-If you want retries without duplicates, create a KV namespace and bind it as `FORWARD_STATE`.
+Create a KV namespace and bind it as `FORWARD_STATE` if you want:
+
+- reply threading across destination chats
+- safe per-target retries
+- duplicate protection during retries
 
 Example `wrangler.jsonc` addition:
 
@@ -65,7 +71,8 @@ Example `wrangler.jsonc` addition:
   "kv_namespaces": [
     {
       "binding": "FORWARD_STATE",
-      "id": "your-kv-namespace-id"
+      "id": "your-production-kv-namespace-id",
+      "preview_id": "your-preview-kv-namespace-id"
     }
   ]
 }
@@ -82,6 +89,7 @@ Without `FORWARD_STATE`:
 
 - the Worker still works
 - partial failures return `200` to reduce accidental duplicate posts
+- replies in destination chats will not stay threaded
 
 ## Local development
 
@@ -98,6 +106,13 @@ Health check:
 curl http://127.0.0.1:8787/health
 ```
 
+The health response should show:
+
+- `"dedupe_enabled": true`
+- `"reply_threading_enabled": true`
+
+If you see a warning about `FORWARD_STATE`, the Worker will still forward messages, but replies will not stay attached in destination chats.
+
 ## Deploy
 
 ```bash
@@ -108,7 +123,15 @@ npm run deploy
 
 ## Register the Telegram webhook
 
-After deploy, replace the URL with your Worker URL:
+After deploy, open this URL once:
+
+```text
+https://kalki-telegram-forwarder.srimanthgada87.workers.dev/telegram/set-webhook
+```
+
+This bot token must be dedicated to the forwarder, or Telegram will stop sending updates to any other Worker that used the same bot.
+
+You can also register it manually by replacing the URL with your Worker URL:
 
 ```bash
 curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \

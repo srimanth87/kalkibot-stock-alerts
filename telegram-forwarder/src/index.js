@@ -7,15 +7,31 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
+      const hasForwardState = Boolean(env.FORWARD_STATE);
       return jsonResponse({
         ok: true,
         service: "telegram-channel-forwarder",
         webhook_path: env.TELEGRAM_WEBHOOK_PATH || DEFAULT_WEBHOOK_PATH,
         source_chat_id: getSourceChatId(env) || null,
+        source_chat_ids: getSourceChatIds(env),
         target_count: parseChatList(env.TARGET_CHANNEL_IDS).length,
         forward_mode: normalizeForwardMode(env.FORWARD_MODE),
-        dedupe_enabled: Boolean(env.FORWARD_STATE),
+        dedupe_enabled: hasForwardState,
+        reply_threading_enabled: hasForwardState,
+        warnings: hasForwardState
+          ? []
+          : [
+              "FORWARD_STATE KV binding is missing. Messages will copy, but reply threading and safe per-target retries are disabled.",
+            ],
       });
+    }
+
+    if (request.method === "GET" && url.pathname === "/debug/telegram") {
+      return jsonResponse({ ok: true, telegram: await getTelegramWebhookInfo(env) });
+    }
+
+    if (request.method === "GET" && url.pathname === "/telegram/set-webhook") {
+      return setTelegramWebhook(url, env);
     }
 
     const webhookPath = env.TELEGRAM_WEBHOOK_PATH || DEFAULT_WEBHOOK_PATH;
@@ -59,17 +75,19 @@ async function handleTelegramWebhook(request, env) {
     });
   }
 
-  const sourceChatId = getSourceChatId(env);
-  if (!sourceChatId) {
-    return jsonResponse({ ok: false, error: "SOURCE_CHAT_ID or SOURCE_CHANNEL_ID is required" }, 500);
+  const sourceChatId = String(post.chat?.id ?? "");
+  const sourceChatIds = getSourceChatIds(env);
+  if (sourceChatIds.length === 0) {
+    return jsonResponse({ ok: false, error: "SOURCE_CHAT_IDS, SOURCE_CHAT_ID, or SOURCE_CHANNEL_ID is required" }, 500);
   }
 
-  if (String(post.chat?.id) !== sourceChatId) {
+  if (!sourceChatIds.includes(sourceChatId)) {
     return jsonResponse({
       ok: true,
       ignored: true,
       reason: "Message is from a different source chat",
-      received_chat_id: String(post.chat?.id ?? ""),
+      received_chat_id: sourceChatId,
+      source_chat_ids: sourceChatIds,
     });
   }
 
@@ -184,6 +202,16 @@ function getSourceChatId(env) {
   return String(env.SOURCE_CHAT_ID || env.SOURCE_CHANNEL_ID || "").trim();
 }
 
+function getSourceChatIds(env) {
+  const explicitList = parseChatList(env.SOURCE_CHAT_IDS);
+  if (explicitList.length > 0) {
+    return explicitList;
+  }
+
+  const singleSource = getSourceChatId(env);
+  return singleSource ? [singleSource] : [];
+}
+
 function getSupportedUpdatePost(update, env) {
   const allowEdits = parseBoolean(env.FORWARD_EDITED_POSTS);
   return (
@@ -218,6 +246,59 @@ async function callTelegramApi(botToken, methodName, payload) {
   }
 
   return data.result;
+}
+
+async function getTelegramWebhookInfo(env) {
+  const botToken = String(env.TELEGRAM_BOT_TOKEN || "").trim();
+  if (!botToken) return { configured: false, error: "TELEGRAM_BOT_TOKEN is missing" };
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) return { configured: false, error: data.description || `Telegram HTTP ${response.status}` };
+  const result = data.result || {};
+  return {
+    configured: Boolean(result.url),
+    url: result.url || "",
+    pending_update_count: result.pending_update_count || 0,
+    last_error_date: result.last_error_date || null,
+    last_error_message: result.last_error_message || null,
+    allowed_updates: result.allowed_updates || [],
+  };
+}
+
+async function setTelegramWebhook(url, env) {
+  const botToken = String(env.TELEGRAM_BOT_TOKEN || "").trim();
+  if (!botToken) {
+    return jsonResponse({ ok: false, error: "TELEGRAM_BOT_TOKEN is missing" }, 500);
+  }
+
+  const webhookPath = env.TELEGRAM_WEBHOOK_PATH || DEFAULT_WEBHOOK_PATH;
+  const webhookUrl = `${url.origin}${webhookPath}`;
+  const body = {
+    url: webhookUrl,
+    allowed_updates: ["message", "edited_message", "channel_post", "edited_channel_post"],
+  };
+
+  if (env.TELEGRAM_WEBHOOK_SECRET) {
+    body.secret_token = env.TELEGRAM_WEBHOOK_SECRET;
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  return jsonResponse(
+    {
+      ok: response.ok && data.ok !== false,
+      webhook_url: webhookUrl,
+      telegram: data,
+    },
+    response.ok ? 200 : 500,
+  );
 }
 
 function jsonResponse(body, status = 200) {
