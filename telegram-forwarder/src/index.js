@@ -258,13 +258,28 @@ async function syncReportFromPost(env, post, sourceChatId) {
 
   const text = getPostText(post);
   const alert = parseScoredAlert(text);
-  if (!alert) {
-    return { ok: true, skipped: true, reason: "No scored stock alert found" };
+  if (alert) {
+    try {
+      await upsertAlertToReportCloud(env, alert, post, sourceChatId);
+      return { ok: true, ticker: alert.sym, type: "alert" };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown report sync error";
+      console.error("Report sync failed", {
+        source_chat_id: sourceChatId,
+        message_id: post.message_id,
+        error: message,
+      });
+      return { ok: false, ticker: alert.sym, type: "alert", error: message };
+    }
   }
 
+  const command = parseTradeCommand(text, getReplyText(post));
+  if (!command) {
+    return { ok: true, skipped: true, reason: "No scored stock alert or trade command found" };
+  }
   try {
-    await upsertAlertToReportCloud(env, alert, post, sourceChatId);
-    return { ok: true, ticker: alert.sym };
+    await upsertCommandToReportCloud(env, command, post, sourceChatId);
+    return { ok: true, ticker: command.ticker, type: "command", action: command.action };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown report sync error";
     console.error("Report sync failed", {
@@ -272,12 +287,16 @@ async function syncReportFromPost(env, post, sourceChatId) {
       message_id: post.message_id,
       error: message,
     });
-    return { ok: false, ticker: alert.sym, error: message };
+    return { ok: false, ticker: command.ticker, type: "command", action: command.action, error: message };
   }
 }
 
 function getPostText(post) {
   return String(post?.text || post?.caption || "").trim();
+}
+
+function getReplyText(post) {
+  return String(post?.reply_to_message?.text || post?.reply_to_message?.caption || "").trim();
 }
 
 function parseScoredAlert(text) {
@@ -342,6 +361,62 @@ function extractFirstMoneyAfter(text, labelPattern) {
 
 function roundPrice(value) {
   return Math.round(Number(value) * 100) / 100;
+}
+
+function parseTradeCommand(text, replyText = "") {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+  const ticker = extractTickerFromText(replyText) || extractTickerFromCommand(raw);
+  if (!ticker) return null;
+
+  if (/\b(move|raise|update)\s+stop\b|\bstop\s+(to\s+)?(breakeven|break even|be)\b/i.test(raw)) {
+    return { action: "move_stop", ticker, percent: null, label: "Move stop", raw, replyText };
+  }
+  if (/\bcancel\b|\bcancel\s+orders?\b/i.test(raw)) {
+    return { action: "cancel_orders", ticker, percent: null, label: "Cancel orders", raw, replyText };
+  }
+  if (/\b(close|exit|sell\s+all|full\s+exit)\b/i.test(raw)) {
+    return { action: "close", ticker, percent: 100, label: "Close position", raw, replyText };
+  }
+  if (/\b(take\s+profits?|take\s+profit|trim|scale\s+out|sell\s+(half|partial|some))\b/i.test(raw)) {
+    const percent = extractCommandPercent(raw) || 50;
+    const clamped = clampNumber(percent, 1, 100);
+    return { action: "trim", ticker, percent: clamped, label: `Trim ${clamped}%`, raw, replyText };
+  }
+  return null;
+}
+
+function extractTickerFromText(text) {
+  const raw = String(text || "");
+  const match = raw.match(/(?:^|\n)\s*⚡\s*\*?([A-Z][A-Z0-9.]{0,9})\*?/i)
+    || raw.match(/\bTicker:\s*([A-Z]{1,10})\b/i);
+  return match ? match[1].toUpperCase().replace(/[^A-Z0-9.]/g, "") : "";
+}
+
+function extractTickerFromCommand(text) {
+  const raw = String(text || "").toUpperCase();
+  const explicit = raw.match(/\b(?:FOR|ON|TICKER)\s+([A-Z][A-Z0-9.]{0,9})\b/);
+  if (explicit) return explicit[1].replace(/[^A-Z0-9.]/g, "");
+  const leading = raw.match(/^([A-Z][A-Z0-9.]{0,9})\b/);
+  if (leading && !["TAKE", "TRIM", "CLOSE", "EXIT", "SELL", "CANCEL", "MOVE", "STOP"].includes(leading[1])) {
+    return leading[1].replace(/[^A-Z0-9.]/g, "");
+  }
+  return "";
+}
+
+function extractCommandPercent(text) {
+  const raw = String(text || "");
+  const pct = raw.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (pct) return Number.parseFloat(pct[1]);
+  if (/\bhalf\b/i.test(raw)) return 50;
+  if (/\bquarter\b/i.test(raw)) return 25;
+  return null;
+}
+
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.max(min, Math.min(max, number));
 }
 
 async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
@@ -415,6 +490,82 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
     ...record,
     watchlist,
     groupTracker,
+    updatedAt,
+  };
+
+  const saveResponse = await fetch(`${baseUrl}/d1/save`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const saveData = await saveResponse.json().catch(() => ({}));
+  if (!saveResponse.ok || saveData.ok === false) {
+    throw new Error(saveData.error || saveData.message || `D1 save failed with ${saveResponse.status}`);
+  }
+}
+
+async function upsertCommandToReportCloud(env, command, post, sourceChatId) {
+  const baseUrl = getReportSyncUrl(env);
+  const key = getReportSyncKey(env);
+  const headers = { "X-Kalki-Key": key };
+  const loadResponse = await fetch(`${baseUrl}/d1/load`, { headers });
+  const loadData = await loadResponse.json().catch(() => ({}));
+  if (!loadResponse.ok || loadData.ok === false) {
+    throw new Error(loadData.error || loadData.message || `D1 load failed with ${loadResponse.status}`);
+  }
+
+  const record = loadData.record && typeof loadData.record === "object" ? loadData.record : {};
+  const updatedAt = new Date().toISOString();
+  const messageId = String(post.message_id || Date.now());
+  const commandEvent = {
+    id: `cmd-${sourceChatId}-${messageId}`,
+    sym: command.ticker,
+    action: command.action,
+    label: command.label,
+    percent: command.percent,
+    text: command.raw,
+    source: "telegram-forwarder",
+    sourceChatId,
+    sourceMessageId: messageId,
+    replyToMessageId: post.reply_to_message?.message_id || null,
+    createdAt: updatedAt,
+  };
+
+  const commandEvents = Array.isArray(record.commandEvents) ? record.commandEvents : [];
+  if (!commandEvents.some((event) => String(event?.id) === commandEvent.id)) {
+    commandEvents.unshift(commandEvent);
+  }
+
+  const groupTracker = Array.isArray(record.groupTracker) ? record.groupTracker : [];
+  let tracker = groupTracker.find((item) => String(item?.sym || "").toUpperCase() === command.ticker);
+  if (!tracker) {
+    tracker = {
+      id: `tg-command-${command.ticker}`,
+      sym: command.ticker,
+      note: "Telegram command",
+      addedIso: updatedAt,
+      addedLabel: new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" }),
+      addedPrice: null,
+      currentPrice: null,
+      pctSinceAdd: null,
+      catalystScore: null,
+      grade: "",
+    };
+    groupTracker.unshift(tracker);
+  }
+  tracker.updatedAt = updatedAt;
+  tracker.latestCommand = commandEvent;
+  tracker.commandEvents = [commandEvent, ...(Array.isArray(tracker.commandEvents) ? tracker.commandEvents : [])]
+    .filter((event, index, arr) => arr.findIndex((candidate) => candidate.id === event.id) === index)
+    .slice(0, 10);
+
+  const payload = {
+    ...record,
+    groupTracker,
+    commandEvents: commandEvents.slice(0, 250),
     updatedAt,
   };
 

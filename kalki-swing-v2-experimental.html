@@ -1137,6 +1137,7 @@ let bestScanLastCount = 0;
 let bestScanLastSource = localStorage.getItem('kalki_best_source') || 'ndx100';
 let bestAutoSource = localStorage.getItem('kalki_best_auto_source') || 'ndx100';
 let gaTrackers = JSON.parse(localStorage.getItem('kalki_ga')||'[]');
+let commandEvents = JSON.parse(localStorage.getItem('kalki_command_events')||'[]');
 let aiTopCandidates = [];
 let aiPaperTrades = JSON.parse(localStorage.getItem('kalki_ai_paper_trades')||'[]');
 let bestAutoIv = null;
@@ -4581,6 +4582,9 @@ function gaSave(){
   localStorage.setItem('kalki_ga', JSON.stringify(gaTrackers));
   setGaSaveStatus('local');
 }
+function commandEventsSave(){
+  localStorage.setItem('kalki_command_events', JSON.stringify(commandEvents));
+}
 function gaPortfolioSortStamp(pos){
   if(!pos) return 0;
   const primary = pos.entryDate || pos.addedAt || pos.closeDate || '';
@@ -4857,6 +4861,7 @@ function gaRender(){
           ${item.aiSetup?`<span class="ga-chip">AI ${item.aiSetup.replace(/_/g,' ')}</span>`:''}
           ${item.aiConfidence!=null?`<span class="ga-chip">AI Conf ${item.aiConfidence}/10</span>`:''}
           ${linked?`<span class="ga-chip">${linked.state==='closed'?'Closed':'In Portfolio'}</span>`:''}
+          ${item.latestCommand?.label?`<span class="ga-chip">Cmd: ${item.latestCommand.label}</span>`:''}
           ${tp.total?`<span class="ga-chip">${tp.hitCount ? `TP${tp.hitCount} hit` : tp.next ? `Next $${tp.next}` : 'Targets tracked'}</span>`:''}
           <span class="ga-chip">${cloudState.label}</span>
         </div>
@@ -6697,6 +6702,7 @@ function syncPayload(opts = {}) {
     watchlist: scTickers,
     groupTracker: groupTrackerPayload,
     subscribers: sbSubs,
+    commandEvents,
     updatedAt: new Date().toISOString()
   };
   if (!forD1) return payload;
@@ -6705,6 +6711,7 @@ function syncPayload(opts = {}) {
     watchlist: d1SanitizeWatchlist(payload.watchlist),
     groupTracker: d1SanitizeGroupTracker(payload.groupTracker),
     subscribers: d1SanitizeSubscribers(payload.subscribers),
+    commandEvents: Array.isArray(payload.commandEvents) ? payload.commandEvents : [],
     updatedAt: payload.updatedAt
   };
 }
@@ -6715,6 +6722,7 @@ function applySyncData(data) {
   if (data.watchlist)    { scTickers   = data.watchlist;    saveSc(); renderSc(); }
   if (data.groupTracker) { gaTrackers  = data.groupTracker; noteGroupTrackerCloudSync(data.groupTracker); gaSave(); gaRender(); }
   if (data.subscribers)  { sbSubs      = data.subscribers;  sbSave(); sbRender(); }
+  if (data.commandEvents) { commandEvents = data.commandEvents; commandEventsSave(); }
   setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
 }
 
