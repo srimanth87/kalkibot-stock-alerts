@@ -17,6 +17,8 @@ export default {
         source_chat_ids: getSourceChatIds(env),
         target_count: parseChatList(env.TARGET_CHANNEL_IDS).length,
         forward_mode: normalizeForwardMode(env.FORWARD_MODE),
+        report_sync_enabled: isReportSyncEnabled(env),
+        report_sync_url: getReportSyncUrl(env) || null,
         dedupe_enabled: hasForwardState,
         reply_threading_enabled: hasForwardState,
         warnings: hasForwardState
@@ -109,6 +111,7 @@ async function handleTelegramWebhook(request, env) {
   }
 
   const forwardMode = normalizeForwardMode(env.FORWARD_MODE);
+  const reportSync = await syncReportFromPost(env, post, sourceChatId);
   const basePayload = {
     from_chat_id: sourceChatId,
     message_id: post.message_id,
@@ -166,6 +169,7 @@ async function handleTelegramWebhook(request, env) {
       ok: true,
       forwarded_count: successes.length,
       failed_count: 0,
+      report_sync: reportSync,
       results: successes,
     });
   }
@@ -177,6 +181,7 @@ async function handleTelegramWebhook(request, env) {
         error: "Some target channel deliveries failed and will be retried by Telegram",
         forwarded_count: successes.length,
         failed_count: failures.length,
+        report_sync: reportSync,
         results: successes,
         failures,
       },
@@ -190,6 +195,7 @@ async function handleTelegramWebhook(request, env) {
       "Some target deliveries failed. Configure a KV binding named FORWARD_STATE if you want safe per-target retries.",
     forwarded_count: successes.length,
     failed_count: failures.length,
+    report_sync: reportSync,
     results: successes,
     failures,
   });
@@ -228,6 +234,202 @@ function getSupportedUpdatePost(update, env) {
 
 function parseBoolean(value) {
   return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
+}
+
+function getReportSyncUrl(env) {
+  return String(env.REPORT_SYNC_URL || "").trim().replace(/\/+$/, "");
+}
+
+function getReportSyncKey(env) {
+  return String(env.REPORT_SYNC_KEY || env.KALKI_SYNC_KEY || "").trim();
+}
+
+function isReportSyncEnabled(env) {
+  if (String(env.REPORT_SYNC_ENABLED || "").trim()) {
+    return parseBoolean(env.REPORT_SYNC_ENABLED);
+  }
+  return Boolean(getReportSyncUrl(env) && getReportSyncKey(env));
+}
+
+async function syncReportFromPost(env, post, sourceChatId) {
+  if (!isReportSyncEnabled(env)) {
+    return { ok: true, skipped: true, reason: "Report sync is not configured" };
+  }
+
+  const text = getPostText(post);
+  const alert = parseScoredAlert(text);
+  if (!alert) {
+    return { ok: true, skipped: true, reason: "No scored stock alert found" };
+  }
+
+  try {
+    await upsertAlertToReportCloud(env, alert, post, sourceChatId);
+    return { ok: true, ticker: alert.sym };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown report sync error";
+    console.error("Report sync failed", {
+      source_chat_id: sourceChatId,
+      message_id: post.message_id,
+      error: message,
+    });
+    return { ok: false, ticker: alert.sym, error: message };
+  }
+}
+
+function getPostText(post) {
+  return String(post?.text || post?.caption || "").trim();
+}
+
+function parseScoredAlert(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+
+  const ticker = raw.match(/(?:^|\n)\s*⚡\s*\*?([A-Z][A-Z0-9.]{0,9})\*?/i)
+    || raw.match(/\b([A-Z]{1,6})\b/);
+  const entry = extractFirstMoneyAfter(raw, /Entry\s*:/i);
+  const stop = extractFirstMoneyAfter(raw, /Stop\s*:/i);
+  const targets = [...raw.matchAll(/T\d+\s*:\s*\$?\s*(\d+(?:\.\d+)?)/gi)]
+    .map((match) => Number.parseFloat(match[1]))
+    .filter(Number.isFinite);
+
+  if (!ticker || !entry || !stop || targets.length === 0) {
+    return null;
+  }
+
+  const sym = ticker[1].toUpperCase().replace(/[^A-Z0-9.]/g, "");
+  const grade = (raw.match(/Grade\s*:\s*([A-D][+-]?)/i)?.[1] || "").toUpperCase();
+  const score = Number.parseFloat(raw.match(/Score\s*:\s*(\d+(?:\.\d+)?)/i)?.[1] || "");
+  const pattern = raw.match(/Pattern\s*:\s*([^\n]+)/i)?.[1]?.trim() || "";
+  const entryMid = (entry.low + entry.high) / 2;
+  const supportLow = Math.min(stop.low, stop.high);
+  const supportHigh = Math.min(entryMid, Math.max(stop.low, stop.high));
+  const resistances = [...new Set(targets.filter((target) => target > entryMid).map((target) => roundPrice(target)))];
+
+  return {
+    sym,
+    grade,
+    score: Number.isFinite(score) ? score : null,
+    pattern,
+    entryLow: roundPrice(entry.low),
+    entryHigh: roundPrice(entry.high),
+    entryMid: roundPrice(entryMid),
+    stop: roundPrice(supportLow),
+    supLow: roundPrice(supportLow),
+    supHigh: roundPrice(supportHigh),
+    brk: roundPrice(supportLow),
+    res: resistances,
+    raw,
+  };
+}
+
+function extractFirstMoneyAfter(text, labelPattern) {
+  const label = text.match(labelPattern);
+  if (!label) return null;
+  const tail = text.slice(label.index + label[0].length, label.index + label[0].length + 80);
+  const range = tail.match(/\$?\s*(\d+(?:\.\d+)?)\s*(?:-|–|—|to)\s*\$?\s*(\d+(?:\.\d+)?)/i);
+  if (range) {
+    const a = Number.parseFloat(range[1]);
+    const b = Number.parseFloat(range[2]);
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      return { low: Math.min(a, b), high: Math.max(a, b) };
+    }
+  }
+  const single = tail.match(/\$?\s*(\d+(?:\.\d+)?)/);
+  if (!single) return null;
+  const value = Number.parseFloat(single[1]);
+  return Number.isFinite(value) ? { low: value, high: value } : null;
+}
+
+function roundPrice(value) {
+  return Math.round(Number(value) * 100) / 100;
+}
+
+async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
+  const baseUrl = getReportSyncUrl(env);
+  const key = getReportSyncKey(env);
+  const headers = { "X-Kalki-Key": key };
+  const loadResponse = await fetch(`${baseUrl}/d1/load`, { headers });
+  const loadData = await loadResponse.json().catch(() => ({}));
+  if (!loadResponse.ok || loadData.ok === false) {
+    throw new Error(loadData.error || loadData.message || `D1 load failed with ${loadResponse.status}`);
+  }
+
+  const record = loadData.record && typeof loadData.record === "object" ? loadData.record : {};
+  const updatedAt = new Date().toISOString();
+  const messageId = String(post.message_id || Date.now());
+  const reportId = `tg-${sourceChatId}-${messageId}`;
+  const watchlist = Array.isArray(record.watchlist) ? record.watchlist : [];
+  const groupTracker = Array.isArray(record.groupTracker) ? record.groupTracker : [];
+  const existingWatchIndex = watchlist.findIndex((item) => String(item?.sym || "").toUpperCase() === alert.sym);
+
+  const watchItem = {
+    ...(existingWatchIndex >= 0 ? watchlist[existingWatchIndex] : {}),
+    sym: alert.sym,
+    supLow: alert.supLow,
+    supHigh: alert.supHigh,
+    brk: alert.brk,
+    res: alert.res,
+    price: null,
+    status: "neutral",
+    monitorTrend: existingWatchIndex >= 0 ? Boolean(watchlist[existingWatchIndex]?.monitorTrend) : false,
+    grade: alert.grade || (existingWatchIndex >= 0 ? watchlist[existingWatchIndex]?.grade || "" : ""),
+    source: "telegram-forwarder",
+    sourceChatId,
+    sourceMessageId: messageId,
+    syncedAt: updatedAt,
+  };
+
+  if (existingWatchIndex >= 0) {
+    watchlist[existingWatchIndex] = watchItem;
+  } else {
+    watchlist.unshift(watchItem);
+  }
+
+  const trackerIndex = groupTracker.findIndex((item) => String(item?.id || "") === reportId);
+  const trackerItem = {
+    ...(trackerIndex >= 0 ? groupTracker[trackerIndex] : {}),
+    id: reportId,
+    sym: alert.sym,
+    note: alert.pattern || "Telegram scored alert",
+    addedIso: updatedAt,
+    addedLabel: new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" }),
+    addedPrice: alert.entryMid,
+    currentPrice: null,
+    pctSinceAdd: null,
+    catalystScore: alert.score,
+    grade: alert.grade,
+    updatedAt,
+    source: "telegram-forwarder",
+    sourceChatId,
+    sourceMessageId: messageId,
+    rawAlert: alert.raw,
+  };
+
+  if (trackerIndex >= 0) {
+    groupTracker[trackerIndex] = trackerItem;
+  } else {
+    groupTracker.unshift(trackerItem);
+  }
+
+  const payload = {
+    ...record,
+    watchlist,
+    groupTracker,
+    updatedAt,
+  };
+
+  const saveResponse = await fetch(`${baseUrl}/d1/save`, {
+    method: "POST",
+    headers: {
+      ...headers,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const saveData = await saveResponse.json().catch(() => ({}));
+  if (!saveResponse.ok || saveData.ok === false) {
+    throw new Error(saveData.error || saveData.message || `D1 save failed with ${saveResponse.status}`);
+  }
 }
 
 function normalizeForwardMode(value) {
