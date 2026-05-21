@@ -5118,7 +5118,19 @@ let pfReviewMode = 'all';
 let pfReviewMonth = '';
 let pfReviewYear = '';
 
-function pfSave(){ localStorage.setItem('kalki_pf', JSON.stringify(pfPositions)); }
+function pfSave(){
+  localStorage.setItem('kalki_pf', JSON.stringify(pfPositions));
+  localStorage.setItem('kalki_pf_updated_at', new Date().toISOString());
+}
+function pfBackupLocal(reason='backup'){
+  if(!Array.isArray(pfPositions) || !pfPositions.length) return;
+  const backup = {
+    reason,
+    savedAt: new Date().toISOString(),
+    positions: pfPositions
+  };
+  localStorage.setItem('kalki_pf_last_backup', JSON.stringify(backup));
+}
 function pfIdEq(a, b){
   return String(a) === String(b);
 }
@@ -6874,10 +6886,38 @@ function syncPayload(opts = {}) {
     updatedAt: payload.updatedAt
   };
 }
+function portfolioMergeKey(item){
+  const id = textOrNull(item?.id);
+  if(id) return `id:${id}`;
+  const sym = textOrNull(item?.sym)?.toUpperCase();
+  const entry = finiteOrNull(item?.entryPrice);
+  const date = textOrNull(item?.entryDate || item?.entry_date);
+  return sym ? `sym:${sym}|entry:${entry ?? ''}|date:${date || ''}` : '';
+}
+function mergePortfolioPreservingLocal(localItems = [], cloudItems = []) {
+  const merged = [];
+  const byKey = new Map();
+  (Array.isArray(localItems) ? localItems : []).forEach(item => {
+    const key = portfolioMergeKey(item);
+    if(!key) return;
+    const normalized = { ...item, sym: textOrNull(item?.sym)?.toUpperCase() };
+    byKey.set(key, normalized);
+    merged.push(normalized);
+  });
+  (Array.isArray(cloudItems) ? cloudItems : []).forEach(item => {
+    const key = portfolioMergeKey(item);
+    if(!key) return;
+    if(byKey.has(key)) return;
+    const normalized = { ...item, sym: textOrNull(item?.sym)?.toUpperCase() };
+    merged.push(normalized);
+    byKey.set(key, item);
+  });
+  return merged;
+}
 function applySyncData(data) {
   if (!data) return;
   noteCloudHydration(data.updatedAt || '');
-  if (data.portfolio)    { pfPositions = data.portfolio;    pfSave(); pfRender(); }
+  if (data.portfolio)    { pfBackupLocal('before-cloud-portfolio-merge'); pfPositions = mergePortfolioPreservingLocal(pfPositions, data.portfolio); pfSave(); pfRender(); }
   if (data.watchlist)    { scTickers   = data.watchlist;    saveSc(); renderSc(); }
   if (data.groupTracker) { gaTrackers  = data.groupTracker; noteGroupTrackerCloudSync(data.groupTracker); gaSave(); gaRender(); }
   if (data.subscribers)  { sbSubs      = data.subscribers;  sbSave(); sbRender(); }
@@ -7264,6 +7304,10 @@ async function d1SyncAll() {
 function mergeD1PayloadForSave(localPayload, cloudRecord) {
   if (!cloudRecord) return localPayload;
   const merged = { ...localPayload };
+  merged.portfolio = mergePortfolioPreservingLocal(
+    localPayload.portfolio || [],
+    cloudRecord.portfolio || []
+  );
   merged.watchlist = mergeByKeyPreservingCloud(
     localPayload.watchlist || [],
     cloudRecord.watchlist || [],
