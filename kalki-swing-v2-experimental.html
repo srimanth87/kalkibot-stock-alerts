@@ -4858,6 +4858,7 @@ function gaRender(){
           <span class="ga-chip">${linked?'Entry':'Added'} ${entryLbl}</span>
           <span class="ga-chip">${holdDays}d held</span>
           ${item.catalystScore!=null?`<span class="ga-chip">Catalyst ${item.catalystScore}/100</span>`:''}
+          ${item.volumeRatio!=null?`<span class="ga-chip">Vol ${Number(item.volumeRatio).toFixed(1)}x</span>`:''}
           ${item.aiSetup?`<span class="ga-chip">AI ${item.aiSetup.replace(/_/g,' ')}</span>`:''}
           ${item.aiConfidence!=null?`<span class="ga-chip">AI Conf ${item.aiConfidence}/10</span>`:''}
           ${linked?`<span class="ga-chip">${linked.state==='closed'?'Closed':'In Portfolio'}</span>`:''}
@@ -6651,6 +6652,9 @@ function d1SanitizeGroupTracker(items = []) {
     currentPrice: finiteOrNull(item?.currentPrice),
     pctSinceAdd: finiteOrNull(item?.pctSinceAdd),
     catalystScore: finiteOrNull(item?.catalystScore),
+    volume: finiteOrNull(item?.volume),
+    volumeRatio: finiteOrNull(item?.volumeRatio),
+    avgVolume20: finiteOrNull(item?.avgVolume20),
     grade: textOrNull(item?.grade),
     updatedAt: isoOrNow(item?.updatedAt),
     portfolioId: textOrNull(item?.portfolioId),

@@ -319,6 +319,7 @@ function parseScoredAlert(text) {
   const grade = (raw.match(/Grade\s*:\s*([A-D][+-]?)/i)?.[1] || "").toUpperCase();
   const score = Number.parseFloat(raw.match(/Score\s*:\s*(\d+(?:\.\d+)?)/i)?.[1] || "");
   const pattern = raw.match(/Pattern\s*:\s*([^\n]+)/i)?.[1]?.trim() || "";
+  const volumeContext = parseVolumeContext(raw);
   const entryMid = (entry.low + entry.high) / 2;
   const supportLow = Math.min(stop.low, stop.high);
   const supportHigh = Math.min(entryMid, Math.max(stop.low, stop.high));
@@ -337,8 +338,34 @@ function parseScoredAlert(text) {
     supHigh: roundPrice(supportHigh),
     brk: roundPrice(supportLow),
     res: resistances,
+    volume: volumeContext.volume,
+    volumeRatio: volumeContext.volumeRatio,
+    avgVolume20: volumeContext.avgVolume20,
     raw,
   };
+}
+
+function parseVolumeContext(text) {
+  const raw = String(text || "");
+  const line = raw.match(/Volume\s*:\s*([0-9.,]+)\s*([KMB])?(?:\s*shares?)?(?:\s*[·|,-]\s*([0-9.]+)\s*x\s*avg)?/i);
+  if (!line) return { volume: null, volumeRatio: null, avgVolume20: null };
+  const volume = parseHumanVolume(line[1], line[2]);
+  const volumeRatio = Number.parseFloat(line[3] || "");
+  return {
+    volume,
+    volumeRatio: Number.isFinite(volumeRatio) ? volumeRatio : null,
+    avgVolume20: volume && Number.isFinite(volumeRatio) && volumeRatio > 0 ? Math.round(volume / volumeRatio) : null,
+  };
+}
+
+function parseHumanVolume(numberText, suffix) {
+  const value = Number.parseFloat(String(numberText || "").replace(/,/g, ""));
+  if (!Number.isFinite(value)) return null;
+  const mult = String(suffix || "").toUpperCase() === "B" ? 1e9
+    : String(suffix || "").toUpperCase() === "M" ? 1e6
+      : String(suffix || "").toUpperCase() === "K" ? 1e3
+        : 1;
+  return Math.round(value * mult);
 }
 
 function extractFirstMoneyAfter(text, labelPattern) {
@@ -448,6 +475,9 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
     status: "neutral",
     monitorTrend: existingWatchIndex >= 0 ? Boolean(watchlist[existingWatchIndex]?.monitorTrend) : false,
     grade: alert.grade || (existingWatchIndex >= 0 ? watchlist[existingWatchIndex]?.grade || "" : ""),
+    volume: alert.volume,
+    volumeRatio: alert.volumeRatio,
+    avgVolume20: alert.avgVolume20,
     source: "telegram-forwarder",
     sourceChatId,
     sourceMessageId: messageId,
@@ -473,6 +503,9 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
     pctSinceAdd: null,
     catalystScore: alert.score,
     grade: alert.grade,
+    volume: alert.volume,
+    volumeRatio: alert.volumeRatio,
+    avgVolume20: alert.avgVolume20,
     updatedAt,
     source: "telegram-forwarder",
     sourceChatId,
