@@ -5147,6 +5147,23 @@ function pfAutoLog(sym, entryPrice, grade, status, resistances, breakdown, supLo
   autoSync();
 }
 
+async function pfRefreshOnePositionPrice(id){
+  const pos = pfFindById(id);
+  if(!pos || pos.state !== 'open') return;
+  try{
+    const r = await fetchYahoo(pos.sym, '1d', '1m');
+    const cls = r.indicators?.quote?.[0]?.close?.filter(c => c != null);
+    if(cls?.length){
+      pos.currentPrice = cls[cls.length - 1];
+      pfSave();
+      pfRender();
+      autoSync();
+    }
+  }catch(_e){
+    // Leave manual entry price in place if live pricing is temporarily unavailable.
+  }
+}
+
 function pfReadManualLevels(){
   const stop = parseFloat(document.getElementById('pfStop')?.value);
   const targets = ['pfT1','pfT2','pfT3','pfT4']
@@ -5257,8 +5274,9 @@ function pfAdd(){
   if(!sym||isNaN(entry))return alert('Enter ticker and entry price');
   const sc=scTickers.find(t=>t.sym===sym);
   const manual = pfReadManualLevels();
+  const id = Date.now();
   pfPositions.unshift({
-    id:Date.now(), sym, entryPrice:entry, entryDate, grade, invest,
+    id, sym, entryPrice:entry, entryDate, grade, invest,
     currentPrice:entry, status:'Added manually',
     resistances:manual.targets.length ? manual.targets : (sc?.res||[]),
     breakdown:manual.stop ?? sc?.brk ?? null,
@@ -5272,6 +5290,7 @@ function pfAdd(){
   ['pfTick','pfEntry','pfNotes','pfEntryDate','pfStop','pfT1','pfT2','pfT3','pfT4'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pfAmt').value='10000';
   pfRender(); autoSync();
+  pfRefreshOnePositionPrice(id);
   switchTab('pf');
 }
 
