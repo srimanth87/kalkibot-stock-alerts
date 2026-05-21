@@ -6967,7 +6967,13 @@ async function d1SyncAll() {
   if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
   d1Status('Syncing...', 'var(--accent)');
   try {
-    const payload = syncPayload({ forD1: true });
+    let payload = syncPayload({ forD1: true });
+    try {
+      const cloudRecord = await d1FetchRecord();
+      payload = mergeD1PayloadForSave(payload, cloudRecord);
+    } catch (_e) {
+      // If the merge read fails, still save the local state so manual sync is not blocked.
+    }
     const endpoint = url.replace(/\/+$/,'') + '/d1/save';
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -6991,6 +6997,43 @@ async function d1SyncAll() {
       : e.message;
     d1Status('❌ ' + msg, 'var(--red)');
   }
+}
+
+function mergeD1PayloadForSave(localPayload, cloudRecord) {
+  if (!cloudRecord) return localPayload;
+  const merged = { ...localPayload };
+  merged.watchlist = mergeByKeyPreservingCloud(
+    localPayload.watchlist || [],
+    cloudRecord.watchlist || [],
+    item => String(item?.sym || '').toUpperCase(),
+    item => String(item?.source || '') === 'telegram-forwarder'
+  );
+  merged.groupTracker = mergeByKeyPreservingCloud(
+    localPayload.groupTracker || [],
+    cloudRecord.groupTracker || [],
+    item => String(item?.id || item?.sym || ''),
+    item => String(item?.source || '') === 'telegram-forwarder'
+  );
+  merged.commandEvents = mergeByKeyPreservingCloud(
+    localPayload.commandEvents || [],
+    cloudRecord.commandEvents || [],
+    item => String(item?.id || ''),
+    item => String(item?.source || '') === 'telegram-forwarder'
+  );
+  merged.updatedAt = new Date().toISOString();
+  return merged;
+}
+
+function mergeByKeyPreservingCloud(localItems, cloudItems, keyFn, shouldPreserveCloud) {
+  const output = [...(Array.isArray(localItems) ? localItems : [])];
+  const seen = new Set(output.map(keyFn).filter(Boolean));
+  (Array.isArray(cloudItems) ? cloudItems : []).forEach(item => {
+    const key = keyFn(item);
+    if (!key || seen.has(key) || !shouldPreserveCloud(item)) return;
+    output.push(item);
+    seen.add(key);
+  });
+  return output;
 }
 
 async function d1LoadAll() {
