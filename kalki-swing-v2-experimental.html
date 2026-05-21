@@ -374,6 +374,12 @@ textarea:focus{border-color:var(--accent);}
 .rp2-meta{display:flex;gap:10px;flex-wrap:wrap;}
 .rp2-meta-item{font-size:10px;font-family:'DM Mono',monospace;color:var(--dim2);}
 .rp2-meta-item span{color:var(--dim);}
+.rp-pnl-split{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border);background:rgba(6,8,16,0.22);}
+.rp-pnl-cell{padding:10px 12px;border-right:1px solid var(--border);min-width:0;}
+.rp-pnl-cell:last-child{border-right:none;}
+.rp-pnl-lbl{font-size:9px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;white-space:nowrap;}
+.rp-pnl-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;}
+.rp-pnl-sub{font-family:'DM Mono',monospace;font-size:9px;color:var(--dim2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ga-top{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;}
 .ga-list{display:flex;flex-direction:column;gap:12px;}
 .ga-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;display:grid;grid-template-columns:120px 1fr 180px;gap:14px;align-items:center;}
@@ -487,6 +493,7 @@ textarea:focus{border-color:var(--accent);}
 
   .rp2-top{flex-direction:column;gap:8px;}
   .rp2-right{text-align:left;}
+  .rp-pnl-split{grid-template-columns:1fr 1fr;}
 
   .compare-grid{grid-template-columns:1fr 1fr;}
 }
@@ -1116,6 +1123,7 @@ textarea:focus{border-color:var(--accent);}
 
     <!-- Stats bar -->
     <div style="display:flex;border-bottom:1px solid var(--border);overflow-x:auto;" id="rpStats"></div>
+    <div id="rpPnlSplit" class="rp-pnl-split"></div>
 
     <!-- Rows -->
     <div id="rpList"><div class="empty-s">No tickers — add some in Zone Scanner tab</div></div>
@@ -6287,6 +6295,56 @@ function rpPct(t) {
   return ((price - t.entryPrice) / t.entryPrice * 100);
 }
 
+function rpPositionPnlAmount(t, baseAmt = rpBaseAmount()) {
+  const pct = rpPct(t);
+  return pct == null ? null : (pct / 100) * baseAmt;
+}
+
+function rpMoney(v) {
+  const n = Math.round(Number(v) || 0);
+  return (n >= 0 ? '+$' : '−$') + Math.abs(n).toLocaleString();
+}
+
+function rpPlainMoney(v) {
+  return '$' + Math.round(Number(v) || 0).toLocaleString();
+}
+
+function rpRenderPnlSplit(filtered, baseAmt) {
+  const rows = filtered
+    .map(t => ({ ...t, _pnlAmount: rpPositionPnlAmount(t, baseAmt) }))
+    .filter(t => t._pnlAmount != null);
+  const closed = rows.filter(t => t.state === 'closed');
+  const open = rows.filter(t => t.state !== 'closed');
+  const realized = closed.reduce((sum, t) => sum + t._pnlAmount, 0);
+  const unrealized = open.reduce((sum, t) => sum + t._pnlAmount, 0);
+  const total = realized + unrealized;
+  const openExposure = open.reduce((sum, t) => sum + baseAmt, 0);
+  const color = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+  const el = document.getElementById('rpPnlSplit');
+  if(!el) return;
+  el.innerHTML = `
+    <div class="rp-pnl-cell">
+      <div class="rp-pnl-lbl">Realized</div>
+      <div class="rp-pnl-val" style="color:${color(realized)}">${rpMoney(realized)}</div>
+      <div class="rp-pnl-sub">${closed.length} closed trade${closed.length===1?'':'s'}</div>
+    </div>
+    <div class="rp-pnl-cell">
+      <div class="rp-pnl-lbl">Unrealized</div>
+      <div class="rp-pnl-val" style="color:${color(unrealized)}">${rpMoney(unrealized)}</div>
+      <div class="rp-pnl-sub">${open.length} open position${open.length===1?'':'s'}</div>
+    </div>
+    <div class="rp-pnl-cell">
+      <div class="rp-pnl-lbl">Combined</div>
+      <div class="rp-pnl-val" style="color:${color(total)}">${rpMoney(total)}</div>
+      <div class="rp-pnl-sub">realized + floating</div>
+    </div>
+    <div class="rp-pnl-cell">
+      <div class="rp-pnl-lbl">Open Exposure</div>
+      <div class="rp-pnl-val" style="color:var(--accent)">${rpPlainMoney(openExposure)}</div>
+      <div class="rp-pnl-sub">${rpBaseAmountLabel()} basis</div>
+    </div>`;
+}
+
 function rpTpBar(t) {
   const res = t.resistances || [];
   if (!res.length) return '';
@@ -6370,6 +6428,7 @@ function rpRender() {
   rpSyncReviewControls();
   if (!pfPositions.length) {
     document.getElementById('rpStats').innerHTML = '';
+    document.getElementById('rpPnlSplit').innerHTML = '';
     document.getElementById('rpList').innerHTML = '<div class="empty-s">No positions — add some in the Portfolio tab first</div>';
     document.getElementById('rpFooterStats').textContent = '—';
     return;
@@ -6393,8 +6452,10 @@ function rpRender() {
     <div class="rp-stat"><div class="rp-stat-num" style="color:var(--accent)">${filtered.length}</div><div class="rp-stat-lbl">Positions</div></div>
     <div class="rp-stat"><div class="rp-stat-num" style="color:var(--accent2)">${winRate}%</div><div class="rp-stat-lbl">Win Rate</div></div>
     <div class="rp-stat"><div class="rp-stat-num" style="color:#a78bfa">${avgHold}d</div><div class="rp-stat-lbl">Avg Hold</div></div>`;
+  rpRenderPnlSplit(filtered, baseAmt);
 
   if (!filtered.length) {
+    document.getElementById('rpPnlSplit').innerHTML = '';
     document.getElementById('rpList').innerHTML = '<div class="empty-s">No positions match this filter</div>';
     document.getElementById('rpFooterStats').textContent = `${rpBaseAmountLabel()} per position · 0 results`;
     return;
