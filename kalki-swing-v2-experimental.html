@@ -175,7 +175,10 @@ input:focus{border-color:var(--accent);}
 textarea{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:#fff;font-family:'DM Mono',monospace;font-size:12px;line-height:1.6;resize:vertical;outline:none;width:100%;}
 textarea:focus{border-color:var(--accent);}
 .add-grid{display:grid;grid-template-columns:90px 1fr 1fr 1fr auto;gap:8px;align-items:end;}
-@media(max-width:600px){.add-grid{grid-template-columns:1fr 1fr;}}
+.pf-add-grid{display:grid;grid-template-columns:80px 90px 90px 90px 70px 1fr auto;gap:8px;align-items:end;}
+.pf-target-grid{display:grid;grid-template-columns:repeat(5, minmax(80px, 1fr));gap:8px;margin-top:10px;}
+@media(max-width:900px){.pf-add-grid,.pf-target-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.add-grid,.pf-add-grid,.pf-target-grid{grid-template-columns:1fr;}}
 .btn{font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:8px 14px;border-radius:6px;border:none;cursor:pointer;transition:all 0.15s;}
 .btn-p{background:var(--accent);color:#000;}.btn-p:hover{background:#fbbf24;}
 .btn-d{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.25);}.btn-d:hover{background:rgba(239,68,68,0.2);}
@@ -334,6 +337,7 @@ textarea:focus{border-color:var(--accent);}
 .pf-tp{font-size:10px;padding:2px 7px;border-radius:12px;font-family:'DM Mono',monospace;border:1px solid var(--border);color:var(--dim);}
 .pf-tp.hit{background:rgba(16,185,129,0.12);color:var(--green);border-color:rgba(16,185,129,0.3);}
 .pf-tp.next{background:rgba(245,158,11,0.12);color:var(--accent);border-color:rgba(245,158,11,0.3);}
+.pf-tp.stop{background:rgba(239,68,68,0.1);color:var(--red);border-color:rgba(239,68,68,0.25);}
 
 /* REPORT TAB */
 .rp-filter-btn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:all 0.15s;white-space:nowrap;}
@@ -915,7 +919,7 @@ textarea:focus{border-color:var(--accent);}
   <!-- Manual add -->
   <div class="scanner-section">
     <div class="sec-title">+ Add Position Manually</div>
-    <div style="display:grid;grid-template-columns:80px 90px 90px 90px 70px 1fr auto;gap:8px;align-items:end;flex-wrap:wrap;">
+    <div class="pf-add-grid">
       <div class="field"><label>Ticker</label><input id="pfTick" placeholder="AXTI" style="text-transform:uppercase"/></div>
       <div class="field"><label>Entry $</label><input id="pfEntry" type="number" placeholder="39.50" step="0.01"/></div>
       <div class="field"><label>Entry Date</label><input id="pfEntryDate" type="date"/></div>
@@ -927,6 +931,13 @@ textarea:focus{border-color:var(--accent);}
       </div>
       <div class="field"><label>Notes</label><input id="pfNotes" placeholder="Entry at support zone"/></div>
       <div class="field"><label>&nbsp;</label><button class="btn btn-p" onclick="pfAdd()">Add</button></div>
+    </div>
+    <div class="pf-target-grid">
+      <div class="field"><label>Stop $</label><input id="pfStop" type="number" placeholder="37.25" step="0.01"/></div>
+      <div class="field"><label>T1 $</label><input id="pfT1" type="number" placeholder="42.00" step="0.01"/></div>
+      <div class="field"><label>T2 $</label><input id="pfT2" type="number" placeholder="46.00" step="0.01"/></div>
+      <div class="field"><label>T3 $</label><input id="pfT3" type="number" placeholder="50.00" step="0.01"/></div>
+      <div class="field"><label>T4 $</label><input id="pfT4" type="number" placeholder="55.00" step="0.01"/></div>
     </div>
   </div>
 
@@ -5125,6 +5136,31 @@ function pfAutoLog(sym, entryPrice, grade, status, resistances, breakdown, supLo
   autoSync();
 }
 
+function pfReadManualLevels(){
+  const stop = parseFloat(document.getElementById('pfStop')?.value);
+  const targets = ['pfT1','pfT2','pfT3','pfT4']
+    .map(id => parseFloat(document.getElementById(id)?.value))
+    .filter(v => Number.isFinite(v) && v > 0);
+  return {
+    stop: Number.isFinite(stop) && stop > 0 ? stop : null,
+    targets
+  };
+}
+
+function pfTargetsText(pos){
+  return (Array.isArray(pos?.resistances) ? pos.resistances : [])
+    .map(v => Number(v))
+    .filter(v => Number.isFinite(v) && v > 0)
+    .join(', ');
+}
+
+function pfParseTargetsText(text){
+  return String(text || '')
+    .split(/[,;\s]+/)
+    .map(v => parseFloat(v.replace(/^\$/, '')))
+    .filter(v => Number.isFinite(v) && v > 0);
+}
+
 function pfAdd(){
   const sym=(document.getElementById('pfTick').value||'').trim().toUpperCase();
   const entry=parseFloat(document.getElementById('pfEntry').value);
@@ -5134,16 +5170,18 @@ function pfAdd(){
   const notes=document.getElementById('pfNotes').value.trim();
   if(!sym||isNaN(entry))return alert('Enter ticker and entry price');
   const sc=scTickers.find(t=>t.sym===sym);
+  const manual = pfReadManualLevels();
   pfPositions.unshift({
     id:Date.now(), sym, entryPrice:entry, entryDate, grade, invest,
     currentPrice:entry, status:'Added manually',
-    resistances:sc?.res||[], breakdown:sc?.brk||null,
+    resistances:manual.targets.length ? manual.targets : (sc?.res||[]),
+    breakdown:manual.stop ?? sc?.brk ?? null,
     supLow:sc?.supLow||null, supHigh:sc?.supHigh||null,
     notes, state:'open', closedPrice:null, closeDate:null,
     addedAt:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
   });
   pfSave();
-  ['pfTick','pfEntry','pfNotes','pfEntryDate'].forEach(id=>document.getElementById(id).value='');
+  ['pfTick','pfEntry','pfNotes','pfEntryDate','pfStop','pfT1','pfT2','pfT3','pfT4'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pfAmt').value='10000';
   pfRender(); autoSync();
   switchTab('pf');
@@ -5158,6 +5196,10 @@ function pfEdit(id){
   if(entryDate===null)return;
   const invest=prompt('Amount invested ($):', pos.invest||10000);
   if(invest===null)return;
+  const stop=prompt('Stop price:', pos.breakdown || '');
+  if(stop===null)return;
+  const targets=prompt('Targets, comma separated:', pfTargetsText(pos));
+  if(targets===null)return;
   const notes=prompt('Notes:', pos.notes||'');
   if(notes===null)return;
   let closedPrice = null, closeDate = null;
@@ -5170,6 +5212,9 @@ function pfEdit(id){
   if(entry) pos.entryPrice=parseFloat(entry)||pos.entryPrice;
   if(entryDate) pos.entryDate=entryDate;
   if(invest) pos.invest=parseFloat(invest)||pos.invest;
+  if(stop.trim()==='') pos.breakdown=null;
+  else pos.breakdown=parseFloat(stop)||pos.breakdown;
+  pos.resistances=pfParseTargetsText(targets);
   if(pos.state === 'closed'){
     if(closedPrice) pos.closedPrice=parseFloat(closedPrice)||pos.closedPrice;
     if(closeDate) pos.closeDate=closeDate;
@@ -5390,6 +5435,9 @@ function pfRender(){
       const isNext=!hit&&(i===0||(pos.resistances[i-1]&&pos.currentPrice>=pos.resistances[i-1]));
       return `<span class="pf-tp ${hit?'hit':isNext?'next':''}">${hit?'✓ ':''}TP${i+1} $${r}</span>`;
     }).join('');
+    const stopPill=pos.breakdown
+      ? `<span class="pf-tp stop">Stop $${Number(pos.breakdown).toFixed(2)}</span>`
+      : '';
 
     const priceDisplay=pos.state==='closed'
       ?`<span style="color:var(--dim);font-size:11px;">Closed @ $${pos.closedPrice?.toFixed(2)}</span>`
@@ -5415,7 +5463,7 @@ function pfRender(){
           <div><div class="pf-lbl">Shares</div><div class="pf-val">${shares.toFixed(1)}</div></div>
         </div>`}
         <div class="pf-status">${pos.status}${pos.notes?' · <span style="color:var(--dim)">'+pos.notes+'</span>':''} · <span style="color:var(--dim2)">${pos.addedAt}</span></div>
-        ${tpPills?`<div class="pf-tp-row">${tpPills}</div>`:''}
+        ${(stopPill||tpPills)?`<div class="pf-tp-row">${stopPill}${tpPills}</div>`:''}
         <div class="pf-actions">
           <button class="btn btn-sm" onclick='pfEdit(${JSON.stringify(String(pos.id))})' style="background:rgba(59,130,246,0.1);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);">✏ Edit</button>
           ${pos.state!=='closed'?`<button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick='pfClose(${JSON.stringify(String(pos.id))})'>✓ Close Position</button>`:'<span style="font-size:10px;color:var(--dim);padding:5px 0;">CLOSED</span>'}
