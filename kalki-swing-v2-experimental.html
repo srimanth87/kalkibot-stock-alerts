@@ -319,6 +319,7 @@ textarea:focus{border-color:var(--accent);}
 .pf-grade{font-size:10px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:20px;display:inline-block;margin-top:2px;}
 .pf-grade.ap{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
 .pf-grade.a{background:rgba(59,130,246,0.15);color:var(--accent2);border:1px solid rgba(59,130,246,0.3);}
+.pf-grade.bp{background:rgba(34,211,238,0.14);color:var(--cyan);border:1px solid rgba(34,211,238,0.28);}
 .pf-grade.b{background:rgba(245,158,11,0.15);color:var(--accent);border:1px solid rgba(245,158,11,0.3);}
 .pf-grade.c{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
 .pf-grade.d{background:rgba(127,29,29,0.25);color:#fca5a5;border:1px solid rgba(248,113,113,0.35);}
@@ -926,7 +927,7 @@ textarea:focus{border-color:var(--accent);}
       <div class="field"><label>Invest $</label><input id="pfAmt" type="number" placeholder="10000" step="100"/></div>
       <div class="field"><label>Grade</label>
         <select id="pfGrade" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%;">
-          <option>A+</option><option>A</option><option selected>B</option><option>C</option><option>D</option>
+          <option>A+</option><option>A</option><option>B+</option><option selected>B</option><option>C</option><option>D</option>
         </select>
       </div>
       <div class="field"><label>Notes</label><input id="pfNotes" placeholder="Entry at support zone"/></div>
@@ -1814,7 +1815,7 @@ function adjustGradeWithPattern(baseGrade, patternScore, ctx={}){
   return grade;
 }
 function gradeRank(g){
-  return g==='A+'?5:g==='A'?4:g==='B'?3:g==='C'?2:g==='D'?1:0;
+  return g==='A+'?6:g==='A'?5:g==='B+'?4:g==='B'?3:g==='C'?2:g==='D'?1:0;
 }
 function bestKnownGradeForSymbol(sym, currentGrade=''){
   let best = currentGrade || '';
@@ -5546,7 +5547,7 @@ function pfRender(){
     const {shares,currentVal,pnl,pct}=pfCalcPnl(pos);
     const isPos=pnl>=0;
     const winCls=pos.state==='closed'?'closed':isPos?'win':'loss';
-    const gradeCls=pos.grade==='A+'?'ap':pos.grade==='A'?'a':pos.grade==='B'?'b':pos.grade==='C'?'c':'d';
+    const gradeCls=pos.grade==='A+'?'ap':pos.grade==='A'?'a':pos.grade==='B+'?'bp':pos.grade==='B'?'b':pos.grade==='C'?'c':'d';
 
     // TP pills
     const tpPills=(pos.resistances||[]).map((r,i)=>{
