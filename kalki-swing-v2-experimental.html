@@ -6894,6 +6894,42 @@ async function d1FetchPortfolioRows() {
   return result?.results || [];
 }
 
+async function d1FetchWatchlistRows() {
+  const result = await d1Query(`
+    SELECT
+      sym,
+      grade,
+      status,
+      support_low,
+      support_high,
+      breakdown,
+      resistances_json,
+      updated_at,
+      raw_json
+    FROM watchlist_items
+  `);
+  return result?.results || [];
+}
+
+async function d1FetchGroupAlertRows() {
+  const result = await d1Query(`
+    SELECT
+      id,
+      sym,
+      note,
+      entry_date,
+      grade,
+      linked_portfolio_id,
+      status,
+      pct_since_add,
+      updated_at,
+      added_at,
+      raw_json
+    FROM group_alerts
+  `);
+  return result?.results || [];
+}
+
 function d1MergePortfolioRows(record, rows = []) {
   const base = record ? { ...record } : {};
   const currentPortfolio = Array.isArray(base.portfolio) ? base.portfolio : [];
@@ -6946,6 +6982,70 @@ function d1MergePortfolioRows(record, rows = []) {
   return base;
 }
 
+function d1MergeWatchlistRows(record, rows = []) {
+  const base = record ? { ...record } : {};
+  const current = Array.isArray(base.watchlist) ? base.watchlist : [];
+  const bySym = new Map(current.map(item => [String(item?.sym || '').toUpperCase(), item]));
+  rows.forEach(row => {
+    let raw = {};
+    try { raw = row?.raw_json ? JSON.parse(row.raw_json) : {}; } catch (_e) {}
+    const sym = textOrNull(row?.sym || raw?.sym)?.toUpperCase();
+    if (!sym) return;
+    bySym.set(sym, {
+      ...(bySym.get(sym) || {}),
+      ...raw,
+      sym,
+      grade: textOrNull(row?.grade ?? raw?.grade),
+      status: textOrNull(row?.status ?? raw?.status) || 'neutral',
+      supLow: finiteOrNull(row?.support_low) ?? finiteOrNull(raw?.supLow),
+      supHigh: finiteOrNull(row?.support_high) ?? finiteOrNull(raw?.supHigh),
+      brk: finiteOrNull(row?.breakdown) ?? finiteOrNull(raw?.brk),
+      res: parseJsonArray(row?.resistances_json, raw?.res || []),
+      updatedAt: textOrNull(row?.updated_at || raw?.updatedAt)
+    });
+  });
+  base.watchlist = [...bySym.values()];
+  return base;
+}
+
+function d1MergeGroupAlertRows(record, rows = []) {
+  const base = record ? { ...record } : {};
+  const current = Array.isArray(base.groupTracker) ? base.groupTracker : [];
+  const byId = new Map(current.map(item => [String(item?.id || item?.sym || ''), item]));
+  rows.forEach((row, idx) => {
+    let raw = {};
+    try { raw = row?.raw_json ? JSON.parse(row.raw_json) : {}; } catch (_e) {}
+    const id = textOrNull(row?.id || raw?.id) || `ga-row-${idx}`;
+    const sym = textOrNull(row?.sym || raw?.sym)?.toUpperCase();
+    if (!sym) return;
+    byId.set(String(id), {
+      ...(byId.get(String(id)) || {}),
+      ...raw,
+      id,
+      sym,
+      note: textOrNull(row?.note ?? raw?.note),
+      addedIso: textOrNull(row?.added_at || raw?.addedIso),
+      grade: textOrNull(row?.grade ?? raw?.grade),
+      portfolioId: textOrNull(row?.linked_portfolio_id || raw?.portfolioId),
+      status: textOrNull(row?.status || raw?.status),
+      pctSinceAdd: finiteOrNull(row?.pct_since_add) ?? finiteOrNull(raw?.pctSinceAdd),
+      updatedAt: textOrNull(row?.updated_at || raw?.updatedAt),
+      entryDate: textOrNull(row?.entry_date || raw?.entryDate)
+    });
+  });
+  base.groupTracker = [...byId.values()];
+  return base;
+}
+
+function parseJsonArray(text, fallback = []) {
+  try {
+    const parsed = JSON.parse(text || '[]');
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (_e) {
+    return fallback;
+  }
+}
+
 async function d1FetchRecord() {
   const url = d1SyncUrl();
   const key = d1SyncKey();
@@ -6956,9 +7056,16 @@ async function d1FetchRecord() {
   });
   const d = await res.json();
   if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 load failed');
-  const record = d.record || null;
-  const portfolioRows = await d1FetchPortfolioRows();
-  return d1MergePortfolioRows(record, portfolioRows);
+  let record = d.record || null;
+  const [portfolioRows, watchlistRows, groupAlertRows] = await Promise.all([
+    d1FetchPortfolioRows(),
+    d1FetchWatchlistRows(),
+    d1FetchGroupAlertRows()
+  ]);
+  record = d1MergePortfolioRows(record, portfolioRows);
+  record = d1MergeWatchlistRows(record, watchlistRows);
+  record = d1MergeGroupAlertRows(record, groupAlertRows);
+  return record;
 }
 
 async function d1SyncAll() {

@@ -539,6 +539,55 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
   if (!saveResponse.ok || saveData.ok === false) {
     throw new Error(saveData.error || saveData.message || `D1 save failed with ${saveResponse.status}`);
   }
+  await upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, updatedAt);
+}
+
+async function upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, updatedAt) {
+  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO watchlist_items
+    (sym, grade, status, support_low, support_high, breakdown, resistances_json, updated_at, raw_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+    alert.sym,
+    alert.grade || "",
+    "neutral",
+    alert.supLow,
+    alert.supHigh,
+    alert.brk,
+    JSON.stringify(alert.res || []),
+    updatedAt,
+    JSON.stringify(watchItem),
+  ]);
+
+  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO group_alerts
+    (id, sym, note, entry_date, grade, linked_portfolio_id, status, pct_since_add, updated_at, added_at, raw_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+    trackerItem.id,
+    alert.sym,
+    alert.pattern || "Telegram scored alert",
+    null,
+    alert.grade || "",
+    null,
+    null,
+    null,
+    updatedAt,
+    updatedAt,
+    JSON.stringify(trackerItem),
+  ]);
+}
+
+async function d1Query(baseUrl, key, sql, params = []) {
+  const response = await fetch(`${baseUrl}/d1/query`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "X-Kalki-Key": key,
+    },
+    body: JSON.stringify({ sql, params }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.error || data.message || `D1 query failed with ${response.status}`);
+  }
+  return data.result;
 }
 
 async function upsertCommandToReportCloud(env, command, post, sourceChatId) {
