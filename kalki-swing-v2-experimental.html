@@ -969,6 +969,7 @@ textarea:focus{border-color:var(--accent);}
     <button class="btn btn-sm" id="pfFilterWin" onclick="pfSetFilter('win')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Winners</button>
     <button class="btn btn-sm" id="pfFilterLoss" onclick="pfSetFilter('loss')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Losers</button>
     <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="d1SyncAll()" style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.45);color:var(--accent);">☁ Sync D1</button>
       <button class="btn btn-sm" onclick="d1LoadAll()" style="background:transparent;border:1px solid var(--border);color:var(--text);">⬇ Load D1</button>
       <button class="btn btn-sm" onclick="pfRefreshAll()" style="background:transparent;border:1px solid var(--border);color:var(--text);">🔄 Refresh Prices</button>
       <button class="btn btn-d btn-sm" onclick="pfClearClosed()">Clear Closed</button>
@@ -7408,6 +7409,7 @@ async function d1SyncAll() {
   const key = d1SyncKey();
   if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
   d1Status('Syncing...', 'var(--accent)');
+  pfCloudStatus(`Syncing ${pfPositions.length} local positions to D1...`, 'var(--accent)');
   try {
     let payload = syncPayload({ forD1: true });
     try {
@@ -7432,12 +7434,14 @@ async function d1SyncAll() {
     noteCloudHydration(payload.updatedAt);
     noteCloudSync(payload.updatedAt);
     noteGroupTrackerCloudSync(gaTrackers);
-    d1Status('✅ Synced ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+    d1Status(`✅ Synced ${payload.portfolio?.length || 0} D1 positions`);
+    pfCloudStatus(`Synced ${payload.portfolio?.length || 0} positions to D1`, 'var(--green)');
   } catch(e) {
     const msg = e?.message === 'Failed to fetch'
       ? 'Browser could not complete the D1 save request.'
       : e.message;
     d1Status('❌ ' + msg, 'var(--red)');
+    pfCloudStatus('D1 sync failed: ' + msg, 'var(--red)');
   }
 }
 
