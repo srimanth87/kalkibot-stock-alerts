@@ -6696,17 +6696,20 @@ function rpBuildTelegramCardSvg(data) {
   const footerBoxH = 48;
   const footerBoxY = height - footerBoxH - 30;
 
+  const summaryBoxW = 176;
+  const summaryBoxGap = 18;
   const summaryBoxes = [
-    {x:30,  label:'PROFIT',    value:data.pnlStr,                 sub:(data.totalPct>=0?'+':'')+data.totalPct.toFixed(1)+'%', color:profitColor, glow:'rgba(34,197,94,0.28)'},
-    {x:292, label:'WIN RATE',  value:data.winRate+'%',            sub:data.avgHold+'d avg hold',                                color:'#8bb3ff',   glow:'rgba(96,165,250,0.24)'},
-    {x:554, label:'POSITIONS', value:String(data.filtered.length),sub:`${data.wins}W / ${data.losses}L`,                        color:'#b38cff',   glow:'rgba(168,85,247,0.24)'}
+    {x:30, label:'PROFIT',    value:data.pnlStr,                                      sub:'total P&L',          color:profitColor, glow:'rgba(34,197,94,0.28)'},
+    {x:30+(summaryBoxW+summaryBoxGap), label:'TOTAL %', value:(data.totalPct>=0?'+':'')+data.totalPct.toFixed(1)+'%', sub:'earned', color:profitColor, glow:'rgba(34,197,94,0.26)'},
+    {x:30+(summaryBoxW+summaryBoxGap)*2, label:'WIN RATE',  value:data.winRate+'%',   sub:data.avgHold+'d avg hold', color:'#8bb3ff',   glow:'rgba(96,165,250,0.24)'},
+    {x:30+(summaryBoxW+summaryBoxGap)*3, label:'POSITIONS', value:String(data.filtered.length), sub:`${data.wins}W / ${data.losses}L`, color:'#b38cff',   glow:'rgba(168,85,247,0.24)'}
   ].map(b=>`
-    <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="#0f1628" stroke="#22314a" stroke-width="1.2"/>
-    <rect x="${b.x}" y="92" width="236" height="82" rx="16" fill="${b.glow}" fill-opacity="0.22"/>
-    <rect x="${b.x+1}" y="93" width="234" height="18" rx="15" fill="rgba(255,255,255,0.035)"/>
-    <text x="${b.x+26}" y="125" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="#8796ad" letter-spacing="1.6">${b.label}</text>
-    <text x="${b.x+26}" y="151" font-family="DM Sans, Arial, sans-serif" font-size="22" font-weight="800" fill="${b.color}">${rpXmlEsc(b.value)}</text>
-    <text x="${b.x+26}" y="169" font-family="DM Sans, Arial, sans-serif" font-size="12" font-weight="600" fill="#9fb0c9">${rpXmlEsc(b.sub)}</text>`).join('');
+    <rect x="${b.x}" y="92" width="${summaryBoxW}" height="82" rx="16" fill="#0f1628" stroke="#22314a" stroke-width="1.2"/>
+    <rect x="${b.x}" y="92" width="${summaryBoxW}" height="82" rx="16" fill="${b.glow}" fill-opacity="0.22"/>
+    <rect x="${b.x+1}" y="93" width="${summaryBoxW-2}" height="18" rx="15" fill="rgba(255,255,255,0.035)"/>
+    <text x="${b.x+20}" y="125" font-family="DM Sans, Arial, sans-serif" font-size="12" font-weight="700" fill="#8796ad" letter-spacing="1.35">${b.label}</text>
+    <text x="${b.x+20}" y="151" font-family="DM Sans, Arial, sans-serif" font-size="21" font-weight="800" fill="${b.color}">${rpXmlEsc(b.value)}</text>
+    <text x="${b.x+20}" y="169" font-family="DM Sans, Arial, sans-serif" font-size="12" font-weight="600" fill="#9fb0c9">${rpXmlEsc(b.sub)}</text>`).join('');
 
   let sectionsMarkup='', y=headerH+summaryH;
   const cb=rpSvgSection('CLOSED',    '#57d26f', data.closed,   y, width); sectionsMarkup+=cb.markup; y=cb.nextY;
