@@ -6185,16 +6185,22 @@ function rpDaysHeld(t) {
   return Math.max(0, Math.round((end - start) / 86400000));
 }
 
+function rpQuickFilterDates(t) {
+  const dates = rpDatesForReview(t);
+  if (rpReviewMode === 'closed') return dates.closed ? [dates.closed] : [];
+  if (rpReviewMode === 'entered') return dates.entered ? [dates.entered] : [];
+  return [dates.entered, dates.closed].filter(Boolean);
+}
+
 function rpIsThisMonth(t) {
-  const now = new Date(), d = new Date(t.entryDate || t.addedAt || 0);
-  return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  const now = new Date();
+  return rpQuickFilterDates(t).some(d => d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear());
 }
 
 function rpIsLastMonth(t) {
   const now = new Date();
   const last = new Date(now.getFullYear(), now.getMonth()-1, 1);
-  const d = new Date(t.entryDate || t.addedAt || 0);
-  return d.getMonth()===last.getMonth() && d.getFullYear()===last.getFullYear();
+  return rpQuickFilterDates(t).some(d => d.getMonth()===last.getMonth() && d.getFullYear()===last.getFullYear());
 }
 function rpStartOfWeek(d) {
   const dt = new Date(d);
@@ -6203,16 +6209,14 @@ function rpStartOfWeek(d) {
   return dt;
 }
 function rpIsThisWeek(t) {
-  const d = new Date(t.entryDate || t.addedAt || 0);
   const start = rpStartOfWeek(new Date());
   const end = new Date(start); end.setDate(start.getDate() + 7);
-  return d >= start && d < end;
+  return rpQuickFilterDates(t).some(d => d >= start && d < end);
 }
 function rpIsLastWeek(t) {
-  const d = new Date(t.entryDate || t.addedAt || 0);
   const thisStart = rpStartOfWeek(new Date());
   const lastStart = new Date(thisStart); lastStart.setDate(thisStart.getDate() - 7);
-  return d >= lastStart && d < thisStart;
+  return rpQuickFilterDates(t).some(d => d >= lastStart && d < thisStart);
 }
 function rpFilterLabel() {
   return rpFilter === 'open' ? 'Open Positions'
