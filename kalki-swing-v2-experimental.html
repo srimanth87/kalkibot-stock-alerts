@@ -6127,6 +6127,65 @@ function rpMatchesReview(t) {
   });
 }
 
+function rpReviewScopeLabel() {
+  if (rpReviewMode === 'closed' || rpFilter === 'closed') return 'Closed Positions';
+  if (rpFilter === 'open') return 'Open Positions';
+  if (rpReviewMode === 'entered') return 'Entered Positions';
+  return 'All Positions';
+}
+
+function rpAdvancedReviewLabel() {
+  const monthLabel = rpReviewMonth === '' ? '' : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(rpReviewMonth)];
+  if (monthLabel && rpReviewYear) return `${monthLabel} ${rpReviewYear}`;
+  if (monthLabel) return monthLabel;
+  if (rpReviewYear) return String(rpReviewYear);
+  return '';
+}
+
+function rpPeriodRange() {
+  const now = new Date();
+  if (rpFilter === 'thisweek' || rpFilter === 'lastweek') {
+    const start = rpStartOfWeek(now);
+    if (rpFilter === 'lastweek') start.setDate(start.getDate() - 7);
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    return { label: rpFilter === 'thisweek' ? 'This Week' : 'Last Week', start, end };
+  }
+  if (rpFilter === 'thismonth' || rpFilter === 'lastmonth') {
+    const monthOffset = rpFilter === 'lastmonth' ? -1 : 0;
+    const start = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    return { label: rpFilter === 'thismonth' ? 'This Month' : 'Last Month', start, end };
+  }
+  return null;
+}
+
+function rpScopeDateRangeLabel(range) {
+  if (!range) return '';
+  const sameYear = range.start.getFullYear() === range.end.getFullYear();
+  const sameMonth = sameYear && range.start.getMonth() === range.end.getMonth();
+  const endFmt = { month:'short', day:'numeric', year:'numeric' };
+  if (sameMonth) {
+    return `${range.start.toLocaleDateString('en-US',{month:'short',day:'numeric'})}-${range.end.getDate()}, ${range.end.getFullYear()}`;
+  }
+  if (sameYear) {
+    return `${range.start.toLocaleDateString('en-US',{month:'short',day:'numeric'})}-${range.end.toLocaleDateString('en-US',endFmt)}`;
+  }
+  return `${range.start.toLocaleDateString('en-US',endFmt)}-${range.end.toLocaleDateString('en-US',endFmt)}`;
+}
+
+function rpReportScopeLabel() {
+  const parts = [rpReviewScopeLabel()];
+  const period = rpPeriodRange();
+  if (period) {
+    parts.push(period.label, rpScopeDateRangeLabel(period));
+  } else if (!['all','open','closed'].includes(rpFilter)) {
+    parts.push(rpFilterLabel());
+  }
+  const advanced = period ? '' : rpAdvancedReviewLabel();
+  if (advanced) parts.push(advanced);
+  return parts.filter(Boolean).join(' · ');
+}
+
 function rpPopulateYearOptions() {
   const sel = document.getElementById('rpReviewYear');
   if (!sel) return;
@@ -6150,10 +6209,7 @@ function rpSyncReviewControls() {
   if (month) month.value = rpReviewMonth;
   if (year) year.value = rpReviewYear;
   if (hint) {
-    const modeLabel = rpReviewMode === 'entered' ? 'Entered' : rpReviewMode === 'closed' ? 'Closed' : 'All Activity';
-    const monthLabel = rpReviewMonth === '' ? 'Any Month' : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(rpReviewMonth)];
-    const yearLabel = rpReviewYear === '' ? 'Any Year' : rpReviewYear;
-    hint.textContent = `Review: ${modeLabel} · ${monthLabel} · ${yearLabel}`;
+    hint.textContent = `Report: ${rpReportScopeLabel()}`;
   }
 }
 
@@ -6560,7 +6616,7 @@ async function rpSendTelegramMode(mode='static') {
     const form = new FormData();
     form.append('chat_id', cid);
     form.append('document', pngBlob, rpTelegramFilename(data.capitalMethod));
-    form.append('caption', `${data.captionTitle} · ${data.filterLabel} · ${data.dateShort}`);
+    form.append('caption', `${data.captionTitle} · ${data.scopeLabel} · ${data.dateShort}`);
     const r = await fetch(`https://api.telegram.org/bot${tok}/sendDocument`, { method:'POST', body:form });
     const d = await r.json();
     if (!d.ok) throw new Error(d.description || 'Telegram document upload failed');
@@ -6628,6 +6684,7 @@ function rpTelegramReportData(mode='static') {
     baseAmount: baseAmt,
     captionTitle: mode === 'rotating' ? 'Kalki Rotating Report' : 'Kalki Report',
     headerTitle: mode === 'rotating' ? `${rpFilterLabel().toUpperCase()} ROTATING REPORT` : `${rpFilterLabel().toUpperCase()} REPORT`,
+    scopeLabel: rpReportScopeLabel(),
     filterLabel: rpFilterLabel(),
     filterSlug: rpFilterSlug(),
     dateShort: new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}),
@@ -6741,7 +6798,8 @@ function rpBuildTelegramCardSvg(data) {
     <circle cx="84"  cy="146" r="96"  fill="rgba(34,197,94,0.06)"  filter="url(#softGlow)"/>
     <text x="32" y="54" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="800" fill="#ffffff">⚡ ${rpXmlEsc(data.headerTitle || (data.filterLabel.toUpperCase() + ' REPORT'))}</text>
     <text x="${width-32}" y="54" text-anchor="end" font-family="DM Sans, Arial, sans-serif" font-size="18" fill="#9cabbe">${rpXmlEsc(data.dateShort)}</text>
-    <line x1="32" y1="72" x2="${width-32}" y2="72" stroke="#22314a" stroke-width="1"/>
+    <text x="34" y="78" font-family="DM Sans, Arial, sans-serif" font-size="13" font-weight="700" fill="#8fa3c3" letter-spacing="0.5">${rpXmlEsc(data.scopeLabel || data.filterLabel)}</text>
+    <line x1="32" y1="84" x2="${width-32}" y2="84" stroke="#22314a" stroke-width="1"/>
     ${summaryBoxes}
     ${sectionsMarkup}
     <rect x="30" y="${footerBoxY}" width="${width-60}" height="${footerBoxH}" rx="14" fill="#0c1323" stroke="#1e2b44" stroke-width="1.2"/>
@@ -6798,7 +6856,7 @@ function rpBuildTelegramFallbackText(data) {
   const basisLine = data.capitalMethod === 'rotating'
     ? `_Capital required ${'$'+Number(data.capitalBase||0).toLocaleString()} · ${data.maxConcurrent||0} max concurrent · position size: ${'$'+Number(data.baseAmount||0).toLocaleString()}_`
     : `_${'$'+Number(data.baseAmount||0).toLocaleString()} invested per position_`;
-  return `⚡ *KALKI ${rpXmlEsc(data.headerTitle || (data.filterLabel.toUpperCase() + ' REPORT'))}* · ${data.dateShort}\n────────────\n💰 *${data.pnlStr}* (${totalPct})\n🎯 Win *${data.winRate}%*\n📦 *${data.filtered.length}* positions · ${data.wins}W / ${data.losses}L\n\n${sections}${basisLine}\n────────────\n⚡ _Kalki Analysis Platform_`;
+  return `⚡ *KALKI ${rpXmlEsc(data.headerTitle || (data.filterLabel.toUpperCase() + ' REPORT'))}* · ${data.dateShort}\n_${data.scopeLabel || data.filterLabel}_\n────────────\n💰 *${data.pnlStr}* (${totalPct})\n🎯 Win *${data.winRate}%*\n📦 *${data.filtered.length}* positions · ${data.wins}W / ${data.losses}L\n\n${sections}${basisLine}\n────────────\n⚡ _Kalki Analysis Platform_`;
 }
 
 // ══════════════════════════════════════════════════════
