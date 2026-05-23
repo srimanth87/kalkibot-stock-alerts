@@ -969,10 +969,12 @@ textarea:focus{border-color:var(--accent);}
     <button class="btn btn-sm" id="pfFilterWin" onclick="pfSetFilter('win')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Winners</button>
     <button class="btn btn-sm" id="pfFilterLoss" onclick="pfSetFilter('loss')" style="background:transparent;border:1px solid var(--border);color:var(--dim);">Losers</button>
     <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-sm" onclick="d1LoadAll()" style="background:transparent;border:1px solid var(--border);color:var(--text);">⬇ Load D1</button>
       <button class="btn btn-sm" onclick="pfRefreshAll()" style="background:transparent;border:1px solid var(--border);color:var(--text);">🔄 Refresh Prices</button>
       <button class="btn btn-d btn-sm" onclick="pfClearClosed()">Clear Closed</button>
     </div>
   </div>
+  <div class="hint" id="pfCloudStatus" style="margin:-4px 0 12px;">Saved locally</div>
   <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
     <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:var(--dim);">Review</span>
     <select id="pfReviewMode" onchange="pfSetReviewMode(this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;min-width:130px;">
@@ -5131,6 +5133,10 @@ function pfSave(){
   localStorage.setItem('kalki_pf', JSON.stringify(pfPositions));
   localStorage.setItem('kalki_pf_updated_at', new Date().toISOString());
 }
+function pfCloudStatus(msg, color='var(--dim)'){
+  const el = document.getElementById('pfCloudStatus');
+  if(el){ el.textContent = msg; el.style.color = color; }
+}
 function pfBackupLocal(reason='backup'){
   if(!Array.isArray(pfPositions) || !pfPositions.length) return;
   const backup = {
@@ -7043,10 +7049,10 @@ function mergePortfolioPreservingLocal(localItems = [], cloudItems = []) {
   });
   return merged;
 }
-function applySyncData(data) {
+function applySyncData(data, source='cloud') {
   if (!data) return;
   noteCloudHydration(data.updatedAt || '');
-  if (data.portfolio)    { pfBackupLocal('before-cloud-portfolio-merge'); pfPositions = mergePortfolioPreservingLocal(pfPositions, data.portfolio); pfSave(); pfRender(); }
+  if (data.portfolio)    { pfBackupLocal('before-cloud-portfolio-merge'); pfPositions = mergePortfolioPreservingLocal(pfPositions, data.portfolio); pfSave(); pfRender(); pfCloudStatus(`Loaded ${pfPositions.length} positions from ${source}`, 'var(--green)'); }
   if (data.watchlist)    { scTickers   = data.watchlist;    saveSc(); renderSc(); }
   if (data.groupTracker) { gaTrackers  = data.groupTracker; noteGroupTrackerCloudSync(data.groupTracker); gaSave(); gaRender(); }
   if (data.subscribers)  { sbSubs      = data.subscribers;  sbSave(); sbRender(); }
@@ -7483,15 +7489,17 @@ async function d1LoadAll() {
   d1Status('Loading...', 'var(--accent)');
   try {
     const record = await d1FetchRecord();
-    applySyncData(record);
+    applySyncData(record, 'D1');
     localStorage.setItem('kalki_d1_url', url);
     localStorage.setItem('kalki_d1_key', key);
     noteCloudSync((record && record.updatedAt) || new Date().toISOString());
     if (record?.groupTracker) noteGroupTrackerCloudSync(record.groupTracker);
-    d1Status('✅ Loaded ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}));
+    d1Status(`✅ Loaded ${record?.portfolio?.length || 0} D1 positions`);
+    pfCloudStatus(`Loaded ${pfPositions.length} positions from D1`, 'var(--green)');
     return !!record;
   } catch(e) {
     d1Status('❌ ' + e.message, 'var(--red)');
+    pfCloudStatus('D1 load failed: ' + e.message, 'var(--red)');
     return false;
   }
 }
