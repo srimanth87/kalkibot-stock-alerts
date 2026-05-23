@@ -7375,12 +7375,17 @@ async function d1FetchRecord() {
   const key = d1SyncKey();
   if (!url || !key) return null;
   const endpoint = url.replace(/\/+$/,'') + '/d1/load';
-  const res = await fetch(endpoint, {
-    headers: { 'X-Kalki-Key': key }
-  });
-  const d = await res.json();
-  if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 load failed');
-  let record = d.record || null;
+  let record = null;
+  try {
+    const res = await fetch(endpoint, {
+      headers: { 'X-Kalki-Key': key }
+    });
+    const d = await res.json();
+    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 load failed');
+    record = d.record || null;
+  } catch (_e) {
+    record = null;
+  }
   const [portfolioRows, watchlistRows, groupAlertRows] = await Promise.all([
     d1FetchPortfolioRows(),
     d1FetchWatchlistRows(),
