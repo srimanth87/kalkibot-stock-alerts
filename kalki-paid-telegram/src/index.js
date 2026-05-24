@@ -30,6 +30,15 @@ export default {
       if (request.method === "GET" && url.pathname === "/api/session") {
         return await getSessionStatus(url, env);
       }
+      if (request.method === "GET" && url.pathname === "/admin/codes") {
+        return await adminCodesPage(url, env);
+      }
+      if (request.method === "POST" && url.pathname === "/admin/codes") {
+        return await adminSaveCode(request, url, env);
+      }
+      if (request.method === "POST" && url.pathname === "/admin/codes/delete") {
+        return await adminDeleteCode(request, url, env);
+      }
       if (request.method === "GET" && url.pathname === "/admin") {
         return await adminList(url, env);
       }
@@ -51,7 +60,7 @@ async function requestAccess(request, env) {
 
   const email = cleanEmail(body.email);
   const telegramUsername = cleanTelegramUsername(body.telegramUsername);
-  const access = resolveAccess(env, body);
+  const access = await resolveAccess(env, body);
   if (!email) return jsonResponse({ ok: false, error: "Enter a valid email." }, 400);
   if (!telegramUsername) return jsonResponse({ ok: false, error: "Enter your Telegram username." }, 400);
   if (!access.groupChatId) return jsonResponse({ ok: false, error: "Telegram group is not configured yet." }, 400);
@@ -82,6 +91,7 @@ async function createCheckoutSession(request, env, { email, telegramUsername, ac
   params.set("allow_promotion_codes", "true");
 
   const stripeSession = await stripeRequest(env, "POST", "/checkout/sessions", params);
+  await recordAccessCodeUse(env, access);
   await upsertSubscriber(env, {
     id: crypto.randomUUID(),
     checkout_session_id: stripeSession.id,
@@ -91,7 +101,7 @@ async function createCheckoutSession(request, env, { email, telegramUsername, ac
     group_chat_id: access.groupChatId,
     access_source: "stripe",
     status: "checkout_created",
-    raw_event_json: JSON.stringify({ checkout_session: stripeSession }),
+    raw_event_json: JSON.stringify({ checkout_session: stripeSession, access_code: access.accessCode }),
   });
 
   return jsonResponse({ ok: true, url: stripeSession.url, sessionId: stripeSession.id });
@@ -100,6 +110,7 @@ async function createCheckoutSession(request, env, { email, telegramUsername, ac
 async function createDirectInvite(env, { email, telegramUsername, access }) {
   const sessionId = `${access.accessSource}_${crypto.randomUUID()}`;
   const inviteLink = await createTelegramInviteLink(env, sessionId, access.groupChatId);
+  await recordAccessCodeUse(env, access);
   await upsertSubscriber(env, {
     id: crypto.randomUUID(),
     checkout_session_id: sessionId,
@@ -227,6 +238,107 @@ async function adminList(url, env) {
     LIMIT 100
   `).all();
   return jsonResponse({ ok: true, subscribers: result.results || [] });
+}
+
+async function adminCodesPage(url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const result = await env.DB.prepare(`
+    SELECT code, group_key, mode, active, max_uses, uses_count, notes, created_at, updated_at
+    FROM access_codes
+    ORDER BY updated_at DESC
+  `).all();
+  const rows = result.results || [];
+  const key = escapeHtml(url.searchParams.get("key") || "");
+  const message = escapeHtml(url.searchParams.get("msg") || "");
+  const groups = Object.keys(telegramGroupMap(env)).sort();
+  const groupOptions = groups.map(groupKey => `<option value="${escapeHtml(groupKey)}">${escapeHtml(labelForGroupKey(groupKey))}</option>`).join("");
+  const rowsHtml = rows.length ? rows.map(row => `
+    <tr>
+      <td><code>${escapeHtml(row.code)}</code></td>
+      <td>${escapeHtml(labelForGroupKey(row.group_key))}</td>
+      <td>${row.mode === "manual" ? "Manual/Zelle" : "Stripe"}</td>
+      <td>${row.active ? "Active" : "Paused"}</td>
+      <td>${row.max_uses == null ? "Unlimited" : `${Number(row.uses_count || 0)} / ${Number(row.max_uses)}`}</td>
+      <td>${escapeHtml(row.notes || "")}</td>
+      <td>
+        <form method="post" action="/admin/codes/delete?key=${key}">
+          <input type="hidden" name="code" value="${escapeHtml(row.code)}">
+          <button class="danger" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  `).join("") : `<tr><td colspan="7" class="empty">No codes yet.</td></tr>`;
+
+  return htmlResponse(pageShell("Access Codes", `
+    <main class="wrap admin-wrap">
+      <section class="hero">
+        <p class="eyebrow">Admin</p>
+        <h1>Access Codes</h1>
+        <p class="copy">Create codes that route people to the right Telegram group. Stripe codes send them to checkout. Manual/Zelle codes skip Stripe and generate an invite.</p>
+      </section>
+      ${message ? `<p class="notice">${message}</p>` : ""}
+      <form class="panel grid-form" method="post" action="/admin/codes?key=${key}">
+        <label>Code<input name="code" required placeholder="cincy-friend-001"></label>
+        <label>Group<select name="groupKey" required>${groupOptions}</select></label>
+        <label>Mode
+          <select name="mode" required>
+            <option value="stripe">Stripe required</option>
+            <option value="manual">Manual/Zelle skip Stripe</option>
+          </select>
+        </label>
+        <label>Max uses<input name="maxUses" type="number" min="1" placeholder="blank = unlimited"></label>
+        <label>Notes<input name="notes" placeholder="who this code is for"></label>
+        <label class="check"><input name="active" type="checkbox" value="1" checked> Active</label>
+        <button type="submit">Save Code</button>
+      </form>
+      <section class="panel table-panel">
+        <table>
+          <thead><tr><th>Code</th><th>Group</th><th>Mode</th><th>Status</th><th>Uses</th><th>Notes</th><th></th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </section>
+    </main>
+  `));
+}
+
+async function adminSaveCode(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const form = await request.formData();
+  const code = cleanAccessCode(form.get("code"));
+  const groupKey = cleanGroupKey(form.get("groupKey"));
+  const mode = String(form.get("mode") || "") === "manual" ? "manual" : "stripe";
+  const maxUsesValue = String(form.get("maxUses") || "").trim();
+  const maxUses = maxUsesValue ? Math.max(1, Number(maxUsesValue)) : null;
+  const active = form.get("active") === "1" ? 1 : 0;
+  const notes = String(form.get("notes") || "").trim().slice(0, 240);
+
+  if (!code || !groupIdForKey(env, groupKey)) {
+    return redirectToCodes(url, "Invalid code or group.");
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO access_codes (code, group_key, mode, active, max_uses, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(code) DO UPDATE SET
+      group_key = excluded.group_key,
+      mode = excluded.mode,
+      active = excluded.active,
+      max_uses = excluded.max_uses,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
+  `).bind(code, groupKey, mode, active, maxUses, notes, new Date().toISOString(), new Date().toISOString()).run();
+
+  return redirectToCodes(url, `Saved code ${code}.`);
+}
+
+async function adminDeleteCode(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const form = await request.formData();
+  const code = cleanAccessCode(form.get("code"));
+  if (code) {
+    await env.DB.prepare(`DELETE FROM access_codes WHERE code = ?`).bind(code).run();
+  }
+  return redirectToCodes(url, code ? `Deleted code ${code}.` : "Code not found.");
 }
 
 async function upsertSubscriber(env, data) {
@@ -455,6 +567,7 @@ function pageShell(title, body) {
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top left,#11251d,#070b14 42%),#070b14;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     .wrap{width:min(920px,calc(100vw - 32px));margin:0 auto;padding:72px 0}.hero{padding:28px 0 20px}.eyebrow{margin:0 0 10px;color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:1.8px;font-weight:800}.hero h1,.panel h1{margin:0 0 12px;font-size:clamp(32px,6vw,58px);line-height:1.02;letter-spacing:0}.copy{color:var(--dim);font-size:17px;line-height:1.6;max-width:680px}
     .panel{background:rgba(16,24,39,.86);border:1px solid var(--line);border-radius:10px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.22)}label{display:block;margin-bottom:16px;color:#cbd5e1;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px}input,select{display:block;width:100%;margin-top:8px;padding:14px 15px;border-radius:8px;border:1px solid #30415f;background:#080d17;color:var(--text);font-size:16px}button{width:100%;border:0;border-radius:8px;background:var(--gold);color:#111827;font-weight:900;font-size:15px;padding:15px 18px;cursor:pointer;text-transform:uppercase;letter-spacing:1px}.msg,.fine{color:var(--dim);line-height:1.5}.fine{font-size:12px}.result{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:8px;background:#080d17;color:#cbd5e1}.invite{display:inline-block;margin-top:8px;padding:13px 16px;border-radius:8px;background:var(--green);color:#03120c;text-decoration:none;font-weight:900}
+    .admin-wrap{width:min(1180px,calc(100vw - 32px))}.grid-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end}.grid-form label{margin:0}.grid-form button{align-self:end}.check{display:flex;gap:10px;align-items:center;height:49px}.check input{width:auto;margin:0}.notice{margin:0 0 18px;padding:12px 14px;border:1px solid rgba(16,185,129,.3);border-radius:8px;background:rgba(16,185,129,.12);color:#bbf7d0}.table-panel{margin-top:18px;overflow:auto}table{width:100%;border-collapse:collapse;min-width:860px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;color:#cbd5e1;font-size:14px}th{color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-size:11px}code{color:#f8fafc}.danger{padding:9px 12px;background:#7f1d1d;color:#fecaca}.empty{text-align:center;color:var(--dim)}
     a{color:#93c5fd}
   </style>
 </head>
@@ -480,10 +593,24 @@ function cleanAccessCode(value) {
   return cleanGroupKey(value);
 }
 
-function resolveAccess(env, body) {
+async function resolveAccess(env, body) {
   const submittedGroupKey = cleanGroupKey(body.groupKey);
   const submittedAccessCode = cleanAccessCode(body.accessCode);
   const zelleCode = cleanAccessCode(env.ZELLE_ACCESS_CODE || "onlyzelle");
+
+  const dbCode = submittedAccessCode ? await lookupAccessCode(env, submittedAccessCode) : null;
+  if (dbCode) {
+    const mode = dbCode.mode === "manual" ? "manual" : "stripe";
+    return {
+      requiresStripe: mode !== "manual",
+      accessSource: mode === "manual" ? "manual_code" : "stripe_code",
+      groupKey: dbCode.group_key,
+      groupChatId: groupIdForKey(env, dbCode.group_key),
+      accessCode: dbCode.code,
+      submittedGroupKey,
+      submittedAccessCode,
+    };
+  }
 
   if (submittedAccessCode && submittedAccessCode === zelleCode) {
     const groupKey = groupIdForKey(env, submittedGroupKey) ? submittedGroupKey : firstConfiguredGroupKey(env);
@@ -492,6 +619,7 @@ function resolveAccess(env, body) {
       accessSource: "zelle_code",
       groupKey,
       groupChatId: groupIdForKey(env, groupKey),
+      accessCode: submittedAccessCode,
       submittedGroupKey,
       submittedAccessCode,
     };
@@ -503,6 +631,7 @@ function resolveAccess(env, body) {
       accessSource: "stripe",
       groupKey: submittedAccessCode,
       groupChatId: groupIdForKey(env, submittedAccessCode),
+      accessCode: submittedAccessCode,
       submittedGroupKey,
       submittedAccessCode,
     };
@@ -513,9 +642,31 @@ function resolveAccess(env, body) {
     accessSource: submittedAccessCode ? "stripe_other_invalid_code" : "stripe_other_no_code",
     groupKey: "other",
     groupChatId: groupIdForKey(env, "other"),
+    accessCode: "",
     submittedGroupKey,
     submittedAccessCode,
   };
+}
+
+async function lookupAccessCode(env, code) {
+  const row = await env.DB.prepare(`
+    SELECT code, group_key, mode, active, max_uses, uses_count
+    FROM access_codes
+    WHERE code = ?
+  `).bind(code).first();
+  if (!row || !row.active) return null;
+  if (row.max_uses != null && Number(row.uses_count || 0) >= Number(row.max_uses)) return null;
+  if (!groupIdForKey(env, row.group_key)) return null;
+  return row;
+}
+
+async function recordAccessCodeUse(env, access) {
+  if (!access.accessCode) return;
+  await env.DB.prepare(`
+    UPDATE access_codes
+    SET uses_count = uses_count + 1, updated_at = ?
+    WHERE code = ?
+  `).bind(new Date().toISOString(), access.accessCode).run();
 }
 
 function telegramGroupMap(env) {
@@ -536,12 +687,41 @@ function firstConfiguredGroupKey(env) {
   return Object.keys(telegramGroupMap(env)).sort()[0] || "";
 }
 
+function labelForGroupKey(key) {
+  return String(key || "").replace(/[-_]+/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
 function groupOptionsHtml(env) {
   const map = telegramGroupMap(env);
   return Object.keys(map).sort().map(key => {
-    const label = key.replace(/[-_]+/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
-    return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;
+    return `<option value="${escapeHtml(key)}">${escapeHtml(labelForGroupKey(key))}</option>`;
   }).join("");
+}
+
+function isAdminRequest(url, env) {
+  return Boolean(env.ADMIN_KEY && url.searchParams.get("key") === env.ADMIN_KEY);
+}
+
+function adminUnauthorizedPage() {
+  return htmlResponse(pageShell("Unauthorized", `
+    <main class="wrap">
+      <section class="panel">
+        <p class="eyebrow">Admin</p>
+        <h1>Unauthorized</h1>
+        <p class="copy">Add your admin key to the URL to manage access codes.</p>
+      </section>
+    </main>
+  `), 401);
+}
+
+function redirectToCodes(url, message) {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      Location: `/admin/codes?key=${encodeURIComponent(url.searchParams.get("key") || "")}&msg=${encodeURIComponent(message)}`,
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 function isActiveStatus(status) {

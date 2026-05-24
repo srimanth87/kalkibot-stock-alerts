@@ -6,6 +6,12 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (url.pathname === "/admin/codes") {
+      const target = new URL("https://kalki-paid-telegram.srimanthgada87.workers.dev/admin/codes");
+      target.search = url.search;
+      return Response.redirect(target.toString(), 302);
+    }
+
     if (request.method === "POST" && url.pathname === "/_auth/login") {
       return await handleLogin(request, env);
     }
