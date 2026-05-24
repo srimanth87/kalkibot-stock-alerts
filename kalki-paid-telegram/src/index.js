@@ -64,22 +64,26 @@ async function requestAccess(request, env) {
     return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400);
   }
 
+  const firstName = cleanPersonName(body.firstName);
+  const lastName = cleanPersonName(body.lastName);
   const email = cleanEmail(body.email);
   const telegramUsername = cleanTelegramUsername(body.telegramUsername);
   const access = await resolveAccess(env, body);
+  if (!firstName) return jsonResponse({ ok: false, error: "Enter your first name." }, 400);
+  if (!lastName) return jsonResponse({ ok: false, error: "Enter your last name." }, 400);
   if (!email) return jsonResponse({ ok: false, error: "Enter a valid email." }, 400);
   if (!telegramUsername) return jsonResponse({ ok: false, error: "Enter your Telegram username." }, 400);
   if (!access.groupChatId) return jsonResponse({ ok: false, error: "Telegram group is not configured yet." }, 400);
 
   if (!access.requiresStripe) {
-    return await createDirectInvite(env, { email, telegramUsername, access });
+    return await createDirectInvite(env, { firstName, lastName, email, telegramUsername, access });
   }
 
   assertEnv(env, ["STRIPE_SECRET_KEY", "STRIPE_PRICE_ID"]);
-  return await createCheckoutSession(request, env, { email, telegramUsername, access });
+  return await createCheckoutSession(request, env, { firstName, lastName, email, telegramUsername, access });
 }
 
-async function createCheckoutSession(request, env, { email, telegramUsername, access }) {
+async function createCheckoutSession(request, env, { firstName, lastName, email, telegramUsername, access }) {
   const baseUrl = publicBaseUrl(request, env);
   const params = new URLSearchParams();
   params.set("mode", "subscription");
@@ -87,9 +91,13 @@ async function createCheckoutSession(request, env, { email, telegramUsername, ac
   params.set("line_items[0][quantity]", "1");
   params.set("customer_email", email);
   params.set("client_reference_id", telegramUsername);
+  params.set("metadata[first_name]", firstName);
+  params.set("metadata[last_name]", lastName);
   params.set("metadata[telegram_username]", telegramUsername);
   params.set("metadata[group_key]", access.groupKey);
   params.set("metadata[source]", "kalki-paid-telegram");
+  params.set("subscription_data[metadata][first_name]", firstName);
+  params.set("subscription_data[metadata][last_name]", lastName);
   params.set("subscription_data[metadata][telegram_username]", telegramUsername);
   params.set("subscription_data[metadata][group_key]", access.groupKey);
   params.set("success_url", checkoutSuccessUrl(env, baseUrl));
@@ -101,6 +109,8 @@ async function createCheckoutSession(request, env, { email, telegramUsername, ac
   await upsertSubscriber(env, {
     id: crypto.randomUUID(),
     checkout_session_id: stripeSession.id,
+    first_name: firstName,
+    last_name: lastName,
     email,
     telegram_username: telegramUsername,
     group_key: access.groupKey,
@@ -113,13 +123,15 @@ async function createCheckoutSession(request, env, { email, telegramUsername, ac
   return jsonResponse({ ok: true, url: stripeSession.url, sessionId: stripeSession.id });
 }
 
-async function createDirectInvite(env, { email, telegramUsername, access }) {
+async function createDirectInvite(env, { firstName, lastName, email, telegramUsername, access }) {
   const sessionId = `${access.accessSource}_${crypto.randomUUID()}`;
   const inviteLink = await createTelegramInviteLink(env, sessionId, access.groupChatId);
   await recordAccessCodeUse(env, access);
   await upsertSubscriber(env, {
     id: crypto.randomUUID(),
     checkout_session_id: sessionId,
+    first_name: firstName,
+    last_name: lastName,
     email,
     telegram_username: telegramUsername,
     group_key: access.groupKey,
@@ -171,6 +183,8 @@ async function handleStripeWebhook(request, env) {
 }
 
 async function handleCheckoutCompleted(session, event, env) {
+  const firstName = cleanPersonName(session.metadata?.first_name);
+  const lastName = cleanPersonName(session.metadata?.last_name);
   const telegramUsername = cleanTelegramUsername(session.metadata?.telegram_username || session.client_reference_id);
   const groupKey = cleanGroupKey(session.metadata?.group_key);
   const groupChatId = await groupIdForKey(env, groupKey);
@@ -181,6 +195,8 @@ async function handleCheckoutCompleted(session, event, env) {
     checkout_session_id: session.id,
     stripe_customer_id: stringOrNull(session.customer),
     stripe_subscription_id: stringOrNull(session.subscription),
+    first_name: firstName,
+    last_name: lastName,
     email,
     telegram_username: telegramUsername,
     group_key: groupKey,
@@ -216,7 +232,7 @@ async function getSessionStatus(url, env) {
   const sessionId = url.searchParams.get("session_id") || "";
   if (!sessionId) return jsonResponse({ ok: false, error: "Missing session_id" }, 400);
   const row = await env.DB.prepare(`
-    SELECT checkout_session_id, email, telegram_username, group_key, status, invite_link
+    SELECT checkout_session_id, first_name, last_name, email, telegram_username, group_key, status, invite_link
     FROM subscribers
     WHERE checkout_session_id = ?
   `).bind(sessionId).first();
@@ -224,6 +240,8 @@ async function getSessionStatus(url, env) {
   return jsonResponse({
     ok: true,
     status: row.status,
+    firstName: row.first_name,
+    lastName: row.last_name,
     email: row.email,
     telegramUsername: row.telegram_username,
     groupKey: row.group_key,
@@ -237,7 +255,7 @@ async function adminList(url, env) {
     return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
   }
   const result = await env.DB.prepare(`
-    SELECT email, telegram_username, group_key, access_source, status, invite_link_created_at, created_at, updated_at
+    SELECT first_name, last_name, email, telegram_username, group_key, access_source, status, invite_link_created_at, created_at, updated_at
     FROM subscribers
     ORDER BY updated_at DESC
     LIMIT 100
@@ -426,13 +444,15 @@ async function upsertSubscriber(env, data) {
   const now = new Date().toISOString();
   await env.DB.prepare(`
     INSERT INTO subscribers (
-      id, checkout_session_id, stripe_customer_id, stripe_subscription_id, email,
+      id, checkout_session_id, stripe_customer_id, stripe_subscription_id, first_name, last_name, email,
       telegram_username, group_key, group_chat_id, access_source, status, invite_link,
       invite_link_created_at, created_at, updated_at, raw_event_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(checkout_session_id) DO UPDATE SET
       stripe_customer_id = COALESCE(excluded.stripe_customer_id, subscribers.stripe_customer_id),
       stripe_subscription_id = COALESCE(excluded.stripe_subscription_id, subscribers.stripe_subscription_id),
+      first_name = COALESCE(excluded.first_name, subscribers.first_name),
+      last_name = COALESCE(excluded.last_name, subscribers.last_name),
       email = COALESCE(excluded.email, subscribers.email),
       telegram_username = COALESCE(excluded.telegram_username, subscribers.telegram_username),
       group_key = COALESCE(excluded.group_key, subscribers.group_key),
@@ -448,6 +468,8 @@ async function upsertSubscriber(env, data) {
     data.checkout_session_id,
     stringOrNull(data.stripe_customer_id),
     stringOrNull(data.stripe_subscription_id),
+    stringOrNull(data.first_name),
+    stringOrNull(data.last_name),
     stringOrNull(data.email),
     stringOrNull(data.telegram_username),
     stringOrNull(data.group_key),
@@ -549,6 +571,8 @@ function joinPage(env) {
         </div>
       </section>
       <form id="joinForm" class="panel">
+        <label>First name<input name="firstName" required placeholder="First name"></label>
+        <label>Last name<input name="lastName" required placeholder="Last name"></label>
         <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
         <label>Telegram username<input name="telegramUsername" required placeholder="@yourhandle"></label>
         <label>Access code<input name="accessCode" placeholder="optional code"></label>
@@ -657,6 +681,10 @@ function cleanEmail(value) {
 function cleanTelegramUsername(value) {
   const username = String(value || "").trim().replace(/^@/, "");
   return /^[A-Za-z0-9_]{5,32}$/.test(username) ? `@${username}` : "";
+}
+
+function cleanPersonName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 80);
 }
 
 function cleanGroupKey(value) {
