@@ -509,10 +509,10 @@ function resolveAccess(env, body) {
   }
 
   return {
-    requiresStripe: false,
-    accessSource: submittedAccessCode ? "free_default_invalid_code" : "free_default",
-    groupKey: "free",
-    groupChatId: stringOrNull(env.DEFAULT_FREE_GROUP_ID),
+    requiresStripe: true,
+    accessSource: submittedAccessCode ? "stripe_other_invalid_code" : "stripe_other_no_code",
+    groupKey: "other",
+    groupChatId: groupIdForKey(env, "other"),
     submittedGroupKey,
     submittedAccessCode,
   };
