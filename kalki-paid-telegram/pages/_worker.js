@@ -1,5 +1,5 @@
 const PROTECTED_PATHS = new Set(["/", "/index.html"]);
-const COOKIE_NAME = "kalki_site_auth";
+const COOKIE_NAME = "kalki_site_auth_v2";
 const MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 export default {
