@@ -6,10 +6,8 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/admin/codes") {
-      const target = new URL("https://kalki-paid-telegram.srimanthgada87.workers.dev/admin/codes");
-      target.search = url.search;
-      return Response.redirect(target.toString(), 302);
+    if (url.pathname.startsWith("/admin/")) {
+      return await proxyAdminRequest(request);
     }
 
     if (request.method === "POST" && url.pathname === "/_auth/login") {
@@ -23,6 +21,35 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
+async function proxyAdminRequest(request) {
+  const url = new URL(request.url);
+  const target = new URL(url.pathname + url.search, "https://kalki-paid-telegram.srimanthgada87.workers.dev");
+  const headers = new Headers(request.headers);
+  headers.set("Host", target.host);
+
+  const response = await fetch(target.toString(), {
+    method: request.method,
+    headers,
+    body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+    redirect: "manual",
+  });
+
+  const proxiedHeaders = new Headers(response.headers);
+  const location = proxiedHeaders.get("Location");
+  if (location) {
+    const locationUrl = new URL(location, target);
+    if (locationUrl.hostname === target.hostname && locationUrl.pathname.startsWith("/admin/")) {
+      proxiedHeaders.set("Location", locationUrl.pathname + locationUrl.search);
+    }
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: proxiedHeaders,
+  });
+}
 
 async function handleLogin(request, env) {
   const form = await request.formData();
