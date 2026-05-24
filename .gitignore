@@ -3,3 +3,5 @@
 telegram-forwarder/.dev.vars
 telegram-forwarder/node_modules/
 telegram-forwarder/.DS_Store
+
+kalki-paid-telegram/.wrangler/
