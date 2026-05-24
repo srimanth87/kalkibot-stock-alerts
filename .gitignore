@@ -1,5 +1,6 @@
 .DS_Store
 .tmp-kalki-*.json
+.wrangler/
 telegram-forwarder/.dev.vars
 telegram-forwarder/node_modules/
 telegram-forwarder/.DS_Store

@@ -19,7 +19,10 @@ export default {
         return jsonResponse({ ok: true, service: "kalki-paid-telegram" });
       }
       if (request.method === "POST" && url.pathname === "/api/create-checkout-session") {
-        return await createCheckoutSession(request, env);
+        return await requestAccess(request, env);
+      }
+      if (request.method === "POST" && url.pathname === "/api/request-access") {
+        return await requestAccess(request, env);
       }
       if (request.method === "POST" && url.pathname === "/api/stripe-webhook") {
         return await handleStripeWebhook(request, env);
@@ -38,8 +41,7 @@ export default {
   },
 };
 
-async function createCheckoutSession(request, env) {
-  assertEnv(env, ["STRIPE_SECRET_KEY", "STRIPE_PRICE_ID"]);
+async function requestAccess(request, env) {
   let body;
   try {
     body = await request.json();
@@ -49,12 +51,20 @@ async function createCheckoutSession(request, env) {
 
   const email = cleanEmail(body.email);
   const telegramUsername = cleanTelegramUsername(body.telegramUsername);
-  const groupKey = cleanGroupKey(body.groupKey);
-  const groupChatId = groupIdForKey(env, groupKey);
+  const access = resolveAccess(env, body);
   if (!email) return jsonResponse({ ok: false, error: "Enter a valid email." }, 400);
   if (!telegramUsername) return jsonResponse({ ok: false, error: "Enter your Telegram username." }, 400);
-  if (!groupChatId) return jsonResponse({ ok: false, error: "Choose a valid Telegram group." }, 400);
+  if (!access.groupChatId) return jsonResponse({ ok: false, error: "Telegram group is not configured yet." }, 400);
 
+  if (!access.requiresStripe) {
+    return await createDirectInvite(env, { email, telegramUsername, access });
+  }
+
+  assertEnv(env, ["STRIPE_SECRET_KEY", "STRIPE_PRICE_ID"]);
+  return await createCheckoutSession(request, env, { email, telegramUsername, access });
+}
+
+async function createCheckoutSession(request, env, { email, telegramUsername, access }) {
   const baseUrl = publicBaseUrl(request, env);
   const params = new URLSearchParams();
   params.set("mode", "subscription");
@@ -63,10 +73,10 @@ async function createCheckoutSession(request, env) {
   params.set("customer_email", email);
   params.set("client_reference_id", telegramUsername);
   params.set("metadata[telegram_username]", telegramUsername);
-  params.set("metadata[group_key]", groupKey);
+  params.set("metadata[group_key]", access.groupKey);
   params.set("metadata[source]", "kalki-paid-telegram");
   params.set("subscription_data[metadata][telegram_username]", telegramUsername);
-  params.set("subscription_data[metadata][group_key]", groupKey);
+  params.set("subscription_data[metadata][group_key]", access.groupKey);
   params.set("success_url", checkoutSuccessUrl(env, baseUrl));
   params.set("cancel_url", env.PUBLIC_CANCEL_URL || `${baseUrl}/cancel`);
   params.set("allow_promotion_codes", "true");
@@ -77,14 +87,44 @@ async function createCheckoutSession(request, env) {
     checkout_session_id: stripeSession.id,
     email,
     telegram_username: telegramUsername,
-    group_key: groupKey,
-    group_chat_id: groupChatId,
+    group_key: access.groupKey,
+    group_chat_id: access.groupChatId,
     access_source: "stripe",
     status: "checkout_created",
     raw_event_json: JSON.stringify({ checkout_session: stripeSession }),
   });
 
   return jsonResponse({ ok: true, url: stripeSession.url, sessionId: stripeSession.id });
+}
+
+async function createDirectInvite(env, { email, telegramUsername, access }) {
+  const sessionId = `${access.accessSource}_${crypto.randomUUID()}`;
+  const inviteLink = await createTelegramInviteLink(env, sessionId, access.groupChatId);
+  await upsertSubscriber(env, {
+    id: crypto.randomUUID(),
+    checkout_session_id: sessionId,
+    email,
+    telegram_username: telegramUsername,
+    group_key: access.groupKey,
+    group_chat_id: access.groupChatId,
+    access_source: access.accessSource,
+    status: "active",
+    invite_link: inviteLink,
+    invite_link_created_at: new Date().toISOString(),
+    raw_event_json: JSON.stringify({
+      source: access.accessSource,
+      submitted_group_key: access.submittedGroupKey,
+      submitted_access_code: access.submittedAccessCode,
+    }),
+  });
+
+  return jsonResponse({
+    ok: true,
+    inviteLink,
+    sessionId,
+    accessSource: access.accessSource,
+    groupKey: access.groupKey,
+  });
 }
 
 async function handleStripeWebhook(request, env) {
@@ -319,7 +359,8 @@ function joinPage(env) {
         <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
         <label>Telegram username<input name="telegramUsername" required placeholder="@yourhandle"></label>
         <label>Group<select name="groupKey" required>${groupOptionsHtml(env)}</select></label>
-        <button type="submit">Subscribe with Stripe</button>
+        <label>Code<input name="accessCode" placeholder="city code or manual code"></label>
+        <button id="submitBtn" type="submit">Continue</button>
         <p id="msg" class="msg"></p>
         <p class="fine">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
       </form>
@@ -327,11 +368,17 @@ function joinPage(env) {
     <script>
       const form = document.getElementById('joinForm');
       const msg = document.getElementById('msg');
+      const submitBtn = document.getElementById('submitBtn');
+      form.accessCode.addEventListener('input', () => {
+        submitBtn.textContent = form.accessCode.value.trim().toLowerCase() === 'onlyzelle'
+          ? 'Get Telegram Invite'
+          : 'Continue';
+      });
       form.addEventListener('submit', async event => {
         event.preventDefault();
-        msg.textContent = 'Opening secure checkout...';
+        msg.textContent = 'Checking access...';
         const data = Object.fromEntries(new FormData(form).entries());
-        const res = await fetch('/api/create-checkout-session', {
+        const res = await fetch('/api/request-access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
@@ -341,6 +388,11 @@ function joinPage(env) {
           msg.textContent = json.error || 'Could not start checkout.';
           return;
         }
+        if (json.inviteLink) {
+          msg.innerHTML = '<p>Your invite is ready:</p><a class="invite" href="' + json.inviteLink + '">Join Telegram group</a>';
+          return;
+        }
+        msg.textContent = 'Opening secure checkout...';
         location.href = json.url;
       });
     </script>
@@ -402,7 +454,7 @@ function pageShell(title, body) {
     :root{color-scheme:dark;--bg:#070b14;--panel:#101827;--text:#f8fafc;--dim:#94a3b8;--line:#23314b;--gold:#f59e0b;--green:#10b981}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top left,#11251d,#070b14 42%),#070b14;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     .wrap{width:min(920px,calc(100vw - 32px));margin:0 auto;padding:72px 0}.hero{padding:28px 0 20px}.eyebrow{margin:0 0 10px;color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:1.8px;font-weight:800}.hero h1,.panel h1{margin:0 0 12px;font-size:clamp(32px,6vw,58px);line-height:1.02;letter-spacing:0}.copy{color:var(--dim);font-size:17px;line-height:1.6;max-width:680px}
-    .panel{background:rgba(16,24,39,.86);border:1px solid var(--line);border-radius:10px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.22)}label{display:block;margin-bottom:16px;color:#cbd5e1;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px}input{display:block;width:100%;margin-top:8px;padding:14px 15px;border-radius:8px;border:1px solid #30415f;background:#080d17;color:var(--text);font-size:16px}button{width:100%;border:0;border-radius:8px;background:var(--gold);color:#111827;font-weight:900;font-size:15px;padding:15px 18px;cursor:pointer;text-transform:uppercase;letter-spacing:1px}.msg,.fine{color:var(--dim);line-height:1.5}.fine{font-size:12px}.result{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:8px;background:#080d17;color:#cbd5e1}.invite{display:inline-block;margin-top:8px;padding:13px 16px;border-radius:8px;background:var(--green);color:#03120c;text-decoration:none;font-weight:900}
+    .panel{background:rgba(16,24,39,.86);border:1px solid var(--line);border-radius:10px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.22)}label{display:block;margin-bottom:16px;color:#cbd5e1;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px}input,select{display:block;width:100%;margin-top:8px;padding:14px 15px;border-radius:8px;border:1px solid #30415f;background:#080d17;color:var(--text);font-size:16px}button{width:100%;border:0;border-radius:8px;background:var(--gold);color:#111827;font-weight:900;font-size:15px;padding:15px 18px;cursor:pointer;text-transform:uppercase;letter-spacing:1px}.msg,.fine{color:var(--dim);line-height:1.5}.fine{font-size:12px}.result{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:8px;background:#080d17;color:#cbd5e1}.invite{display:inline-block;margin-top:8px;padding:13px 16px;border-radius:8px;background:var(--green);color:#03120c;text-decoration:none;font-weight:900}
     a{color:#93c5fd}
   </style>
 </head>
@@ -424,6 +476,48 @@ function cleanGroupKey(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
+function cleanAccessCode(value) {
+  return cleanGroupKey(value);
+}
+
+function resolveAccess(env, body) {
+  const submittedGroupKey = cleanGroupKey(body.groupKey);
+  const submittedAccessCode = cleanAccessCode(body.accessCode);
+  const zelleCode = cleanAccessCode(env.ZELLE_ACCESS_CODE || "onlyzelle");
+
+  if (submittedAccessCode && submittedAccessCode === zelleCode) {
+    const groupKey = groupIdForKey(env, submittedGroupKey) ? submittedGroupKey : firstConfiguredGroupKey(env);
+    return {
+      requiresStripe: false,
+      accessSource: "zelle_code",
+      groupKey,
+      groupChatId: groupIdForKey(env, groupKey),
+      submittedGroupKey,
+      submittedAccessCode,
+    };
+  }
+
+  if (submittedAccessCode && groupIdForKey(env, submittedAccessCode)) {
+    return {
+      requiresStripe: true,
+      accessSource: "stripe",
+      groupKey: submittedAccessCode,
+      groupChatId: groupIdForKey(env, submittedAccessCode),
+      submittedGroupKey,
+      submittedAccessCode,
+    };
+  }
+
+  return {
+    requiresStripe: false,
+    accessSource: submittedAccessCode ? "free_default_invalid_code" : "free_default",
+    groupKey: "free",
+    groupChatId: stringOrNull(env.DEFAULT_FREE_GROUP_ID),
+    submittedGroupKey,
+    submittedAccessCode,
+  };
+}
+
 function telegramGroupMap(env) {
   try {
     const parsed = JSON.parse(env.TELEGRAM_GROUP_MAP || "{}");
@@ -436,6 +530,10 @@ function telegramGroupMap(env) {
 function groupIdForKey(env, key) {
   const map = telegramGroupMap(env);
   return stringOrNull(map[cleanGroupKey(key)]);
+}
+
+function firstConfiguredGroupKey(env) {
+  return Object.keys(telegramGroupMap(env)).sort()[0] || "";
 }
 
 function groupOptionsHtml(env) {
