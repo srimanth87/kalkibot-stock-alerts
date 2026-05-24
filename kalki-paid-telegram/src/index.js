@@ -39,6 +39,12 @@ export default {
       if (request.method === "POST" && url.pathname === "/admin/codes/delete") {
         return await adminDeleteCode(request, url, env);
       }
+      if (request.method === "POST" && url.pathname === "/admin/groups") {
+        return await adminSaveGroup(request, url, env);
+      }
+      if (request.method === "POST" && url.pathname === "/admin/groups/delete") {
+        return await adminDeleteGroup(request, url, env);
+      }
       if (request.method === "GET" && url.pathname === "/admin") {
         return await adminList(url, env);
       }
@@ -167,7 +173,7 @@ async function handleStripeWebhook(request, env) {
 async function handleCheckoutCompleted(session, event, env) {
   const telegramUsername = cleanTelegramUsername(session.metadata?.telegram_username || session.client_reference_id);
   const groupKey = cleanGroupKey(session.metadata?.group_key);
-  const groupChatId = groupIdForKey(env, groupKey);
+  const groupChatId = await groupIdForKey(env, groupKey);
   const email = cleanEmail(session.customer_details?.email || session.customer_email);
   const inviteLink = await createTelegramInviteLink(env, session.id, groupChatId);
   await upsertSubscriber(env, {
@@ -249,8 +255,25 @@ async function adminCodesPage(url, env) {
   const rows = result.results || [];
   const key = escapeHtml(url.searchParams.get("key") || "");
   const message = escapeHtml(url.searchParams.get("msg") || "");
-  const groups = Object.keys(telegramGroupMap(env)).sort();
-  const groupOptions = groups.map(groupKey => `<option value="${escapeHtml(groupKey)}">${escapeHtml(labelForGroupKey(groupKey))}</option>`).join("");
+  const groups = await accessGroups(env, { includeInactive: true });
+  const activeGroups = groups.filter(group => group.active);
+  const groupOptions = activeGroups.map(group => `<option value="${escapeHtml(group.group_key)}">${escapeHtml(group.label)}</option>`).join("");
+  const groupsHtml = groups.length ? groups.map(group => `
+    <tr>
+      <td><code>${escapeHtml(group.group_key)}</code></td>
+      <td>${escapeHtml(group.label)}</td>
+      <td><code>${escapeHtml(group.chat_id)}</code></td>
+      <td>${group.active ? "Active" : "Paused"}</td>
+      <td>${escapeHtml(group.notes || "")}</td>
+      <td>
+        ${group.source === "config" ? "" : `
+        <form method="post" action="/admin/groups/delete?key=${key}">
+          <input type="hidden" name="groupKey" value="${escapeHtml(group.group_key)}">
+          <button class="danger" type="submit">Delete</button>
+        </form>`}
+      </td>
+    </tr>
+  `).join("") : `<tr><td colspan="6" class="empty">No groups yet.</td></tr>`;
   const rowsHtml = rows.length ? rows.map(row => `
     <tr>
       <td><code>${escapeHtml(row.code)}</code></td>
@@ -276,6 +299,20 @@ async function adminCodesPage(url, env) {
         <p class="copy">Create codes that route people to the right Telegram group. Stripe codes send them to checkout. Manual/Zelle codes skip Stripe and generate an invite.</p>
       </section>
       ${message ? `<p class="notice">${message}</p>` : ""}
+      <form class="panel grid-form" method="post" action="/admin/groups?key=${key}">
+        <label>Group key<input name="groupKey" required placeholder="dallas"></label>
+        <label>Display name<input name="label" required placeholder="Dallas"></label>
+        <label>Telegram group ID<input name="chatId" required placeholder="-1001234567890"></label>
+        <label>Notes<input name="notes" placeholder="optional"></label>
+        <label class="check"><input name="active" type="checkbox" value="1" checked> Active</label>
+        <button type="submit">Save Group</button>
+      </form>
+      <section class="panel table-panel">
+        <table>
+          <thead><tr><th>Group key</th><th>Name</th><th>Telegram ID</th><th>Status</th><th>Notes</th><th></th></tr></thead>
+          <tbody>${groupsHtml}</tbody>
+        </table>
+      </section>
       <form class="panel grid-form" method="post" action="/admin/codes?key=${key}">
         <label>Code<input name="code" required placeholder="cincy-friend-001"></label>
         <label>Group<select name="groupKey" required>${groupOptions}</select></label>
@@ -311,7 +348,7 @@ async function adminSaveCode(request, url, env) {
   const active = form.get("active") === "1" ? 1 : 0;
   const notes = String(form.get("notes") || "").trim().slice(0, 240);
 
-  if (!code || !groupIdForKey(env, groupKey)) {
+  if (!code || !(await groupIdForKey(env, groupKey))) {
     return redirectToCodes(url, "Invalid code or group.");
   }
 
@@ -338,6 +375,43 @@ async function adminDeleteCode(request, url, env) {
     await env.DB.prepare(`DELETE FROM access_codes WHERE code = ?`).bind(code).run();
   }
   return redirectToCodes(url, code ? `Deleted code ${code}.` : "Code not found.");
+}
+
+async function adminSaveGroup(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const form = await request.formData();
+  const groupKey = cleanGroupKey(form.get("groupKey"));
+  const label = String(form.get("label") || "").trim().slice(0, 80);
+  const chatId = cleanTelegramChatId(form.get("chatId"));
+  const active = form.get("active") === "1" ? 1 : 0;
+  const notes = String(form.get("notes") || "").trim().slice(0, 240);
+
+  if (!groupKey || !label || !chatId) {
+    return redirectToCodes(url, "Invalid group key, name, or Telegram ID.");
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO access_groups (group_key, label, chat_id, active, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(group_key) DO UPDATE SET
+      label = excluded.label,
+      chat_id = excluded.chat_id,
+      active = excluded.active,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
+  `).bind(groupKey, label, chatId, active, notes, new Date().toISOString(), new Date().toISOString()).run();
+
+  return redirectToCodes(url, `Saved group ${groupKey}.`);
+}
+
+async function adminDeleteGroup(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const form = await request.formData();
+  const groupKey = cleanGroupKey(form.get("groupKey"));
+  if (groupKey) {
+    await env.DB.prepare(`DELETE FROM access_groups WHERE group_key = ?`).bind(groupKey).run();
+  }
+  return redirectToCodes(url, groupKey ? `Deleted group ${groupKey}.` : "Group not found.");
 }
 
 async function upsertSubscriber(env, data) {
@@ -581,6 +655,11 @@ function cleanGroupKey(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
+function cleanTelegramChatId(value) {
+  const chatId = String(value || "").trim();
+  return /^-?\d{6,}$/.test(chatId) ? chatId : "";
+}
+
 function cleanAccessCode(value) {
   return cleanGroupKey(value);
 }
@@ -595,18 +674,19 @@ async function resolveAccess(env, body) {
       requiresStripe: mode !== "manual",
       accessSource: mode === "manual" ? "manual_code" : "stripe_code",
       groupKey: dbCode.group_key,
-      groupChatId: groupIdForKey(env, dbCode.group_key),
+      groupChatId: await groupIdForKey(env, dbCode.group_key),
       accessCode: dbCode.code,
       submittedAccessCode,
     };
   }
 
-  if (submittedAccessCode && groupIdForKey(env, submittedAccessCode)) {
+  const submittedCodeGroupId = submittedAccessCode ? await groupIdForKey(env, submittedAccessCode) : "";
+  if (submittedAccessCode && submittedCodeGroupId) {
     return {
       requiresStripe: true,
       accessSource: "stripe",
       groupKey: submittedAccessCode,
-      groupChatId: groupIdForKey(env, submittedAccessCode),
+      groupChatId: submittedCodeGroupId,
       accessCode: submittedAccessCode,
       submittedAccessCode,
     };
@@ -616,7 +696,7 @@ async function resolveAccess(env, body) {
     requiresStripe: true,
     accessSource: submittedAccessCode ? "stripe_other_invalid_code" : "stripe_other_no_code",
     groupKey: "other",
-    groupChatId: groupIdForKey(env, "other"),
+    groupChatId: await groupIdForKey(env, "other"),
     accessCode: "",
     submittedAccessCode,
   };
@@ -630,7 +710,7 @@ async function lookupAccessCode(env, code) {
   `).bind(code).first();
   if (!row || !row.active) return null;
   if (row.max_uses != null && Number(row.uses_count || 0) >= Number(row.max_uses)) return null;
-  if (!groupIdForKey(env, row.group_key)) return null;
+  if (!(await groupIdForKey(env, row.group_key))) return null;
   return row;
 }
 
@@ -643,7 +723,7 @@ async function recordAccessCodeUse(env, access) {
   `).bind(new Date().toISOString(), access.accessCode).run();
 }
 
-function telegramGroupMap(env) {
+function configGroupMap(env) {
   try {
     const parsed = JSON.parse(env.TELEGRAM_GROUP_MAP || "{}");
     return parsed && typeof parsed === "object" ? parsed : {};
@@ -652,9 +732,53 @@ function telegramGroupMap(env) {
   }
 }
 
-function groupIdForKey(env, key) {
-  const map = telegramGroupMap(env);
-  return stringOrNull(map[cleanGroupKey(key)]);
+async function accessGroups(env, { includeInactive = false } = {}) {
+  const map = new Map();
+  for (const [groupKey, chatId] of Object.entries(configGroupMap(env))) {
+    const cleanKey = cleanGroupKey(groupKey);
+    if (!cleanKey || !stringOrNull(chatId)) continue;
+    map.set(cleanKey, {
+      group_key: cleanKey,
+      label: labelForGroupKey(cleanKey),
+      chat_id: String(chatId),
+      active: true,
+      notes: "Configured in Worker",
+      source: "config",
+    });
+  }
+
+  const dbRows = await env.DB.prepare(`
+    SELECT group_key, label, chat_id, active, notes, created_at, updated_at
+    FROM access_groups
+    ORDER BY group_key
+  `).all();
+  for (const row of dbRows.results || []) {
+    const cleanKey = cleanGroupKey(row.group_key);
+    if (!cleanKey) continue;
+    const active = Boolean(row.active);
+    if (!active && !includeInactive) {
+      map.delete(cleanKey);
+      continue;
+    }
+    map.set(cleanKey, {
+      group_key: cleanKey,
+      label: row.label || labelForGroupKey(cleanKey),
+      chat_id: String(row.chat_id || ""),
+      active,
+      notes: row.notes || "",
+      source: "db",
+    });
+  }
+
+  return [...map.values()]
+    .filter(group => includeInactive || group.active)
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+async function groupIdForKey(env, key) {
+  const cleanKey = cleanGroupKey(key);
+  const group = (await accessGroups(env)).find(item => item.group_key === cleanKey);
+  return stringOrNull(group?.chat_id);
 }
 
 function labelForGroupKey(key) {
