@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Join Kalki Alerts</title>
+  <style>
+    :root{color-scheme:dark;--bg:#070b14;--panel:#101827;--text:#f8fafc;--dim:#94a3b8;--line:#23314b;--gold:#f59e0b;--green:#10b981}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top left,#11251d,#070b14 42%),#070b14;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .wrap{width:min(920px,calc(100vw - 32px));margin:0 auto;padding:72px 0}.hero{padding:28px 0 20px}.eyebrow{margin:0 0 10px;color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:1.8px;font-weight:800}.hero h1,.panel h1{margin:0 0 12px;font-size:clamp(32px,6vw,58px);line-height:1.02;letter-spacing:0}.copy{color:var(--dim);font-size:17px;line-height:1.6;max-width:680px}
+    .panel{background:rgba(16,24,39,.86);border:1px solid var(--line);border-radius:10px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.22)}label{display:block;margin-bottom:16px;color:#cbd5e1;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px}input{display:block;width:100%;margin-top:8px;padding:14px 15px;border-radius:8px;border:1px solid #30415f;background:#080d17;color:var(--text);font-size:16px}button{width:100%;border:0;border-radius:8px;background:var(--gold);color:#111827;font-weight:900;font-size:15px;padding:15px 18px;cursor:pointer;text-transform:uppercase;letter-spacing:1px}.msg,.fine{color:var(--dim);line-height:1.5}.fine{font-size:12px}a{color:#93c5fd}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">Paid Telegram Membership</p>
+      <h1>Kalki Alerts Telegram Membership</h1>
+      <p class="copy">Monthly access to watchlists, swing-trade alerts, technical analysis, and educational market commentary.</p>
+    </section>
+    <form id="joinForm" class="panel">
+      <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
+      <label>Telegram username<input name="telegramUsername" required placeholder="@yourhandle"></label>
+      <button type="submit">Subscribe with Stripe</button>
+      <p id="msg" class="msg"></p>
+      <p class="fine">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
+    </form>
+  </main>
+  <script>
+    const API_BASE = 'https://kalki-paid-telegram.srimanthgada87.workers.dev';
+    const form = document.getElementById('joinForm');
+    const msg = document.getElementById('msg');
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      msg.textContent = 'Opening secure checkout...';
+      const data = Object.fromEntries(new FormData(form).entries());
+      const res = await fetch(API_BASE + '/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        msg.textContent = json.error || 'Could not start checkout.';
+        return;
+      }
+      location.href = json.url;
+    });
+  </script>
+</body>
+</html>

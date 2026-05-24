@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kalki-paid-telegram",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-24",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "PUBLIC_BASE_URL": "https://kalki-paid-telegram.workers.dev",
+    "PUBLIC_SUCCESS_URL": "https://kalki-alerts.pages.dev/success.html",
+    "PUBLIC_CANCEL_URL": "https://kalki-alerts.pages.dev/cancel.html",
+    "PRODUCT_NAME": "Kalki Alerts Telegram Membership",
+    "TELEGRAM_INVITE_TTL_SECONDS": "86400"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kalki-paid-telegram",
+      "database_id": "2264b118-baab-413f-aee8-9a8e0116e693",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
