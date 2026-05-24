@@ -124,7 +124,6 @@ async function createDirectInvite(env, { email, telegramUsername, access }) {
     invite_link_created_at: new Date().toISOString(),
     raw_event_json: JSON.stringify({
       source: access.accessSource,
-      submitted_group_key: access.submittedGroupKey,
       submitted_access_code: access.submittedAccessCode,
     }),
   });
@@ -470,8 +469,7 @@ function joinPage(env) {
       <form id="joinForm" class="panel">
         <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
         <label>Telegram username<input name="telegramUsername" required placeholder="@yourhandle"></label>
-        <label>Group<select name="groupKey" required>${groupOptionsHtml(env)}</select></label>
-        <label>Code<input name="accessCode" placeholder="city code or manual code"></label>
+        <label>Access code<input name="accessCode" placeholder="optional code"></label>
         <button id="submitBtn" type="submit">Continue</button>
         <p id="msg" class="msg"></p>
         <p class="fine">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
@@ -480,12 +478,6 @@ function joinPage(env) {
     <script>
       const form = document.getElementById('joinForm');
       const msg = document.getElementById('msg');
-      const submitBtn = document.getElementById('submitBtn');
-      form.accessCode.addEventListener('input', () => {
-        submitBtn.textContent = form.accessCode.value.trim().toLowerCase() === 'onlyzelle'
-          ? 'Get Telegram Invite'
-          : 'Continue';
-      });
       form.addEventListener('submit', async event => {
         event.preventDefault();
         msg.textContent = 'Checking access...';
@@ -594,9 +586,7 @@ function cleanAccessCode(value) {
 }
 
 async function resolveAccess(env, body) {
-  const submittedGroupKey = cleanGroupKey(body.groupKey);
   const submittedAccessCode = cleanAccessCode(body.accessCode);
-  const zelleCode = cleanAccessCode(env.ZELLE_ACCESS_CODE || "onlyzelle");
 
   const dbCode = submittedAccessCode ? await lookupAccessCode(env, submittedAccessCode) : null;
   if (dbCode) {
@@ -607,20 +597,6 @@ async function resolveAccess(env, body) {
       groupKey: dbCode.group_key,
       groupChatId: groupIdForKey(env, dbCode.group_key),
       accessCode: dbCode.code,
-      submittedGroupKey,
-      submittedAccessCode,
-    };
-  }
-
-  if (submittedAccessCode && submittedAccessCode === zelleCode) {
-    const groupKey = groupIdForKey(env, submittedGroupKey) ? submittedGroupKey : firstConfiguredGroupKey(env);
-    return {
-      requiresStripe: false,
-      accessSource: "zelle_code",
-      groupKey,
-      groupChatId: groupIdForKey(env, groupKey),
-      accessCode: submittedAccessCode,
-      submittedGroupKey,
       submittedAccessCode,
     };
   }
@@ -632,7 +608,6 @@ async function resolveAccess(env, body) {
       groupKey: submittedAccessCode,
       groupChatId: groupIdForKey(env, submittedAccessCode),
       accessCode: submittedAccessCode,
-      submittedGroupKey,
       submittedAccessCode,
     };
   }
@@ -643,7 +618,6 @@ async function resolveAccess(env, body) {
     groupKey: "other",
     groupChatId: groupIdForKey(env, "other"),
     accessCode: "",
-    submittedGroupKey,
     submittedAccessCode,
   };
 }
@@ -683,19 +657,8 @@ function groupIdForKey(env, key) {
   return stringOrNull(map[cleanGroupKey(key)]);
 }
 
-function firstConfiguredGroupKey(env) {
-  return Object.keys(telegramGroupMap(env)).sort()[0] || "";
-}
-
 function labelForGroupKey(key) {
   return String(key || "").replace(/[-_]+/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
-}
-
-function groupOptionsHtml(env) {
-  const map = telegramGroupMap(env);
-  return Object.keys(map).sort().map(key => {
-    return `<option value="${escapeHtml(key)}">${escapeHtml(labelForGroupKey(key))}</option>`;
-  }).join("");
 }
 
 function isAdminRequest(url, env) {

@@ -21,14 +21,7 @@
     <form id="joinForm" class="panel">
       <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
       <label>Telegram username<input name="telegramUsername" required placeholder="@yourhandle"></label>
-      <label>Group
-        <select name="groupKey" required>
-          <option value="charlotte">Charlotte</option>
-          <option value="cincinnati">Cincinnati</option>
-          <option value="other">Other</option>
-        </select>
-      </label>
-      <label>Code<input name="accessCode" placeholder="city code or manual code"></label>
+      <label>Access code<input name="accessCode" placeholder="optional code"></label>
       <button id="submitBtn" type="submit">Continue</button>
       <p id="msg" class="msg"></p>
       <p class="fine">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
@@ -38,12 +31,6 @@
     const API_BASE = 'https://kalki-paid-telegram.srimanthgada87.workers.dev';
     const form = document.getElementById('joinForm');
     const msg = document.getElementById('msg');
-    const submitBtn = document.getElementById('submitBtn');
-    form.accessCode.addEventListener('input', () => {
-      submitBtn.textContent = form.accessCode.value.trim().toLowerCase() === 'onlyzelle'
-        ? 'Get Telegram Invite'
-        : 'Continue';
-    });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       msg.textContent = 'Checking access...';
