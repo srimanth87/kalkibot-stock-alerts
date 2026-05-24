@@ -49,8 +49,11 @@ async function createCheckoutSession(request, env) {
 
   const email = cleanEmail(body.email);
   const telegramUsername = cleanTelegramUsername(body.telegramUsername);
+  const groupKey = cleanGroupKey(body.groupKey);
+  const groupChatId = groupIdForKey(env, groupKey);
   if (!email) return jsonResponse({ ok: false, error: "Enter a valid email." }, 400);
   if (!telegramUsername) return jsonResponse({ ok: false, error: "Enter your Telegram username." }, 400);
+  if (!groupChatId) return jsonResponse({ ok: false, error: "Choose a valid Telegram group." }, 400);
 
   const baseUrl = publicBaseUrl(request, env);
   const params = new URLSearchParams();
@@ -60,8 +63,10 @@ async function createCheckoutSession(request, env) {
   params.set("customer_email", email);
   params.set("client_reference_id", telegramUsername);
   params.set("metadata[telegram_username]", telegramUsername);
+  params.set("metadata[group_key]", groupKey);
   params.set("metadata[source]", "kalki-paid-telegram");
   params.set("subscription_data[metadata][telegram_username]", telegramUsername);
+  params.set("subscription_data[metadata][group_key]", groupKey);
   params.set("success_url", checkoutSuccessUrl(env, baseUrl));
   params.set("cancel_url", env.PUBLIC_CANCEL_URL || `${baseUrl}/cancel`);
   params.set("allow_promotion_codes", "true");
@@ -72,6 +77,9 @@ async function createCheckoutSession(request, env) {
     checkout_session_id: stripeSession.id,
     email,
     telegram_username: telegramUsername,
+    group_key: groupKey,
+    group_chat_id: groupChatId,
+    access_source: "stripe",
     status: "checkout_created",
     raw_event_json: JSON.stringify({ checkout_session: stripeSession }),
   });
@@ -108,8 +116,10 @@ async function handleStripeWebhook(request, env) {
 
 async function handleCheckoutCompleted(session, event, env) {
   const telegramUsername = cleanTelegramUsername(session.metadata?.telegram_username || session.client_reference_id);
+  const groupKey = cleanGroupKey(session.metadata?.group_key);
+  const groupChatId = groupIdForKey(env, groupKey);
   const email = cleanEmail(session.customer_details?.email || session.customer_email);
-  const inviteLink = await createTelegramInviteLink(env, session.id);
+  const inviteLink = await createTelegramInviteLink(env, session.id, groupChatId);
   await upsertSubscriber(env, {
     id: crypto.randomUUID(),
     checkout_session_id: session.id,
@@ -117,6 +127,9 @@ async function handleCheckoutCompleted(session, event, env) {
     stripe_subscription_id: stringOrNull(session.subscription),
     email,
     telegram_username: telegramUsername,
+    group_key: groupKey,
+    group_chat_id: groupChatId,
+    access_source: "stripe",
     status: session.subscription ? "active" : session.payment_status || "paid",
     invite_link: inviteLink,
     invite_link_created_at: new Date().toISOString(),
@@ -147,7 +160,7 @@ async function getSessionStatus(url, env) {
   const sessionId = url.searchParams.get("session_id") || "";
   if (!sessionId) return jsonResponse({ ok: false, error: "Missing session_id" }, 400);
   const row = await env.DB.prepare(`
-    SELECT checkout_session_id, email, telegram_username, status, invite_link
+    SELECT checkout_session_id, email, telegram_username, group_key, status, invite_link
     FROM subscribers
     WHERE checkout_session_id = ?
   `).bind(sessionId).first();
@@ -157,6 +170,7 @@ async function getSessionStatus(url, env) {
     status: row.status,
     email: row.email,
     telegramUsername: row.telegram_username,
+    groupKey: row.group_key,
     inviteLink: isActiveStatus(row.status) ? row.invite_link : "",
     pending: !row.invite_link,
   });
@@ -167,7 +181,7 @@ async function adminList(url, env) {
     return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
   }
   const result = await env.DB.prepare(`
-    SELECT email, telegram_username, status, invite_link_created_at, created_at, updated_at
+    SELECT email, telegram_username, group_key, access_source, status, invite_link_created_at, created_at, updated_at
     FROM subscribers
     ORDER BY updated_at DESC
     LIMIT 100
@@ -180,14 +194,17 @@ async function upsertSubscriber(env, data) {
   await env.DB.prepare(`
     INSERT INTO subscribers (
       id, checkout_session_id, stripe_customer_id, stripe_subscription_id, email,
-      telegram_username, status, invite_link, invite_link_created_at, created_at,
-      updated_at, raw_event_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      telegram_username, group_key, group_chat_id, access_source, status, invite_link,
+      invite_link_created_at, created_at, updated_at, raw_event_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(checkout_session_id) DO UPDATE SET
       stripe_customer_id = COALESCE(excluded.stripe_customer_id, subscribers.stripe_customer_id),
       stripe_subscription_id = COALESCE(excluded.stripe_subscription_id, subscribers.stripe_subscription_id),
       email = COALESCE(excluded.email, subscribers.email),
       telegram_username = COALESCE(excluded.telegram_username, subscribers.telegram_username),
+      group_key = COALESCE(excluded.group_key, subscribers.group_key),
+      group_chat_id = COALESCE(excluded.group_chat_id, subscribers.group_chat_id),
+      access_source = COALESCE(excluded.access_source, subscribers.access_source),
       status = excluded.status,
       invite_link = COALESCE(excluded.invite_link, subscribers.invite_link),
       invite_link_created_at = COALESCE(excluded.invite_link_created_at, subscribers.invite_link_created_at),
@@ -200,6 +217,9 @@ async function upsertSubscriber(env, data) {
     stringOrNull(data.stripe_subscription_id),
     stringOrNull(data.email),
     stringOrNull(data.telegram_username),
+    stringOrNull(data.group_key),
+    stringOrNull(data.group_chat_id),
+    stringOrNull(data.access_source),
     data.status || "pending",
     stringOrNull(data.invite_link),
     stringOrNull(data.invite_link_created_at),
@@ -209,12 +229,13 @@ async function upsertSubscriber(env, data) {
   ).run();
 }
 
-async function createTelegramInviteLink(env, sessionId) {
-  assertEnv(env, ["TELEGRAM_BOT_TOKEN", "TELEGRAM_GROUP_ID"]);
+async function createTelegramInviteLink(env, sessionId, groupChatId) {
+  assertEnv(env, ["TELEGRAM_BOT_TOKEN"]);
+  if (!groupChatId) throw new Error("Missing Telegram group for checkout session");
   const ttl = Number(env.TELEGRAM_INVITE_TTL_SECONDS || 86400);
   const expireDate = Math.floor(Date.now() / 1000) + Math.max(300, ttl);
   const result = await telegramRequest(env, "createChatInviteLink", {
-    chat_id: env.TELEGRAM_GROUP_ID,
+    chat_id: groupChatId,
     name: `Kalki paid ${sessionId.slice(-8)}`,
     expire_date: expireDate,
     member_limit: 1,
@@ -297,6 +318,7 @@ function joinPage(env) {
       <form id="joinForm" class="panel">
         <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
         <label>Telegram username<input name="telegramUsername" required placeholder="@yourhandle"></label>
+        <label>Group<select name="groupKey" required>${groupOptionsHtml(env)}</select></label>
         <button type="submit">Subscribe with Stripe</button>
         <p id="msg" class="msg"></p>
         <p class="fine">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
@@ -396,6 +418,32 @@ function cleanEmail(value) {
 function cleanTelegramUsername(value) {
   const username = String(value || "").trim().replace(/^@/, "");
   return /^[A-Za-z0-9_]{5,32}$/.test(username) ? `@${username}` : "";
+}
+
+function cleanGroupKey(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+}
+
+function telegramGroupMap(env) {
+  try {
+    const parsed = JSON.parse(env.TELEGRAM_GROUP_MAP || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function groupIdForKey(env, key) {
+  const map = telegramGroupMap(env);
+  return stringOrNull(map[cleanGroupKey(key)]);
+}
+
+function groupOptionsHtml(env) {
+  const map = telegramGroupMap(env);
+  return Object.keys(map).sort().map(key => {
+    const label = key.replace(/[-_]+/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
+    return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;
+  }).join("");
 }
 
 function isActiveStatus(status) {

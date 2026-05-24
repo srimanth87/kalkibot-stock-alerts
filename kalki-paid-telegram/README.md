@@ -21,11 +21,19 @@ wrangler secret put STRIPE_SECRET_KEY
 wrangler secret put STRIPE_WEBHOOK_SECRET
 wrangler secret put STRIPE_PRICE_ID
 wrangler secret put TELEGRAM_BOT_TOKEN
-wrangler secret put TELEGRAM_GROUP_ID
 wrangler secret put ADMIN_KEY
 ```
 
-`TELEGRAM_GROUP_ID` is the private group chat id. The bot must be an admin with invite-link permission.
+Group routing is configured with `TELEGRAM_GROUP_MAP` in `wrangler.jsonc`. The bot must be an admin with invite-link permission in each group.
+
+Example:
+
+```json
+{
+  "charlotte": "-1003812424739",
+  "cincinnati": "-1003563826357"
+}
+```
 
 ## D1 setup
 
@@ -58,4 +66,3 @@ Listen at minimum for:
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
 - `invoice.payment_failed`
-
