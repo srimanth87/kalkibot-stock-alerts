@@ -271,10 +271,18 @@ async function adminCodesPage(url, env) {
     ORDER BY updated_at DESC
   `).all();
   const rows = result.results || [];
+  const membersResult = await env.DB.prepare(`
+    SELECT first_name, last_name, email, telegram_username, group_key, access_source, status, invite_link_created_at, created_at, updated_at
+    FROM subscribers
+    ORDER BY updated_at DESC
+    LIMIT 100
+  `).all();
+  const members = membersResult.results || [];
   const key = escapeHtml(url.searchParams.get("key") || "");
   const message = escapeHtml(url.searchParams.get("msg") || "");
   const groups = await accessGroups(env, { includeInactive: true });
   const activeGroups = groups.filter(group => group.active);
+  const groupLabels = Object.fromEntries(groups.map(group => [group.group_key, group.label]));
   const groupOptions = activeGroups.map(group => `<option value="${escapeHtml(group.group_key)}">${escapeHtml(group.label)}</option>`).join("");
   const groupsHtml = groups.length ? groups.map(group => `
     <tr>
@@ -316,6 +324,22 @@ async function adminCodesPage(url, env) {
       </td>
     </tr>
   `).join("") : `<tr><td colspan="7" class="empty">No codes yet.</td></tr>`;
+  const membersHtml = members.length ? members.map(member => {
+    const fullName = [member.first_name, member.last_name].filter(Boolean).join(" ") || "Unknown";
+    const groupLabel = groupLabels[member.group_key] || labelForGroupKey(member.group_key);
+    return `
+      <tr>
+        <td>${escapeHtml(fullName)}</td>
+        <td>${escapeHtml(member.email || "")}</td>
+        <td><code>${escapeHtml(member.telegram_username || "")}</code></td>
+        <td>${escapeHtml(groupLabel)}</td>
+        <td>${escapeHtml(labelForSource(member.access_source))}</td>
+        <td>${escapeHtml(member.status || "")}</td>
+        <td>${escapeHtml(formatAdminDate(member.invite_link_created_at || member.created_at))}</td>
+        <td>${escapeHtml(formatAdminDate(member.updated_at))}</td>
+      </tr>
+    `;
+  }).join("") : `<tr><td colspan="8" class="empty">No members yet.</td></tr>`;
 
   return htmlResponse(pageShell("Access Codes", `
     <main class="wrap admin-wrap">
@@ -356,6 +380,12 @@ async function adminCodesPage(url, env) {
         <table>
           <thead><tr><th>Code</th><th>Group</th><th>Mode</th><th>Status</th><th>Uses</th><th>Notes</th><th></th></tr></thead>
           <tbody>${rowsHtml}</tbody>
+        </table>
+      </section>
+      <section class="panel table-panel">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Telegram</th><th>Group</th><th>Source</th><th>Status</th><th>Invite</th><th>Updated</th></tr></thead>
+          <tbody>${membersHtml}</tbody>
         </table>
       </section>
     </main>
@@ -819,6 +849,25 @@ async function groupIdForKey(env, key) {
 
 function labelForGroupKey(key) {
   return String(key || "").replace(/[-_]+/g, " ").replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
+function labelForSource(source) {
+  const value = String(source || "").replace(/_/g, " ");
+  return value ? value.replace(/\b\w/g, ch => ch.toUpperCase()) : "";
+}
+
+function formatAdminDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "America/New_York",
+  });
 }
 
 function isAdminRequest(url, env) {
