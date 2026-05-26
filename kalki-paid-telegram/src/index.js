@@ -1,4 +1,5 @@
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
+const RESEND_API_BASE = "https://api.resend.com";
 
 export default {
   async fetch(request, env) {
@@ -154,6 +155,16 @@ async function createDirectInvite(env, { firstName, lastName, email, telegramUse
       submitted_access_code: access.submittedAccessCode,
     }),
   });
+  await sendWelcomeEmailSafely(env, {
+    sessionId,
+    firstName,
+    lastName,
+    email,
+    telegramUsername,
+    groupKey: access.groupKey,
+    inviteLink,
+    accessSource: access.accessSource,
+  });
 
   return jsonResponse({
     ok: true,
@@ -215,6 +226,16 @@ async function handleCheckoutCompleted(session, event, env) {
     invite_link: inviteLink,
     invite_link_created_at: new Date().toISOString(),
     raw_event_json: JSON.stringify(event),
+  });
+  await sendWelcomeEmailSafely(env, {
+    sessionId: session.id,
+    firstName,
+    lastName,
+    email,
+    telegramUsername,
+    groupKey,
+    inviteLink,
+    accessSource: "stripe",
   });
 }
 
@@ -715,6 +736,96 @@ async function telegramRequest(env, methodName, payload) {
   return data.result;
 }
 
+async function sendWelcomeEmailSafely(env, data) {
+  try {
+    await sendWelcomeEmail(env, data);
+  } catch (error) {
+    console.error("welcome_email_failed", error?.message || error);
+  }
+}
+
+async function sendWelcomeEmail(env, data) {
+  if (!env.RESEND_API_KEY || !env.WELCOME_EMAIL_FROM || !data.email || !data.inviteLink) return;
+
+  const productName = env.PRODUCT_NAME || "Kalki Alerts Telegram Membership";
+  const firstName = data.firstName || "there";
+  const groupName = labelForGroupKey(data.groupKey || "other");
+  const manageUrl = billingPortalUrl(env);
+  const supportEmail = stringOrNull(env.SUPPORT_EMAIL);
+  const subject = `Welcome to ${productName}`;
+  const html = welcomeEmailHtml({
+    productName,
+    firstName,
+    groupName,
+    inviteLink: data.inviteLink,
+    manageUrl,
+    supportEmail,
+  });
+  const text = welcomeEmailText({
+    productName,
+    firstName,
+    groupName,
+    inviteLink: data.inviteLink,
+    manageUrl,
+    supportEmail,
+  });
+  const body = {
+    from: env.WELCOME_EMAIL_FROM,
+    to: [data.email],
+    subject,
+    html,
+    text,
+  };
+  if (supportEmail) body.reply_to = [supportEmail];
+
+  const response = await fetch(`${RESEND_API_BASE}/emails`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `welcome-${data.sessionId}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.message || result.error || "Resend email failed");
+  }
+}
+
+function welcomeEmailHtml({ productName, firstName, groupName, inviteLink, manageUrl, supportEmail }) {
+  return `<!doctype html>
+<html>
+<body style="margin:0;background:#f8fafc;color:#111827;font-family:Arial,sans-serif;line-height:1.55">
+  <div style="max-width:620px;margin:0 auto;padding:28px 20px">
+    <p style="margin:0 0 8px;color:#f59e0b;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">Kalki Alerts</p>
+    <h1 style="margin:0 0 14px;font-size:28px;line-height:1.2">Welcome, ${escapeHtml(firstName)}</h1>
+    <p>Thanks for joining ${escapeHtml(productName)}. Your access is ready for the ${escapeHtml(groupName)} Telegram group.</p>
+    <p><a href="${escapeHtml(inviteLink)}" style="display:inline-block;background:#f59e0b;color:#111827;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:8px">Join Telegram group</a></p>
+    <p>If the button does not work, copy and paste this link into Telegram:<br><a href="${escapeHtml(inviteLink)}">${escapeHtml(inviteLink)}</a></p>
+    <p>You can manage or cancel your subscription here:<br><a href="${escapeHtml(manageUrl)}">${escapeHtml(manageUrl)}</a></p>
+    ${supportEmail ? `<p>Questions? Reply here or email <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a>.</p>` : ""}
+    <p style="margin-top:26px;color:#64748b;font-size:13px">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
+  </div>
+</body>
+</html>`;
+}
+
+function welcomeEmailText({ productName, firstName, groupName, inviteLink, manageUrl, supportEmail }) {
+  return [
+    `Welcome, ${firstName}`,
+    "",
+    `Thanks for joining ${productName}. Your access is ready for the ${groupName} Telegram group.`,
+    "",
+    `Join Telegram group: ${inviteLink}`,
+    "",
+    `Manage or cancel your subscription: ${manageUrl}`,
+    supportEmail ? `\nQuestions? Reply here or email ${supportEmail}.` : "",
+    "",
+    "Educational content only. Not personalized financial, investment, tax, or legal advice.",
+  ].filter(Boolean).join("\n");
+}
+
 async function stripeRequest(env, method, path, body) {
   const response = await fetch(`${STRIPE_API_BASE}${path}`, {
     method,
@@ -1083,6 +1194,10 @@ function checkoutSuccessUrl(env, baseUrl) {
   if (configured.includes("{CHECKOUT_SESSION_ID}")) return configured;
   const separator = configured.includes("?") ? "&" : "?";
   return `${configured}${separator}session_id={CHECKOUT_SESSION_ID}`;
+}
+
+function billingPortalUrl(env) {
+  return String(env.PUBLIC_BILLING_PORTAL_URL || "https://billing.stripe.com/p/login/bJecN5b74e2t2EEclAbwk00").trim();
 }
 
 function assertEnv(env, keys) {

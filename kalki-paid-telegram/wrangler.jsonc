@@ -11,6 +11,7 @@
     "PUBLIC_BASE_URL": "https://kalki-paid-telegram.workers.dev",
     "PUBLIC_SUCCESS_URL": "https://kalki-alerts.pages.dev/success.html",
     "PUBLIC_CANCEL_URL": "https://kalki-alerts.pages.dev/cancel.html",
+    "PUBLIC_BILLING_PORTAL_URL": "https://billing.stripe.com/p/login/bJecN5b74e2t2EEclAbwk00",
     "PRODUCT_NAME": "Kalki Alerts Telegram Membership",
     "TELEGRAM_INVITE_TTL_SECONDS": "604800",
     "TELEGRAM_INVITE_MEMBER_LIMIT": "2",
