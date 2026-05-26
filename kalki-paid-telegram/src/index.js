@@ -27,8 +27,14 @@ export default {
       if (request.method === "POST" && url.pathname === "/api/stripe-webhook") {
         return await handleStripeWebhook(request, env);
       }
+      if (request.method === "POST" && url.pathname === "/api/telegram-webhook") {
+        return await handleTelegramWebhook(request, env);
+      }
       if (request.method === "GET" && url.pathname === "/api/session") {
         return await getSessionStatus(url, env);
+      }
+      if (request.method === "GET" && url.pathname === "/admin/telegram-webhook") {
+        return await adminSetupTelegramWebhook(request, url, env);
       }
       if (request.method === "GET" && url.pathname === "/admin/codes") {
         return await adminCodesPage(url, env);
@@ -228,6 +234,100 @@ async function handleInvoicePaymentFailed(invoice, event, env) {
   `).bind(new Date().toISOString(), JSON.stringify(event), subscriptionId).run();
 }
 
+async function handleTelegramWebhook(request, env) {
+  if (env.TELEGRAM_WEBHOOK_SECRET) {
+    const token = request.headers.get("X-Telegram-Bot-Api-Secret-Token") || "";
+    if (token !== env.TELEGRAM_WEBHOOK_SECRET) {
+      return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+    }
+  }
+
+  let update;
+  try {
+    update = await request.json();
+  } catch {
+    return jsonResponse({ ok: false, error: "Invalid Telegram update" }, 400);
+  }
+
+  await recordTelegramJoin(update, env);
+  return jsonResponse({ ok: true });
+}
+
+async function recordTelegramJoin(update, env) {
+  const chatMember = update.chat_member;
+  if (!chatMember) return;
+
+  const oldStatus = String(chatMember.old_chat_member?.status || "");
+  const newStatus = String(chatMember.new_chat_member?.status || "");
+  const joined = ["left", "kicked"].includes(oldStatus) && ["member", "administrator", "creator"].includes(newStatus);
+  if (!joined) return;
+
+  const user = chatMember.new_chat_member?.user || chatMember.from;
+  const chatId = stringOrNull(chatMember.chat?.id);
+  const inviteLink = stringOrNull(chatMember.invite_link?.invite_link);
+  if (!user || !chatId) return;
+
+  const joinedAt = new Date((Number(update.chat_member.date) || Math.floor(Date.now() / 1000)) * 1000).toISOString();
+  const telegramUsername = cleanTelegramUsername(user.username || "");
+  const firstName = cleanPersonName(user.first_name || "");
+  const lastName = cleanPersonName(user.last_name || "");
+  const raw = JSON.stringify(update);
+
+  if (inviteLink) {
+    const result = await env.DB.prepare(`
+      UPDATE subscribers
+      SET telegram_user_id = ?, telegram_join_username = ?, telegram_join_first_name = ?,
+          telegram_join_last_name = ?, telegram_join_chat_id = ?, telegram_joined_at = ?,
+          telegram_join_raw_json = ?, updated_at = ?
+      WHERE invite_link = ?
+    `).bind(
+      String(user.id),
+      telegramUsername,
+      firstName,
+      lastName,
+      chatId,
+      joinedAt,
+      raw,
+      new Date().toISOString(),
+      inviteLink,
+    ).run();
+    if (result.meta?.changes) return;
+  }
+
+  if (telegramUsername) {
+    await env.DB.prepare(`
+      UPDATE subscribers
+      SET telegram_user_id = ?, telegram_join_username = ?, telegram_join_first_name = ?,
+          telegram_join_last_name = ?, telegram_join_chat_id = ?, telegram_joined_at = ?,
+          telegram_join_raw_json = ?, updated_at = ?
+      WHERE telegram_username = ? AND group_chat_id = ? AND telegram_joined_at IS NULL
+    `).bind(
+      String(user.id),
+      telegramUsername,
+      firstName,
+      lastName,
+      chatId,
+      joinedAt,
+      raw,
+      new Date().toISOString(),
+      telegramUsername,
+      chatId,
+    ).run();
+  }
+}
+
+async function adminSetupTelegramWebhook(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  assertEnv(env, ["TELEGRAM_BOT_TOKEN", "TELEGRAM_WEBHOOK_SECRET"]);
+  const webhookUrl = `${new URL(request.url).origin}/api/telegram-webhook`;
+  const result = await telegramRequest(env, "setWebhook", {
+    url: webhookUrl,
+    secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+    allowed_updates: ["chat_member", "chat_join_request"],
+  });
+  return jsonResponse({ ok: true, webhookUrl, result });
+}
+
 async function getSessionStatus(url, env) {
   const sessionId = url.searchParams.get("session_id") || "";
   if (!sessionId) return jsonResponse({ ok: false, error: "Missing session_id" }, 400);
@@ -278,6 +378,16 @@ async function adminCodesPage(url, env) {
     LIMIT 100
   `).all();
   const members = membersResult.results || [];
+  const telegramMembersResult = await env.DB.prepare(`
+    SELECT first_name, last_name, email, telegram_username, telegram_join_username,
+           telegram_join_first_name, telegram_join_last_name, telegram_user_id,
+           group_key, access_source, status, telegram_joined_at
+    FROM subscribers
+    WHERE telegram_joined_at IS NOT NULL
+    ORDER BY telegram_joined_at DESC
+    LIMIT 100
+  `).all();
+  const telegramMembers = telegramMembersResult.results || [];
   const key = escapeHtml(url.searchParams.get("key") || "");
   const message = escapeHtml(url.searchParams.get("msg") || "");
   const groups = await accessGroups(env, { includeInactive: true });
@@ -340,6 +450,22 @@ async function adminCodesPage(url, env) {
       </tr>
     `;
   }).join("") : `<tr><td colspan="8" class="empty">No members yet.</td></tr>`;
+  const telegramMembersHtml = telegramMembers.length ? telegramMembers.map(member => {
+    const joinedName = [member.telegram_join_first_name, member.telegram_join_last_name].filter(Boolean).join(" ");
+    const submittedName = [member.first_name, member.last_name].filter(Boolean).join(" ");
+    const fullName = joinedName || submittedName || "Unknown";
+    const username = member.telegram_join_username || member.telegram_username || "";
+    const groupLabel = groupLabels[member.group_key] || labelForGroupKey(member.group_key);
+    return `
+      <tr>
+        <td>${escapeHtml(fullName)}</td>
+        <td><code>${escapeHtml(username)}</code></td>
+        <td><code>${escapeHtml(member.telegram_user_id || "")}</code></td>
+        <td>${escapeHtml(groupLabel)}</td>
+        <td>${escapeHtml(formatAdminDate(member.telegram_joined_at))}</td>
+      </tr>
+    `;
+  }).join("") : `<tr><td colspan="5" class="empty">No Telegram joins captured yet.</td></tr>`;
 
   return htmlResponse(pageShell("Access Codes", `
     <main class="wrap admin-wrap">
@@ -383,6 +509,14 @@ async function adminCodesPage(url, env) {
         </table>
       </section>
       <section class="panel table-panel">
+        <h2>Telegram Members</h2>
+        <table>
+          <thead><tr><th>Name</th><th>Telegram</th><th>Telegram ID</th><th>Group</th><th>Joined Telegram</th></tr></thead>
+          <tbody>${telegramMembersHtml}</tbody>
+        </table>
+      </section>
+      <section class="panel table-panel">
+        <h2>Access Records</h2>
         <table>
           <thead><tr><th>Name</th><th>Email</th><th>Telegram</th><th>Group</th><th>Source</th><th>Status</th><th>Invite</th><th>Updated</th></tr></thead>
           <tbody>${membersHtml}</tbody>
@@ -695,7 +829,7 @@ function pageShell(title, body) {
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top left,#11251d,#070b14 42%),#070b14;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     .wrap{width:min(920px,calc(100vw - 32px));margin:0 auto;padding:72px 0}.hero{padding:28px 0 20px}.eyebrow{margin:0 0 10px;color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:1.8px;font-weight:800}.hero h1,.panel h1{margin:0 0 12px;font-size:clamp(32px,6vw,58px);line-height:1.02;letter-spacing:0}.copy{color:var(--dim);font-size:17px;line-height:1.6;max-width:680px}
     .panel{background:rgba(16,24,39,.86);border:1px solid var(--line);border-radius:10px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.22)}label{display:block;margin-bottom:16px;color:#cbd5e1;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px}input,select{display:block;width:100%;margin-top:8px;padding:14px 15px;border-radius:8px;border:1px solid #30415f;background:#080d17;color:var(--text);font-size:16px}button{width:100%;border:0;border-radius:8px;background:var(--gold);color:#111827;font-weight:900;font-size:15px;padding:15px 18px;cursor:pointer;text-transform:uppercase;letter-spacing:1px}.msg,.fine{color:var(--dim);line-height:1.5}.fine{font-size:12px}.result{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:8px;background:#080d17;color:#cbd5e1}.invite{display:inline-block;margin-top:8px;padding:13px 16px;border-radius:8px;background:var(--green);color:#03120c;text-decoration:none;font-weight:900}
-    .admin-wrap{width:min(1180px,calc(100vw - 32px))}.grid-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end}.grid-form label{margin:0}.grid-form button{align-self:end}.check{display:flex;gap:10px;align-items:center;height:49px}.check input{width:auto;margin:0}.notice{margin:0 0 18px;padding:12px 14px;border:1px solid rgba(16,185,129,.3);border-radius:8px;background:rgba(16,185,129,.12);color:#bbf7d0}.table-panel{margin-top:18px;overflow:auto}table{width:100%;border-collapse:collapse;min-width:860px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;color:#cbd5e1;font-size:14px}th{color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-size:11px}td form{display:flex;gap:8px;align-items:center;margin:0 0 8px}td form:last-child{margin-bottom:0}td input{min-width:220px;margin:0;padding:9px 10px;font-size:14px}td button{width:auto;padding:9px 12px;font-size:12px}code{color:#f8fafc}.danger{padding:9px 12px;background:#7f1d1d;color:#fecaca}.empty{text-align:center;color:var(--dim)}
+    .admin-wrap{width:min(1180px,calc(100vw - 32px))}.grid-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end}.grid-form label{margin:0}.grid-form button{align-self:end}.check{display:flex;gap:10px;align-items:center;height:49px}.check input{width:auto;margin:0}.notice{margin:0 0 18px;padding:12px 14px;border:1px solid rgba(16,185,129,.3);border-radius:8px;background:rgba(16,185,129,.12);color:#bbf7d0}.table-panel{margin-top:18px;overflow:auto}.table-panel h2{margin:0 0 14px;font-size:18px;letter-spacing:0}table{width:100%;border-collapse:collapse;min-width:860px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;color:#cbd5e1;font-size:14px}th{color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-size:11px}td form{display:flex;gap:8px;align-items:center;margin:0 0 8px}td form:last-child{margin-bottom:0}td input{min-width:220px;margin:0;padding:9px 10px;font-size:14px}td button{width:auto;padding:9px 12px;font-size:12px}code{color:#f8fafc}.danger{padding:9px 12px;background:#7f1d1d;color:#fecaca}.empty{text-align:center;color:var(--dim)}
     a{color:#93c5fd}
   </style>
 </head>
