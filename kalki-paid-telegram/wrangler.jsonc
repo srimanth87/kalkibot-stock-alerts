@@ -13,6 +13,7 @@
     "PUBLIC_CANCEL_URL": "https://kalki-alerts.pages.dev/cancel.html",
     "PRODUCT_NAME": "Kalki Alerts Telegram Membership",
     "TELEGRAM_INVITE_TTL_SECONDS": "604800",
+    "TELEGRAM_INVITE_MEMBER_LIMIT": "2",
     "TELEGRAM_GROUP_MAP": "{\"charlotte\":\"-1003812424739\",\"cincinnati\":\"-1003563826357\",\"other\":\"-1003923372289\"}"
   },
   "d1_databases": [

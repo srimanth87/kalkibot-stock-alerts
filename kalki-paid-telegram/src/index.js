@@ -690,11 +690,12 @@ async function createTelegramInviteLink(env, sessionId, groupChatId) {
   if (!groupChatId) throw new Error("Missing Telegram group for checkout session");
   const ttl = Number(env.TELEGRAM_INVITE_TTL_SECONDS || 86400);
   const expireDate = Math.floor(Date.now() / 1000) + Math.max(300, ttl);
+  const memberLimit = Math.max(1, Number(env.TELEGRAM_INVITE_MEMBER_LIMIT || 2));
   const result = await telegramRequest(env, "createChatInviteLink", {
     chat_id: groupChatId,
     name: `Kalki paid ${sessionId.slice(-8)}`,
     expire_date: expireDate,
-    member_limit: 1,
+    member_limit: memberLimit,
     creates_join_request: false,
   });
   if (!result.invite_link) throw new Error("Telegram did not return an invite link");
