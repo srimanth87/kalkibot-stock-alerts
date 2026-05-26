@@ -780,6 +780,7 @@ function joinPage(env) {
         <label>Access code<input name="accessCode" placeholder="optional code"></label>
         <button id="submitBtn" type="submit">Continue</button>
         <p id="msg" class="msg"></p>
+        <p class="fine">Already subscribed? <a href="https://billing.stripe.com/p/login/bJecN5b74e2t2EEclAbwk00">Manage subscription</a>.</p>
         <p class="fine">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
       </form>
     </main>
