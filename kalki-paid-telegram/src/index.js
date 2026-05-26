@@ -51,6 +51,9 @@ export default {
       if (request.method === "POST" && url.pathname === "/admin/groups/delete") {
         return await adminDeleteGroup(request, url, env);
       }
+      if (request.method === "POST" && url.pathname === "/admin/invites/regenerate") {
+        return await adminRegenerateInvite(request, url, env);
+      }
       if (request.method === "GET" && url.pathname === "/admin") {
         return await adminList(url, env);
       }
@@ -372,7 +375,8 @@ async function adminCodesPage(url, env) {
   `).all();
   const rows = result.results || [];
   const membersResult = await env.DB.prepare(`
-    SELECT first_name, last_name, email, telegram_username, group_key, access_source, status, invite_link_created_at, created_at, updated_at
+    SELECT checkout_session_id, first_name, last_name, email, telegram_username, group_key, group_chat_id,
+           access_source, status, invite_link, invite_link_created_at, created_at, updated_at
     FROM subscribers
     ORDER BY updated_at DESC
     LIMIT 100
@@ -447,9 +451,17 @@ async function adminCodesPage(url, env) {
         <td>${escapeHtml(member.status || "")}</td>
         <td>${escapeHtml(formatAdminDate(member.invite_link_created_at || member.created_at))}</td>
         <td>${escapeHtml(formatAdminDate(member.updated_at))}</td>
+        <td>
+          ${member.invite_link ? `<a href="${escapeHtml(member.invite_link)}">Open</a>` : ""}
+          ${isActiveStatus(member.status) && member.group_chat_id ? `
+          <form method="post" action="/admin/invites/regenerate?key=${key}">
+            <input type="hidden" name="sessionId" value="${escapeHtml(member.checkout_session_id)}">
+            <button type="submit">New Invite</button>
+          </form>` : ""}
+        </td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="8" class="empty">No members yet.</td></tr>`;
+  }).join("") : `<tr><td colspan="9" class="empty">No members yet.</td></tr>`;
   const telegramMembersHtml = telegramMembers.length ? telegramMembers.map(member => {
     const joinedName = [member.telegram_join_first_name, member.telegram_join_last_name].filter(Boolean).join(" ");
     const submittedName = [member.first_name, member.last_name].filter(Boolean).join(" ");
@@ -518,7 +530,7 @@ async function adminCodesPage(url, env) {
       <section class="panel table-panel">
         <h2>Access Records</h2>
         <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Telegram</th><th>Group</th><th>Source</th><th>Status</th><th>Invite</th><th>Updated</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Telegram</th><th>Group</th><th>Source</th><th>Status</th><th>Invite</th><th>Updated</th><th>Link</th></tr></thead>
           <tbody>${membersHtml}</tbody>
         </table>
       </section>
@@ -602,6 +614,31 @@ async function adminDeleteGroup(request, url, env) {
     await env.DB.prepare(`DELETE FROM access_groups WHERE group_key = ?`).bind(groupKey).run();
   }
   return redirectToCodes(url, groupKey ? `Deleted group ${groupKey}.` : "Group not found.");
+}
+
+async function adminRegenerateInvite(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const form = await request.formData();
+  const sessionId = String(form.get("sessionId") || "").trim();
+  if (!sessionId) return redirectToCodes(url, "Missing subscriber session.");
+
+  const row = await env.DB.prepare(`
+    SELECT checkout_session_id, group_chat_id, status
+    FROM subscribers
+    WHERE checkout_session_id = ?
+  `).bind(sessionId).first();
+  if (!row || !isActiveStatus(row.status) || !row.group_chat_id) {
+    return redirectToCodes(url, "Cannot create invite for this subscriber.");
+  }
+
+  const inviteLink = await createTelegramInviteLink(env, sessionId, row.group_chat_id);
+  await env.DB.prepare(`
+    UPDATE subscribers
+    SET invite_link = ?, invite_link_created_at = ?, updated_at = ?
+    WHERE checkout_session_id = ?
+  `).bind(inviteLink, new Date().toISOString(), new Date().toISOString(), sessionId).run();
+
+  return redirectToCodes(url, "Created a fresh Telegram invite link.");
 }
 
 async function upsertSubscriber(env, data) {
