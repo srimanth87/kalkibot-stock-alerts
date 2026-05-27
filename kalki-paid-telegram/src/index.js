@@ -295,18 +295,23 @@ async function handleTelegramPrivateMessage(update, env) {
   const user = message.from;
   if (!user) return;
 
+  if (text === "/id" || text.startsWith("/id ")) {
+    await sendTelegramMessage(env, message.chat.id, `Your Telegram ID is ${user.id}.`);
+    return;
+  }
+
   if (!text.startsWith("/start")) {
     await sendTelegramMessage(
       env,
       message.chat.id,
-      `Your Telegram ID is ${user.id}.\n\nTo activate paid access, use the Activate in Telegram link after checkout.`,
+      "Welcome to Kalki Alerts. To activate paid access, use the Activate in Telegram link after checkout.\n\nIf support asked for your Telegram ID, send /id.",
     );
     return;
   }
 
   const token = text.split(/\s+/)[1] || "";
   if (!token || !user) {
-    await sendTelegramMessage(env, message.chat.id, `Your Telegram ID is ${user.id}.\n\nOpen your Kalki Alerts activation link after payment so I can verify your access.`);
+    await sendTelegramMessage(env, message.chat.id, "Welcome to Kalki Alerts. Open your activation link after payment so I can verify your access. If support asked for your Telegram ID, send /id.");
     return;
   }
 
