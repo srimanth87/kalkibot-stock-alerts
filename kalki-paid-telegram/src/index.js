@@ -135,10 +135,11 @@ async function createCheckoutSession(request, env, { firstName, lastName, email,
 
 async function createDirectInvite(env, { firstName, lastName, email, telegramUsername, access }) {
   const sessionId = `${access.accessSource}_${crypto.randomUUID()}`;
+  const subscriberId = crypto.randomUUID();
   const inviteLink = await createTelegramInviteLink(env, sessionId, access.groupChatId);
   await recordAccessCodeUse(env, access);
   await upsertSubscriber(env, {
-    id: crypto.randomUUID(),
+    id: subscriberId,
     checkout_session_id: sessionId,
     first_name: firstName,
     last_name: lastName,
@@ -157,6 +158,7 @@ async function createDirectInvite(env, { firstName, lastName, email, telegramUse
   });
   await sendWelcomeEmailSafely(env, {
     sessionId,
+    subscriberId,
     firstName,
     lastName,
     email,
@@ -168,7 +170,7 @@ async function createDirectInvite(env, { firstName, lastName, email, telegramUse
 
   return jsonResponse({
     ok: true,
-    inviteLink,
+    botStartUrl: botStartUrl(env, subscriberId),
     sessionId,
     accessSource: access.accessSource,
     groupKey: access.groupKey,
@@ -227,8 +229,10 @@ async function handleCheckoutCompleted(session, event, env) {
     invite_link_created_at: new Date().toISOString(),
     raw_event_json: JSON.stringify(event),
   });
+  const subscriberId = await subscriberIdForSession(env, session.id);
   await sendWelcomeEmailSafely(env, {
     sessionId: session.id,
+    subscriberId,
     firstName,
     lastName,
     email,
@@ -273,8 +277,63 @@ async function handleTelegramWebhook(request, env) {
     return jsonResponse({ ok: false, error: "Invalid Telegram update" }, 400);
   }
 
+  await handleTelegramStart(update, env);
   await recordTelegramJoin(update, env);
   return jsonResponse({ ok: true });
+}
+
+async function handleTelegramStart(update, env) {
+  const message = update.message;
+  if (!message || String(message.chat?.type || "") !== "private") return;
+  const text = String(message.text || "").trim();
+  if (!text.startsWith("/start")) return;
+
+  const token = text.split(/\s+/)[1] || "";
+  const user = message.from;
+  if (!token || !user) {
+    await sendTelegramMessage(env, message.chat.id, "Open your Kalki Alerts activation link after payment so I can verify your access.");
+    return;
+  }
+
+  const row = await env.DB.prepare(`
+    SELECT id, checkout_session_id, first_name, group_key, status, invite_link
+    FROM subscribers
+    WHERE id = ?
+  `).bind(token).first();
+  if (!row || !isActiveStatus(row.status) || !row.invite_link) {
+    await sendTelegramMessage(env, message.chat.id, "I could not find active Kalki Alerts access for this activation link. Please use the link shown after checkout or contact support.");
+    return;
+  }
+
+  const firstName = cleanPersonName(user.first_name || "");
+  const lastName = cleanPersonName(user.last_name || "");
+  const username = cleanTelegramUsername(user.username || "");
+  const startedAt = new Date((Number(message.date) || Math.floor(Date.now() / 1000)) * 1000).toISOString();
+  await env.DB.prepare(`
+    UPDATE subscribers
+    SET telegram_user_id = ?, telegram_join_username = COALESCE(NULLIF(?, ''), telegram_join_username),
+        telegram_join_first_name = COALESCE(NULLIF(?, ''), telegram_join_first_name),
+        telegram_join_last_name = COALESCE(NULLIF(?, ''), telegram_join_last_name),
+        telegram_started_at = ?, telegram_start_raw_json = ?, updated_at = ?
+    WHERE id = ?
+  `).bind(
+    String(user.id),
+    username,
+    firstName,
+    lastName,
+    startedAt,
+    JSON.stringify(update),
+    new Date().toISOString(),
+    row.id,
+  ).run();
+
+  const greeting = cleanPersonName(row.first_name) || firstName || "there";
+  const groupName = labelForGroupKey(row.group_key || "other");
+  await sendTelegramMessage(
+    env,
+    message.chat.id,
+    `Hi ${greeting}. Your Kalki Alerts access is verified for ${groupName}.\n\nJoin here: ${row.invite_link}\n\nThis invite is limited and expires in 7 days.`,
+  );
 }
 
 async function recordTelegramJoin(update, env) {
@@ -347,7 +406,7 @@ async function adminSetupTelegramWebhook(request, url, env) {
   const result = await telegramRequest(env, "setWebhook", {
     url: webhookUrl,
     secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-    allowed_updates: ["chat_member", "chat_join_request"],
+    allowed_updates: ["message", "chat_member", "chat_join_request"],
   });
   return jsonResponse({ ok: true, webhookUrl, result });
 }
@@ -356,7 +415,7 @@ async function getSessionStatus(url, env) {
   const sessionId = url.searchParams.get("session_id") || "";
   if (!sessionId) return jsonResponse({ ok: false, error: "Missing session_id" }, 400);
   const row = await env.DB.prepare(`
-    SELECT checkout_session_id, first_name, last_name, email, telegram_username, group_key, status, invite_link
+    SELECT id, checkout_session_id, first_name, last_name, email, telegram_username, group_key, status, invite_link, telegram_started_at
     FROM subscribers
     WHERE checkout_session_id = ?
   `).bind(sessionId).first();
@@ -369,7 +428,8 @@ async function getSessionStatus(url, env) {
     email: row.email,
     telegramUsername: row.telegram_username,
     groupKey: row.group_key,
-    inviteLink: isActiveStatus(row.status) ? row.invite_link : "",
+    botStartUrl: isActiveStatus(row.status) && row.invite_link ? botStartUrl(env, row.id) : "",
+    telegramStarted: Boolean(row.telegram_started_at),
     pending: !row.invite_link,
   });
 }
@@ -736,6 +796,15 @@ async function telegramRequest(env, methodName, payload) {
   return data.result;
 }
 
+async function sendTelegramMessage(env, chatId, text) {
+  assertEnv(env, ["TELEGRAM_BOT_TOKEN"]);
+  return await telegramRequest(env, "sendMessage", {
+    chat_id: chatId,
+    text,
+    disable_web_page_preview: true,
+  });
+}
+
 async function sendWelcomeEmailSafely(env, data) {
   try {
     await sendWelcomeEmail(env, data);
@@ -745,19 +814,20 @@ async function sendWelcomeEmailSafely(env, data) {
 }
 
 async function sendWelcomeEmail(env, data) {
-  if (!env.RESEND_API_KEY || !env.WELCOME_EMAIL_FROM || !data.email || !data.inviteLink) return;
+  if (!env.RESEND_API_KEY || !env.WELCOME_EMAIL_FROM || !data.email || !data.inviteLink || !data.subscriberId) return;
 
   const productName = env.PRODUCT_NAME || "Kalki Alerts Telegram Membership";
   const firstName = data.firstName || "there";
   const groupName = labelForGroupKey(data.groupKey || "other");
   const manageUrl = billingPortalUrl(env);
+  const activateUrl = botStartUrl(env, data.subscriberId);
   const supportEmail = stringOrNull(env.SUPPORT_EMAIL);
   const subject = `Welcome to ${productName}`;
   const html = welcomeEmailHtml({
     productName,
     firstName,
     groupName,
-    inviteLink: data.inviteLink,
+    activateUrl,
     manageUrl,
     supportEmail,
   });
@@ -765,7 +835,7 @@ async function sendWelcomeEmail(env, data) {
     productName,
     firstName,
     groupName,
-    inviteLink: data.inviteLink,
+    activateUrl,
     manageUrl,
     supportEmail,
   });
@@ -793,7 +863,7 @@ async function sendWelcomeEmail(env, data) {
   }
 }
 
-function welcomeEmailHtml({ productName, firstName, groupName, inviteLink, manageUrl, supportEmail }) {
+function welcomeEmailHtml({ productName, firstName, groupName, activateUrl, manageUrl, supportEmail }) {
   return `<!doctype html>
 <html>
 <body style="margin:0;background:#f8fafc;color:#111827;font-family:Arial,sans-serif;line-height:1.55">
@@ -801,8 +871,9 @@ function welcomeEmailHtml({ productName, firstName, groupName, inviteLink, manag
     <p style="margin:0 0 8px;color:#f59e0b;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">Kalki Alerts</p>
     <h1 style="margin:0 0 14px;font-size:28px;line-height:1.2">Welcome, ${escapeHtml(firstName)}</h1>
     <p>Thanks for joining ${escapeHtml(productName)}. Your access is ready for the ${escapeHtml(groupName)} Telegram group.</p>
-    <p><a href="${escapeHtml(inviteLink)}" style="display:inline-block;background:#f59e0b;color:#111827;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:8px">Join Telegram group</a></p>
-    <p>If the button does not work, copy and paste this link into Telegram:<br><a href="${escapeHtml(inviteLink)}">${escapeHtml(inviteLink)}</a></p>
+    <p>Open the Kalki Alerts bot to verify your Telegram account and receive your group invite.</p>
+    <p><a href="${escapeHtml(activateUrl)}" style="display:inline-block;background:#f59e0b;color:#111827;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:8px">Activate in Telegram</a></p>
+    <p>If the button does not work, copy and paste this link into Telegram:<br><a href="${escapeHtml(activateUrl)}">${escapeHtml(activateUrl)}</a></p>
     <p>You can manage or cancel your subscription here:<br><a href="${escapeHtml(manageUrl)}">${escapeHtml(manageUrl)}</a></p>
     ${supportEmail ? `<p>Questions? Reply here or email <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a>.</p>` : ""}
     <p style="margin-top:26px;color:#64748b;font-size:13px">Educational content only. Not personalized financial, investment, tax, or legal advice.</p>
@@ -811,13 +882,15 @@ function welcomeEmailHtml({ productName, firstName, groupName, inviteLink, manag
 </html>`;
 }
 
-function welcomeEmailText({ productName, firstName, groupName, inviteLink, manageUrl, supportEmail }) {
+function welcomeEmailText({ productName, firstName, groupName, activateUrl, manageUrl, supportEmail }) {
   return [
     `Welcome, ${firstName}`,
     "",
     `Thanks for joining ${productName}. Your access is ready for the ${groupName} Telegram group.`,
     "",
-    `Join Telegram group: ${inviteLink}`,
+    "Open the Kalki Alerts bot to verify your Telegram account and receive your group invite.",
+    "",
+    `Activate in Telegram: ${activateUrl}`,
     "",
     `Manage or cancel your subscription: ${manageUrl}`,
     supportEmail ? `\nQuestions? Reply here or email ${supportEmail}.` : "",
@@ -916,6 +989,10 @@ function joinPage(env) {
           msg.innerHTML = '<p>Your invite is ready:</p><a class="invite" href="' + json.inviteLink + '">Join Telegram group</a>';
           return;
         }
+        if (json.botStartUrl) {
+          msg.innerHTML = '<p>Your access is ready. Open the Kalki Alerts bot to verify Telegram and receive your invite:</p><a class="invite" href="' + json.botStartUrl + '">Activate in Telegram</a>';
+          return;
+        }
         msg.textContent = 'Opening secure checkout...';
         location.href = json.url;
       });
@@ -943,8 +1020,8 @@ function successPage() {
         }
         const res = await fetch('/api/session?session_id=' + encodeURIComponent(sessionId));
         const json = await res.json();
-        if (json.inviteLink) {
-          result.innerHTML = '<p>Your one-time invite link is ready:</p><a class="invite" href="' + json.inviteLink + '">Join Telegram group</a>';
+        if (json.botStartUrl) {
+          result.innerHTML = '<p>Your payment is confirmed. Open the Kalki Alerts bot to verify your Telegram account and receive your group invite:</p><a class="invite" href="' + json.botStartUrl + '">Activate in Telegram</a>';
           return;
         }
         result.textContent = 'Still waiting for Stripe confirmation. Refreshing...';
@@ -1073,6 +1150,15 @@ async function recordAccessCodeUse(env, access) {
   `).bind(new Date().toISOString(), access.accessCode).run();
 }
 
+async function subscriberIdForSession(env, sessionId) {
+  const row = await env.DB.prepare(`
+    SELECT id
+    FROM subscribers
+    WHERE checkout_session_id = ?
+  `).bind(sessionId).first();
+  return stringOrNull(row?.id);
+}
+
 function configGroupMap(env) {
   try {
     const parsed = JSON.parse(env.TELEGRAM_GROUP_MAP || "{}");
@@ -1198,6 +1284,14 @@ function checkoutSuccessUrl(env, baseUrl) {
 
 function billingPortalUrl(env) {
   return String(env.PUBLIC_BILLING_PORTAL_URL || "https://billing.stripe.com/p/login/bJecN5b74e2t2EEclAbwk00").trim();
+}
+
+function botStartUrl(env, token) {
+  return `https://t.me/${telegramBotUsername(env)}?start=${encodeURIComponent(token || "")}`;
+}
+
+function telegramBotUsername(env) {
+  return String(env.TELEGRAM_BOT_USERNAME || "KalkiAlertsAccessBot").replace(/^@+/, "").trim();
 }
 
 function assertEnv(env, keys) {

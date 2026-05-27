@@ -29,8 +29,8 @@
       }
       const res = await fetch(API_BASE + '/api/session?session_id=' + encodeURIComponent(sessionId));
       const json = await res.json();
-      if (json.inviteLink) {
-        result.innerHTML = '<p>Your one-time invite link is ready:</p><a class="invite" href="' + json.inviteLink + '">Join Telegram group</a>';
+      if (json.botStartUrl) {
+        result.innerHTML = '<p>Your payment is confirmed. Open the Kalki Alerts bot to verify your Telegram account and receive your group invite:</p><a class="invite" href="' + json.botStartUrl + '">Activate in Telegram</a>';
         return;
       }
       result.textContent = 'Still waiting for Stripe confirmation. Refreshing...';

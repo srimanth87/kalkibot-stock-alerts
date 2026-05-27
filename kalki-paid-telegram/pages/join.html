@@ -52,6 +52,10 @@
         msg.innerHTML = '<p>Your invite is ready:</p><a class="invite" href="' + json.inviteLink + '">Join Telegram group</a>';
         return;
       }
+      if (json.botStartUrl) {
+        msg.innerHTML = '<p>Your access is ready. Open the Kalki Alerts bot to verify Telegram and receive your invite:</p><a class="invite" href="' + json.botStartUrl + '">Activate in Telegram</a>';
+        return;
+      }
       msg.textContent = 'Opening secure checkout...';
       location.href = json.url;
     });
