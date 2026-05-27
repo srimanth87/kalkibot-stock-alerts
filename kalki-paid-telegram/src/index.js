@@ -283,21 +283,30 @@ async function handleTelegramWebhook(request, env) {
     return jsonResponse({ ok: false, error: "Invalid Telegram update" }, 400);
   }
 
-  await handleTelegramStart(update, env);
+  await handleTelegramPrivateMessage(update, env);
   await recordTelegramJoin(update, env);
   return jsonResponse({ ok: true });
 }
 
-async function handleTelegramStart(update, env) {
+async function handleTelegramPrivateMessage(update, env) {
   const message = update.message;
   if (!message || String(message.chat?.type || "") !== "private") return;
   const text = String(message.text || "").trim();
-  if (!text.startsWith("/start")) return;
+  const user = message.from;
+  if (!user) return;
+
+  if (!text.startsWith("/start")) {
+    await sendTelegramMessage(
+      env,
+      message.chat.id,
+      `Your Telegram ID is ${user.id}.\n\nTo activate paid access, use the Activate in Telegram link after checkout.`,
+    );
+    return;
+  }
 
   const token = text.split(/\s+/)[1] || "";
-  const user = message.from;
   if (!token || !user) {
-    await sendTelegramMessage(env, message.chat.id, "Open your Kalki Alerts activation link after payment so I can verify your access.");
+    await sendTelegramMessage(env, message.chat.id, `Your Telegram ID is ${user.id}.\n\nOpen your Kalki Alerts activation link after payment so I can verify your access.`);
     return;
   }
 
