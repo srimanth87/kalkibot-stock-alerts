@@ -77,12 +77,12 @@ async function requestAccess(request, env) {
   const firstName = cleanPersonName(body.firstName);
   const lastName = cleanPersonName(body.lastName);
   const email = cleanEmail(body.email);
-  const telegramUsername = cleanTelegramUsername(body.telegramUsername);
+  const telegramUsername = cleanTelegramContact(body.telegramUsername);
   const access = await resolveAccess(env, body);
   if (!firstName) return jsonResponse({ ok: false, error: "Enter your first name." }, 400);
   if (!lastName) return jsonResponse({ ok: false, error: "Enter your last name." }, 400);
   if (!email) return jsonResponse({ ok: false, error: "Enter a valid email." }, 400);
-  if (!telegramUsername) return jsonResponse({ ok: false, error: "Enter your Telegram username." }, 400);
+  if (!telegramUsername) return jsonResponse({ ok: false, error: "Enter your Telegram username or phone number." }, 400);
   if (!access.groupChatId) return jsonResponse({ ok: false, error: "Telegram group is not configured yet." }, 400);
 
   if (!access.requiresStripe) {
@@ -207,7 +207,7 @@ async function handleStripeWebhook(request, env) {
 async function handleCheckoutCompleted(session, event, env) {
   const firstName = cleanPersonName(session.metadata?.first_name);
   const lastName = cleanPersonName(session.metadata?.last_name);
-  const telegramUsername = cleanTelegramUsername(session.metadata?.telegram_username || session.client_reference_id);
+  const telegramUsername = cleanTelegramContact(session.metadata?.telegram_username || session.client_reference_id);
   const groupKey = cleanGroupKey(session.metadata?.group_key);
   const groupChatId = await groupIdForKey(env, groupKey);
   const email = cleanEmail(session.customer_details?.email || session.customer_email);
@@ -960,7 +960,7 @@ function joinPage(env) {
         <label>First name<input name="firstName" required placeholder="First name"></label>
         <label>Last name<input name="lastName" required placeholder="Last name"></label>
         <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
-        <label>Telegram username<input name="telegramUsername" required placeholder="@yourhandle"></label>
+        <label>Telegram username or phone number<input name="telegramUsername" required placeholder="@yourhandle or +15131234567"></label>
         <label>Access code<input name="accessCode" placeholder="optional code"></label>
         <button id="submitBtn" type="submit">Continue</button>
         <p id="msg" class="msg"></p>
@@ -1072,6 +1072,16 @@ function cleanEmail(value) {
 function cleanTelegramUsername(value) {
   const username = String(value || "").trim().replace(/^@/, "");
   return /^[A-Za-z0-9_]{5,32}$/.test(username) ? `@${username}` : "";
+}
+
+function cleanTelegramContact(value) {
+  const contact = String(value || "").trim();
+  const username = cleanTelegramUsername(contact);
+  if (username) return username;
+
+  const compactPhone = contact.replace(/[\s().-]/g, "");
+  if (/^\+?\d{7,15}$/.test(compactPhone)) return compactPhone;
+  return "";
 }
 
 function cleanPersonName(value) {
