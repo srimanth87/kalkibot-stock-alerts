@@ -546,7 +546,7 @@ async function adminCodesPage(url, env) {
   const telegramMembersHtml = telegramMembers.length ? telegramMembers.map(member => {
     const joinedName = [member.telegram_join_first_name, member.telegram_join_last_name].filter(Boolean).join(" ");
     const submittedName = [member.first_name, member.last_name].filter(Boolean).join(" ");
-    const fullName = joinedName || submittedName || "Unknown";
+    const fullName = submittedName || joinedName || "Unknown";
     const username = member.telegram_join_username || member.telegram_username || "";
     const groupLabel = groupLabels[member.group_key] || labelForGroupKey(member.group_key);
     return `
