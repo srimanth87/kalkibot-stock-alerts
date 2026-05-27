@@ -58,6 +58,9 @@ export default {
       if (request.method === "POST" && url.pathname === "/admin/members") {
         return await adminSaveMember(request, url, env);
       }
+      if (request.method === "POST" && url.pathname === "/admin/members/update") {
+        return await adminUpdateMember(request, url, env);
+      }
       if (request.method === "GET" && url.pathname === "/admin") {
         return await adminList(url, env);
       }
@@ -467,7 +470,7 @@ async function adminCodesPage(url, env) {
   `).all();
   const members = membersResult.results || [];
   const telegramMembersResult = await env.DB.prepare(`
-    SELECT first_name, last_name, email, telegram_username, telegram_join_username,
+    SELECT checkout_session_id, first_name, last_name, email, telegram_username, telegram_join_username,
            telegram_join_first_name, telegram_join_last_name, telegram_user_id,
            group_key, access_source, status, telegram_joined_at
     FROM subscribers
@@ -559,9 +562,16 @@ async function adminCodesPage(url, env) {
         <td><code>${escapeHtml(member.telegram_user_id || "")}</code></td>
         <td>${escapeHtml(groupLabel)}</td>
         <td>${escapeHtml(formatAdminDate(member.telegram_joined_at))}</td>
+        <td>
+          <form method="post" action="/admin/members/update?key=${key}">
+            <input type="hidden" name="sessionId" value="${escapeHtml(member.checkout_session_id)}">
+            <input name="telegramUserId" value="${escapeHtml(member.telegram_user_id || "")}" placeholder="Telegram ID">
+            <button type="submit">Update</button>
+          </form>
+        </td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="5" class="empty">No Telegram joins captured yet.</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="empty">No Telegram joins captured yet.</td></tr>`;
 
   return htmlResponse(pageShell("Access Codes", `
     <main class="wrap admin-wrap">
@@ -605,19 +615,24 @@ async function adminCodesPage(url, env) {
         </table>
       </section>
       <section class="panel table-panel">
-        <h2>Telegram Members</h2>
-        <form class="grid-form" method="post" action="/admin/members?key=${key}">
-          <label>First name<input name="firstName" required placeholder="Srimanth"></label>
-          <label>Last name<input name="lastName" required placeholder="Gada"></label>
-          <label>Email<input name="email" type="email" placeholder="customer@example.com"></label>
-          <label>Telegram<input name="telegramContact" placeholder="@username or phone"></label>
-          <label>Telegram ID<input name="telegramUserId" placeholder="optional"></label>
-          <label>Group<select name="groupKey" required>${groupOptions}</select></label>
-          <label>Joined date<input name="joinedAt" type="datetime-local"></label>
-          <button type="submit">Add Past Member</button>
-        </form>
+        <div class="section-head">
+          <h2>Telegram Members</h2>
+          <details class="add-popover">
+            <summary title="Add row">+</summary>
+            <form class="grid-form compact-form" method="post" action="/admin/members?key=${key}">
+              <label>First name<input name="firstName" required placeholder="Srimanth"></label>
+              <label>Last name<input name="lastName" required placeholder="Gada"></label>
+              <label>Email<input name="email" type="email" placeholder="customer@example.com"></label>
+              <label>Telegram<input name="telegramContact" placeholder="@username or phone"></label>
+              <label>Telegram ID<input name="telegramUserId" placeholder="optional"></label>
+              <label>Group<select name="groupKey" required>${groupOptions}</select></label>
+              <label>Joined date<input name="joinedAt" type="datetime-local"></label>
+              <button type="submit">Add Row</button>
+            </form>
+          </details>
+        </div>
         <table>
-          <thead><tr><th>Name</th><th>Telegram</th><th>Telegram ID</th><th>Group</th><th>Joined Telegram</th></tr></thead>
+          <thead><tr><th>Name</th><th>Telegram</th><th>Telegram ID</th><th>Group</th><th>Joined Telegram</th><th>Update ID</th></tr></thead>
           <tbody>${telegramMembersHtml}</tbody>
         </table>
       </section>
@@ -721,6 +736,22 @@ async function adminSaveMember(request, url, env) {
   ).run();
 
   return redirectToCodes(url, `Added member ${firstName} ${lastName}.`);
+}
+
+async function adminUpdateMember(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const form = await request.formData();
+  const sessionId = String(form.get("sessionId") || "").trim();
+  const telegramUserId = String(form.get("telegramUserId") || "").trim().replace(/[^\d]/g, "");
+  if (!sessionId) return redirectToCodes(url, "Missing member row.");
+
+  await env.DB.prepare(`
+    UPDATE subscribers
+    SET telegram_user_id = ?, updated_at = ?
+    WHERE checkout_session_id = ?
+  `).bind(telegramUserId || null, new Date().toISOString(), sessionId).run();
+
+  return redirectToCodes(url, telegramUserId ? "Updated Telegram ID." : "Cleared Telegram ID.");
 }
 
 async function adminSaveGroup(request, url, env) {
@@ -1120,7 +1151,7 @@ function pageShell(title, body) {
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top left,#11251d,#070b14 42%),#070b14;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     .wrap{width:min(920px,calc(100vw - 32px));margin:0 auto;padding:72px 0}.hero{padding:28px 0 20px}.eyebrow{margin:0 0 10px;color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:1.8px;font-weight:800}.hero h1,.panel h1{margin:0 0 12px;font-size:clamp(32px,6vw,58px);line-height:1.02;letter-spacing:0}.copy{color:var(--dim);font-size:17px;line-height:1.6;max-width:680px}
     .panel{background:rgba(16,24,39,.86);border:1px solid var(--line);border-radius:10px;padding:24px;box-shadow:0 20px 80px rgba(0,0,0,.22)}label{display:block;margin-bottom:16px;color:#cbd5e1;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px}input,select{display:block;width:100%;margin-top:8px;padding:14px 15px;border-radius:8px;border:1px solid #30415f;background:#080d17;color:var(--text);font-size:16px}button{width:100%;border:0;border-radius:8px;background:var(--gold);color:#111827;font-weight:900;font-size:15px;padding:15px 18px;cursor:pointer;text-transform:uppercase;letter-spacing:1px}.msg,.fine{color:var(--dim);line-height:1.5}.fine{font-size:12px}.result{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:8px;background:#080d17;color:#cbd5e1}.invite{display:inline-block;margin-top:8px;padding:13px 16px;border-radius:8px;background:var(--green);color:#03120c;text-decoration:none;font-weight:900}
-    .admin-wrap{width:min(1180px,calc(100vw - 32px))}.grid-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end}.grid-form label{margin:0}.grid-form button{align-self:end}.check{display:flex;gap:10px;align-items:center;height:49px}.check input{width:auto;margin:0}.notice{margin:0 0 18px;padding:12px 14px;border:1px solid rgba(16,185,129,.3);border-radius:8px;background:rgba(16,185,129,.12);color:#bbf7d0}.table-panel{margin-top:18px;overflow:auto}.table-panel h2{margin:0 0 14px;font-size:18px;letter-spacing:0}table{width:100%;border-collapse:collapse;min-width:860px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;color:#cbd5e1;font-size:14px}th{color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-size:11px}td form{display:flex;gap:8px;align-items:center;margin:0 0 8px}td form:last-child{margin-bottom:0}td input{min-width:220px;margin:0;padding:9px 10px;font-size:14px}td button{width:auto;padding:9px 12px;font-size:12px}code{color:#f8fafc}.danger{padding:9px 12px;background:#7f1d1d;color:#fecaca}.empty{text-align:center;color:var(--dim)}
+    .admin-wrap{width:min(1180px,calc(100vw - 32px))}.grid-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:end}.grid-form label{margin:0}.grid-form button{align-self:end}.compact-form{margin:14px 0 18px}.check{display:flex;gap:10px;align-items:center;height:49px}.check input{width:auto;margin:0}.notice{margin:0 0 18px;padding:12px 14px;border:1px solid rgba(16,185,129,.3);border-radius:8px;background:rgba(16,185,129,.12);color:#bbf7d0}.table-panel{margin-top:18px;overflow:auto}.section-head{display:flex;align-items:center;justify-content:space-between;gap:14px}.table-panel h2{margin:0 0 14px;font-size:18px;letter-spacing:0}.add-popover{margin:0 0 14px}.add-popover summary{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--line);border-radius:8px;background:#080d17;color:var(--gold);font-size:22px;font-weight:900;cursor:pointer;list-style:none}.add-popover summary::-webkit-details-marker{display:none}table{width:100%;border-collapse:collapse;min-width:860px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;color:#cbd5e1;font-size:14px}th{color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-size:11px}td form{display:flex;gap:8px;align-items:center;margin:0 0 8px}td form:last-child{margin-bottom:0}td input{min-width:160px;margin:0;padding:9px 10px;font-size:14px}td button{width:auto;padding:9px 12px;font-size:12px}code{color:#f8fafc}.danger{padding:9px 12px;background:#7f1d1d;color:#fecaca}.empty{text-align:center;color:var(--dim)}
     a{color:#93c5fd}
   </style>
 </head>
