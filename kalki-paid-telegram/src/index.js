@@ -55,6 +55,9 @@ export default {
       if (request.method === "POST" && url.pathname === "/admin/invites/regenerate") {
         return await adminRegenerateInvite(request, url, env);
       }
+      if (request.method === "POST" && url.pathname === "/admin/members") {
+        return await adminSaveMember(request, url, env);
+      }
       if (request.method === "GET" && url.pathname === "/admin") {
         return await adminList(url, env);
       }
@@ -603,6 +606,16 @@ async function adminCodesPage(url, env) {
       </section>
       <section class="panel table-panel">
         <h2>Telegram Members</h2>
+        <form class="grid-form" method="post" action="/admin/members?key=${key}">
+          <label>First name<input name="firstName" required placeholder="Srimanth"></label>
+          <label>Last name<input name="lastName" required placeholder="Gada"></label>
+          <label>Email<input name="email" type="email" placeholder="customer@example.com"></label>
+          <label>Telegram<input name="telegramContact" placeholder="@username or phone"></label>
+          <label>Telegram ID<input name="telegramUserId" placeholder="optional"></label>
+          <label>Group<select name="groupKey" required>${groupOptions}</select></label>
+          <label>Joined date<input name="joinedAt" type="datetime-local"></label>
+          <button type="submit">Add Past Member</button>
+        </form>
         <table>
           <thead><tr><th>Name</th><th>Telegram</th><th>Telegram ID</th><th>Group</th><th>Joined Telegram</th></tr></thead>
           <tbody>${telegramMembersHtml}</tbody>
@@ -657,6 +670,57 @@ async function adminDeleteCode(request, url, env) {
     await env.DB.prepare(`DELETE FROM access_codes WHERE code = ?`).bind(code).run();
   }
   return redirectToCodes(url, code ? `Deleted code ${code}.` : "Code not found.");
+}
+
+async function adminSaveMember(request, url, env) {
+  if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
+  const form = await request.formData();
+  const firstName = cleanPersonName(form.get("firstName"));
+  const lastName = cleanPersonName(form.get("lastName"));
+  const email = cleanEmail(form.get("email"));
+  const telegramContact = cleanTelegramContact(form.get("telegramContact"));
+  const telegramUserId = String(form.get("telegramUserId") || "").trim().replace(/[^\d]/g, "");
+  const groupKey = cleanGroupKey(form.get("groupKey"));
+  const groupChatId = await groupIdForKey(env, groupKey);
+  const joinedAt = parseAdminJoinedAt(form.get("joinedAt")) || new Date().toISOString();
+
+  if (!firstName || !lastName || !groupChatId) {
+    return redirectToCodes(url, "Enter first name, last name, and a valid group.");
+  }
+
+  const subscriberId = crypto.randomUUID();
+  await upsertSubscriber(env, {
+    id: subscriberId,
+    checkout_session_id: `manual_member_${subscriberId}`,
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    telegram_username: telegramContact,
+    group_key: groupKey,
+    group_chat_id: groupChatId,
+    access_source: "manual_backfill",
+    status: "active",
+    raw_event_json: JSON.stringify({ source: "admin_manual_member", joined_at: joinedAt }),
+  });
+
+  await env.DB.prepare(`
+    UPDATE subscribers
+    SET telegram_user_id = ?, telegram_join_username = ?, telegram_join_first_name = ?,
+        telegram_join_last_name = ?, telegram_join_chat_id = ?, telegram_joined_at = ?,
+        updated_at = ?
+    WHERE id = ?
+  `).bind(
+    telegramUserId || null,
+    telegramContact,
+    firstName,
+    lastName,
+    groupChatId,
+    joinedAt,
+    new Date().toISOString(),
+    subscriberId,
+  ).run();
+
+  return redirectToCodes(url, `Added member ${firstName} ${lastName}.`);
 }
 
 async function adminSaveGroup(request, url, env) {
@@ -1248,6 +1312,13 @@ function formatAdminDate(value) {
     hour12: true,
     timeZone: "America/New_York",
   });
+}
+
+function parseAdminJoinedAt(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 function isAdminRequest(url, env) {
