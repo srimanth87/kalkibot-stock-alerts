@@ -157,9 +157,10 @@ async function findExistingPortfolioRow(env, id, sym, entryDate, entryPrice) {
     .first();
   if (byId) return byId;
   if (!sym || !entryDate || entryPrice == null) return null;
+  const tolerance = Math.max(0.5, Math.abs(entryPrice) * 0.005);
   return env.DB.prepare(`SELECT id, state, closed_price, raw_json
     FROM portfolio_positions
-    WHERE sym = ? AND entry_date = ? AND ROUND(entry_price, 2) = ROUND(?, 2)
+    WHERE sym = ? AND entry_date = ? AND ABS(entry_price - ?) <= ?
     ORDER BY
       CASE
         WHEN id LIKE 'report-%' THEN 0
@@ -169,7 +170,7 @@ async function findExistingPortfolioRow(env, id, sym, entryDate, entryPrice) {
       END,
       updated_at DESC
     LIMIT 1`)
-    .bind(sym, entryDate, entryPrice)
+    .bind(sym, entryDate, entryPrice, tolerance)
     .first();
 }
 
