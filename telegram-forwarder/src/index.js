@@ -320,6 +320,7 @@ function parseScoredAlert(text) {
   const score = Number.parseFloat(raw.match(/Score\s*:\s*(\d+(?:\.\d+)?)/i)?.[1] || "");
   const pattern = raw.match(/Pattern\s*:\s*([^\n]+)/i)?.[1]?.trim() || "";
   const volumeContext = parseVolumeContext(raw);
+  const entryDate = parseAlertEntryDate(raw);
   const entryMid = (entry.low + entry.high) / 2;
   const supportLow = Math.min(stop.low, stop.high);
   const supportHigh = Math.min(entryMid, Math.max(stop.low, stop.high));
@@ -333,6 +334,7 @@ function parseScoredAlert(text) {
     entryLow: roundPrice(entry.low),
     entryHigh: roundPrice(entry.high),
     entryMid: roundPrice(entryMid),
+    entryDate,
     stop: roundPrice(supportLow),
     supLow: roundPrice(supportLow),
     supHigh: roundPrice(supportHigh),
@@ -343,6 +345,17 @@ function parseScoredAlert(text) {
     avgVolume20: volumeContext.avgVolume20,
     raw,
   };
+}
+
+function parseAlertEntryDate(text) {
+  const raw = String(text || "");
+  const match = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) {
+    const month = match[1].padStart(2, "0");
+    const day = match[2].padStart(2, "0");
+    return `${match[3]}-${month}-${day}`;
+  }
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
 function parseVolumeContext(text) {
@@ -366,6 +379,15 @@ function parseHumanVolume(numberText, suffix) {
       : String(suffix || "").toUpperCase() === "K" ? 1e3
         : 1;
   return Math.round(value * mult);
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  if (Math.abs(number) >= 1e9) return `${roundPrice(number / 1e9)}B`;
+  if (Math.abs(number) >= 1e6) return `${roundPrice(number / 1e6)}M`;
+  if (Math.abs(number) >= 1e3) return `${roundPrice(number / 1e3)}K`;
+  return String(Math.round(number));
 }
 
 function extractFirstMoneyAfter(text, labelPattern) {
@@ -463,6 +485,7 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
   const reportId = `tg-${sourceChatId}-${messageId}`;
   const watchlist = Array.isArray(record.watchlist) ? record.watchlist : [];
   const groupTracker = Array.isArray(record.groupTracker) ? record.groupTracker : [];
+  const portfolio = Array.isArray(record.portfolio) ? record.portfolio : [];
   const existingWatchIndex = watchlist.findIndex((item) => String(item?.sym || "").toUpperCase() === alert.sym);
 
   const watchItem = {
@@ -520,8 +543,33 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
     groupTracker.unshift(trackerItem);
   }
 
+  const portfolioItem = buildPortfolioItemFromAlert(alert, trackerItem, updatedAt);
+  let savedPortfolioItem = portfolioItem;
+  const existingPortfolioIndex = portfolio.findIndex((item) =>
+    String(item?.id || "") === portfolioItem.id ||
+    (
+      String(item?.sym || "").toUpperCase() === alert.sym &&
+      String(item?.entryDate || "") === portfolioItem.entryDate &&
+      String(item?.sourceMessageId || "") === messageId
+    )
+  );
+  if (existingPortfolioIndex >= 0) {
+    const existing = portfolio[existingPortfolioIndex] || {};
+    savedPortfolioItem = {
+      ...existing,
+      ...portfolioItem,
+      state: existing.state === "closed" ? "closed" : portfolioItem.state,
+      closedPrice: existing.state === "closed" ? existing.closedPrice : portfolioItem.closedPrice,
+      closeDate: existing.state === "closed" ? existing.closeDate : portfolioItem.closeDate,
+    };
+    portfolio[existingPortfolioIndex] = savedPortfolioItem;
+  } else {
+    portfolio.unshift(portfolioItem);
+  }
+
   const payload = {
     ...record,
+    portfolio,
     watchlist,
     groupTracker,
     updatedAt,
@@ -539,10 +587,55 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
   if (!saveResponse.ok || saveData.ok === false) {
     throw new Error(saveData.error || saveData.message || `D1 save failed with ${saveResponse.status}`);
   }
-  await upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, updatedAt);
+  await upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, savedPortfolioItem, updatedAt);
 }
 
-async function upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, updatedAt) {
+function buildPortfolioItemFromAlert(alert, trackerItem, updatedAt) {
+  const targets = Array.isArray(alert.res) ? alert.res.filter((value) => Number.isFinite(value)) : [];
+  const nextTP = targets.find((value) => value > alert.entryMid) || targets[0] || null;
+  return {
+    id: trackerItem.id,
+    sym: alert.sym,
+    entryPrice: alert.entryMid,
+    entryDate: alert.entryDate,
+    grade: alert.grade || "",
+    invest: 10000,
+    currentPrice: alert.entryMid,
+    status: "Watching TP1",
+    resistances: targets,
+    breakdown: alert.stop,
+    supLow: alert.stop,
+    supHigh: alert.stop,
+    notes: [
+      alert.pattern ? `Pattern: ${alert.pattern}` : "",
+      Number.isFinite(alert.score) ? `Score ${alert.score}/10` : "",
+      alert.volume ? `Volume ${formatCompactNumber(alert.volume)}${Number.isFinite(alert.volumeRatio) ? ` · ${alert.volumeRatio}x avg` : ""}` : "",
+    ].filter(Boolean).join(" · "),
+    state: "open",
+    closedPrice: null,
+    closeDate: null,
+    addedAt: new Date(updatedAt).toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    tpsHit: 0,
+    nextTP,
+    pnlPct: null,
+    source: "telegram-forwarder",
+    sourceChatId: trackerItem.sourceChatId,
+    sourceMessageId: trackerItem.sourceMessageId,
+    rawAlert: alert.raw,
+    syncedAt: updatedAt,
+    volume: alert.volume,
+    volumeRatio: alert.volumeRatio,
+    avgVolume20: alert.avgVolume20,
+  };
+}
+
+async function upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, portfolioItem, updatedAt) {
   await d1Query(baseUrl, key, `INSERT OR REPLACE INTO watchlist_items
     (sym, grade, status, support_low, support_high, breakdown, resistances_json, updated_at, raw_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
@@ -571,6 +664,22 @@ async function upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, track
     updatedAt,
     updatedAt,
     JSON.stringify(trackerItem),
+  ]);
+
+  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO portfolio_positions
+    (id, sym, grade, state, entry_date, entry_price, current_price, closed_price, pnl_pct, updated_at, raw_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+    portfolioItem.id,
+    alert.sym,
+    alert.grade || "",
+    portfolioItem.state,
+    portfolioItem.entryDate,
+    portfolioItem.entryPrice,
+    portfolioItem.currentPrice,
+    portfolioItem.state === "closed" ? portfolioItem.closedPrice : null,
+    null,
+    updatedAt,
+    JSON.stringify(portfolioItem),
   ]);
 }
 
