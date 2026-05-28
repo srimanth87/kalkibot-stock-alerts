@@ -7623,21 +7623,12 @@ UNION ALL SELECT 'app_state' AS name, COUNT(*) AS count FROM app_state`);
 // Auto-sync helpers with debounce — syncs 2s after last change
 let _syncTimer = null;
 function autoSync() {
-  if (!hasJsonBinConfig() && !hasCloudflareBackupConfig() && !hasD1Config()) return;
-  if (!initialCloudHydrationDone) return;
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => {
-    syncDebug('autoSync:run', {
-      jsonbin: hasJsonBinConfig(),
-      cloudflareBackup: hasCloudflareBackupConfig(),
-      d1Configured: hasD1Config(),
-      d1AutoWrite: false
-    });
-    if (hasJsonBinConfig()) gsSyncAll().catch(()=>{});
-    if (hasCloudflareBackupConfig()) cfSyncAll().catch(()=>{});
-    // D1 is the authoritative portfolio store. Never write to it from a
-    // background refresh/local change; use the explicit Sync D1 button only.
-  }, 2000);
+  syncDebug('autoSync:suppressed', {
+    jsonbin: hasJsonBinConfig(),
+    cloudflareBackup: hasCloudflareBackupConfig(),
+    d1Configured: hasD1Config(),
+    reason: 'manual-sync-only'
+  });
 }
 async function pfSaveAndSync(){ pfSave(); autoSync(); }
 async function saveSCAndSync(){ saveSc(); autoSync(); }
