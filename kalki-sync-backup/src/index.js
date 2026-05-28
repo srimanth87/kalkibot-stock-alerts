@@ -108,25 +108,69 @@ async function loadSubscribers(env) {
 }
 
 async function upsertPortfolio(env, item, updatedAt) {
-  const id = text(item.id) || `pf-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const incomingId = text(item.id) || `pf-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const sym = text(item.sym)?.toUpperCase();
   if (!sym) return;
+  const entryDate = text(item.entryDate || item.entry_date);
+  const entryPrice = num(item.entryPrice ?? item.entry_price);
   const state = text(item.state) || 'open';
+  const existing = await findExistingPortfolioRow(env, incomingId, sym, entryDate, entryPrice);
+  const id = existing?.id || incomingId;
+  let finalState = state;
+  let finalClosedPrice = state === 'closed' ? num(item.closedPrice ?? item.closed_price) : null;
+  let raw = { ...item, id, sym, state };
+
+  if (existing?.state === 'closed' && state !== 'closed') {
+    const existingRaw = parseJson(existing.raw_json) || {};
+    finalState = 'closed';
+    finalClosedPrice = num(existing.closed_price) ?? num(existingRaw.closedPrice);
+    raw = {
+      ...existingRaw,
+      ...raw,
+      id,
+      state: finalState,
+      closedPrice: finalClosedPrice,
+      closeDate: existingRaw.closeDate || raw.closeDate || null,
+    };
+  }
+
   await env.DB.prepare(`INSERT OR REPLACE INTO portfolio_positions
     (id, sym, grade, state, entry_date, entry_price, current_price, closed_price, pnl_pct, updated_at, raw_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
       id,
       sym,
       text(item.grade) || '',
-      state,
-      text(item.entryDate || item.entry_date),
-      num(item.entryPrice ?? item.entry_price),
+      finalState,
+      entryDate,
+      entryPrice,
       num(item.currentPrice ?? item.current_price),
-      state === 'closed' ? num(item.closedPrice ?? item.closed_price) : null,
+      finalClosedPrice,
       num(item.pnlPct ?? item.pnl_pct),
       updatedAt,
-      JSON.stringify({ ...item, id, sym, state })
+      JSON.stringify(raw)
     ).run();
+}
+
+async function findExistingPortfolioRow(env, id, sym, entryDate, entryPrice) {
+  const byId = await env.DB.prepare(`SELECT id, state, closed_price, raw_json FROM portfolio_positions WHERE id = ? LIMIT 1`)
+    .bind(id)
+    .first();
+  if (byId) return byId;
+  if (!sym || !entryDate || entryPrice == null) return null;
+  return env.DB.prepare(`SELECT id, state, closed_price, raw_json
+    FROM portfolio_positions
+    WHERE sym = ? AND entry_date = ? AND ROUND(entry_price, 2) = ROUND(?, 2)
+    ORDER BY
+      CASE
+        WHEN id LIKE 'report-%' THEN 0
+        WHEN id LIKE 'legacy-%' THEN 1
+        WHEN id LIKE 'score-%' THEN 2
+        ELSE 3
+      END,
+      updated_at DESC
+    LIMIT 1`)
+    .bind(sym, entryDate, entryPrice)
+    .first();
 }
 
 async function upsertWatchlist(env, item, updatedAt) {
