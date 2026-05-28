@@ -783,6 +783,7 @@ textarea:focus{border-color:var(--accent);}
         <button class="btn btn-o btn-sm" onclick="d1LoadAll()">⬇ Load from D1</button>
         <button class="btn btn-o btn-sm" onclick="d1TestConnection()">🩺 Test D1 Connection</button>
         <button class="btn btn-o btn-sm" onclick="d1ViewSummary()">👁 View D1 Summary</button>
+        <button class="btn btn-o btn-sm" onclick="showSyncDebug()">Debug Sync</button>
       </div>
       <div class="field" style="margin-top:14px;"><label>Cloudflare Backup URL</label><input id="cfBackupUrl" value="https://kalki-sync-backup.srimanthgada87.workers.dev" placeholder="https://kalki-sync-backup....workers.dev"/><span class="hint">Optional second backup copy on Cloudflare Workers KV</span></div>
       <div class="field" style="margin-top:10px;"><label>Cloudflare Backup Key</label><input id="cfBackupKey" value="ksb_6Fv9xQ2mR7pL4tN8" placeholder="ksb_..." type="password"/><span class="hint">Shared key for the Cloudflare backup worker &nbsp; <span id="cfSyncStatus" style="color:var(--green)"></span></span></div>
@@ -6887,6 +6888,45 @@ function d1Status(msg, color='var(--green)') {
   const el = document.getElementById('d1SyncStatus');
   if (el) { el.textContent = msg; el.style.color = color; }
 }
+function syncDebug(event, detail = {}) {
+  const payload = {
+    event,
+    at: new Date().toISOString(),
+    pfLocal: Array.isArray(pfPositions) ? pfPositions.length : null,
+    watchlist: Array.isArray(scTickers) ? scTickers.length : null,
+    groupTracker: Array.isArray(gaTrackers) ? gaTrackers.length : null,
+    ...detail
+  };
+  try {
+    const history = JSON.parse(localStorage.getItem('kalki_sync_debug') || '[]');
+    history.unshift(payload);
+    localStorage.setItem('kalki_sync_debug', JSON.stringify(history.slice(0, 80)));
+  } catch (_e) {}
+  console.info('[Kalki sync]', payload);
+}
+function showSyncDebug() {
+  let rows = [];
+  try { rows = JSON.parse(localStorage.getItem('kalki_sync_debug') || '[]'); } catch (_e) {}
+  if (!rows.length) {
+    alert('No sync debug events yet. Refresh once, then open this again.');
+    return;
+  }
+  const text = rows.slice(0, 20).map(row => {
+    const bits = [
+      row.at,
+      row.event,
+      `local=${row.pfLocal}`,
+      row.incomingPortfolio != null ? `incoming=${row.incomingPortfolio}` : '',
+      row.portfolioRows != null ? `d1Rows=${row.portfolioRows}` : '',
+      row.payloadPortfolio != null ? `payload=${row.payloadPortfolio}` : '',
+      row.cloudPortfolioCount != null ? `cloud=${row.cloudPortfolioCount}` : '',
+      row.source ? `source=${row.source}` : '',
+      row.message ? `msg=${row.message}` : ''
+    ].filter(Boolean);
+    return bits.join(' | ');
+  }).join('\n');
+  alert(text);
+}
 function finiteOrNull(v) {
   return Number.isFinite(v) ? v : null;
 }
@@ -7052,12 +7092,18 @@ function mergePortfolioPreservingLocal(localItems = [], cloudItems = []) {
 }
 function applySyncData(data, source='cloud') {
   if (!data) return;
+  syncDebug('applySyncData:start', {
+    source,
+    incomingPortfolio: Array.isArray(data.portfolio) ? data.portfolio.length : null,
+    incomingUpdatedAt: data.updatedAt || null
+  });
   noteCloudHydration(data.updatedAt || '');
   if (data.portfolio)    { pfBackupLocal('before-cloud-portfolio-merge'); pfPositions = mergePortfolioPreservingLocal(pfPositions, data.portfolio); pfSave(); pfRender(); pfCloudStatus(`Loaded ${pfPositions.length} positions from ${source}`, 'var(--green)'); }
   if (data.watchlist)    { scTickers   = data.watchlist;    saveSc(); renderSc(); }
   if (data.groupTracker) { gaTrackers  = data.groupTracker; noteGroupTrackerCloudSync(data.groupTracker); gaSave(); gaRender(); }
   if (data.subscribers)  { sbSubs      = data.subscribers;  sbSave(); sbRender(); }
   if (data.commandEvents) { commandEvents = data.commandEvents; commandEventsSave(); }
+  syncDebug('applySyncData:done', { source, finalPortfolio: pfPositions.length });
   setTimeout(() => backfillSignalGrades([...scTickers.map(t=>t.sym), ...gaTrackers.map(t=>t.sym), ...pfPositions.map(p=>p.sym)]), 900);
 }
 
@@ -7398,6 +7444,12 @@ async function d1FetchRecord() {
     d1FetchWatchlistRows(),
     d1FetchGroupAlertRows()
   ]);
+  syncDebug('d1FetchRecord:rows', {
+    appStatePortfolio: Array.isArray(record?.portfolio) ? record.portfolio.length : null,
+    portfolioRows: portfolioRows.length,
+    watchlistRows: watchlistRows.length,
+    groupAlertRows: groupAlertRows.length
+  });
   record = d1MergePortfolioRows(record, portfolioRows);
   record = d1MergeWatchlistRows(record, watchlistRows);
   record = d1MergeGroupAlertRows(record, groupAlertRows);
@@ -7412,11 +7464,22 @@ async function d1SyncAll() {
   pfCloudStatus(`Syncing ${pfPositions.length} local positions to D1...`, 'var(--accent)');
   try {
     let payload = syncPayload({ forD1: true });
+    syncDebug('d1SyncAll:start', { payloadPortfolio: payload.portfolio?.length || 0 });
     try {
       const cloudRecord = await d1FetchRecord();
+      const cloudPortfolioCount = Array.isArray(cloudRecord?.portfolio) ? cloudRecord.portfolio.length : 0;
+      const localClosedCount = (payload.portfolio || []).filter(p => p?.state === 'closed').length;
+      const cloudClosedCount = (cloudRecord?.portfolio || []).filter(p => p?.state === 'closed').length;
+      if ((payload.portfolio?.length || 0) < cloudPortfolioCount || localClosedCount < cloudClosedCount) {
+        const msg = `Blocked stale D1 sync: local ${payload.portfolio?.length || 0}/${localClosedCount} closed, D1 ${cloudPortfolioCount}/${cloudClosedCount} closed`;
+        syncDebug('d1SyncAll:block-stale', { payloadPortfolio: payload.portfolio?.length || 0, cloudPortfolioCount, localClosedCount, cloudClosedCount });
+        throw new Error(msg);
+      }
       payload = mergeD1PayloadForSave(payload, cloudRecord);
+      syncDebug('d1SyncAll:merged', { payloadPortfolio: payload.portfolio?.length || 0, cloudPortfolioCount, localClosedCount, cloudClosedCount });
     } catch (_e) {
-      // If the merge read fails, still save the local state so manual sync is not blocked.
+      syncDebug('d1SyncAll:preflight-failed', { message: _e?.message || String(_e) });
+      throw _e;
     }
     const endpoint = url.replace(/\/+$/,'') + '/d1/save';
     const res = await fetch(endpoint, {
@@ -7429,6 +7492,7 @@ async function d1SyncAll() {
     });
     const d = await res.json();
     if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 sync failed');
+    syncDebug('d1SyncAll:saved', { payloadPortfolio: payload.portfolio?.length || 0 });
     localStorage.setItem('kalki_d1_url', url);
     localStorage.setItem('kalki_d1_key', key);
     noteCloudHydration(payload.updatedAt);
@@ -7563,9 +7627,16 @@ function autoSync() {
   if (!initialCloudHydrationDone) return;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
+    syncDebug('autoSync:run', {
+      jsonbin: hasJsonBinConfig(),
+      cloudflareBackup: hasCloudflareBackupConfig(),
+      d1Configured: hasD1Config(),
+      d1AutoWrite: false
+    });
     if (hasJsonBinConfig()) gsSyncAll().catch(()=>{});
     if (hasCloudflareBackupConfig()) cfSyncAll().catch(()=>{});
-    if (hasD1Config()) d1SyncAll().catch(()=>{});
+    // D1 is the authoritative portfolio store. Never write to it from a
+    // background refresh/local change; use the explicit Sync D1 button only.
   }, 2000);
 }
 async function pfSaveAndSync(){ pfSave(); autoSync(); }
@@ -7695,14 +7766,25 @@ async function startupHydrateFromCloud(){
   }
 
   let best = null;
+  let d1Candidate = null;
   for (const source of sources) {
     source.start();
     try {
       const record = await source.fetchRecord();
       if (record) {
         const stamp = Date.parse(record.updatedAt || '') || 0;
+        const portfolioCount = Array.isArray(record.portfolio) ? record.portfolio.length : 0;
+        syncDebug('startupHydrate:source', {
+          source: source.label,
+          portfolioCount,
+          updatedAt: record.updatedAt || null,
+          stamp
+        });
+        if (source.label === 'D1' && portfolioCount) {
+          d1Candidate = { source, record, stamp, portfolioCount };
+        }
         if (!best || stamp > best.stamp) {
-          best = { source, record, stamp };
+          best = { source, record, stamp, portfolioCount };
         }
         continue;
       }
@@ -7712,8 +7794,17 @@ async function startupHydrateFromCloud(){
     }
   }
 
+  if (d1Candidate) {
+    syncDebug('startupHydrate:prefer-d1', {
+      d1Portfolio: d1Candidate.portfolioCount,
+      newestSource: best?.source?.label || null,
+      newestPortfolio: best?.portfolioCount ?? null
+    });
+    best = d1Candidate;
+  }
+
   if (best) {
-    applySyncData(best.record);
+    applySyncData(best.record, best.source.label);
     sbSeedBatch();
     best.source.done();
     noteCloudSync(best.record.updatedAt || new Date().toISOString());
