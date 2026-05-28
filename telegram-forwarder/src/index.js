@@ -472,24 +472,11 @@ function clampNumber(value, min, max) {
 async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
   const baseUrl = getReportSyncUrl(env);
   const key = getReportSyncKey(env);
-  const headers = { "X-Kalki-Key": key };
-  const loadResponse = await fetch(`${baseUrl}/d1/load`, { headers });
-  const loadData = await loadResponse.json().catch(() => ({}));
-  if (!loadResponse.ok || loadData.ok === false) {
-    throw new Error(loadData.error || loadData.message || `D1 load failed with ${loadResponse.status}`);
-  }
-
-  const record = loadData.record && typeof loadData.record === "object" ? loadData.record : {};
   const updatedAt = new Date().toISOString();
   const messageId = String(post.message_id || Date.now());
   const reportId = `tg-${sourceChatId}-${messageId}`;
-  const watchlist = Array.isArray(record.watchlist) ? record.watchlist : [];
-  const groupTracker = Array.isArray(record.groupTracker) ? record.groupTracker : [];
-  const portfolio = Array.isArray(record.portfolio) ? record.portfolio : [];
-  const existingWatchIndex = watchlist.findIndex((item) => String(item?.sym || "").toUpperCase() === alert.sym);
 
   const watchItem = {
-    ...(existingWatchIndex >= 0 ? watchlist[existingWatchIndex] : {}),
     sym: alert.sym,
     supLow: alert.supLow,
     supHigh: alert.supHigh,
@@ -497,8 +484,8 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
     res: alert.res,
     price: null,
     status: "neutral",
-    monitorTrend: existingWatchIndex >= 0 ? Boolean(watchlist[existingWatchIndex]?.monitorTrend) : false,
-    grade: alert.grade || (existingWatchIndex >= 0 ? watchlist[existingWatchIndex]?.grade || "" : ""),
+    monitorTrend: false,
+    grade: alert.grade || "",
     volume: alert.volume,
     volumeRatio: alert.volumeRatio,
     avgVolume20: alert.avgVolume20,
@@ -508,15 +495,7 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
     syncedAt: updatedAt,
   };
 
-  if (existingWatchIndex >= 0) {
-    watchlist[existingWatchIndex] = watchItem;
-  } else {
-    watchlist.unshift(watchItem);
-  }
-
-  const trackerIndex = groupTracker.findIndex((item) => String(item?.id || "") === reportId);
   const trackerItem = {
-    ...(trackerIndex >= 0 ? groupTracker[trackerIndex] : {}),
     id: reportId,
     sym: alert.sym,
     note: alert.pattern || "Telegram scored alert",
@@ -537,57 +516,8 @@ async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
     rawAlert: alert.raw,
   };
 
-  if (trackerIndex >= 0) {
-    groupTracker[trackerIndex] = trackerItem;
-  } else {
-    groupTracker.unshift(trackerItem);
-  }
-
   const portfolioItem = buildPortfolioItemFromAlert(alert, trackerItem, updatedAt);
-  let savedPortfolioItem = portfolioItem;
-  const existingPortfolioIndex = portfolio.findIndex((item) =>
-    String(item?.id || "") === portfolioItem.id ||
-    (
-      String(item?.sym || "").toUpperCase() === alert.sym &&
-      String(item?.entryDate || "") === portfolioItem.entryDate &&
-      String(item?.sourceMessageId || "") === messageId
-    )
-  );
-  if (existingPortfolioIndex >= 0) {
-    const existing = portfolio[existingPortfolioIndex] || {};
-    savedPortfolioItem = {
-      ...existing,
-      ...portfolioItem,
-      state: existing.state === "closed" ? "closed" : portfolioItem.state,
-      closedPrice: existing.state === "closed" ? existing.closedPrice : portfolioItem.closedPrice,
-      closeDate: existing.state === "closed" ? existing.closeDate : portfolioItem.closeDate,
-    };
-    portfolio[existingPortfolioIndex] = savedPortfolioItem;
-  } else {
-    portfolio.unshift(portfolioItem);
-  }
-
-  const payload = {
-    ...record,
-    portfolio,
-    watchlist,
-    groupTracker,
-    updatedAt,
-  };
-
-  const saveResponse = await fetch(`${baseUrl}/d1/save`, {
-    method: "POST",
-    headers: {
-      ...headers,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  const saveData = await saveResponse.json().catch(() => ({}));
-  if (!saveResponse.ok || saveData.ok === false) {
-    throw new Error(saveData.error || saveData.message || `D1 save failed with ${saveResponse.status}`);
-  }
-  await upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, savedPortfolioItem, updatedAt);
+  await upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, portfolioItem, updatedAt);
 }
 
 function buildPortfolioItemFromAlert(alert, trackerItem, updatedAt) {
@@ -666,20 +596,44 @@ async function upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, track
     JSON.stringify(trackerItem),
   ]);
 
+  const existingPositionResult = await d1Query(baseUrl, key,
+    `SELECT state, closed_price, raw_json FROM portfolio_positions WHERE id = ? LIMIT 1`,
+    [portfolioItem.id],
+  );
+  const existingPosition = existingPositionResult?.results?.[0] || null;
+  let savedPortfolioItem = portfolioItem;
+  if (existingPosition?.state === "closed") {
+    let raw = {};
+    try {
+      raw = existingPosition.raw_json ? JSON.parse(existingPosition.raw_json) : {};
+    } catch {
+      raw = {};
+    }
+    savedPortfolioItem = {
+      ...raw,
+      ...portfolioItem,
+      state: "closed",
+      closedPrice: Number.isFinite(Number(existingPosition.closed_price))
+        ? Number(existingPosition.closed_price)
+        : raw.closedPrice ?? portfolioItem.closedPrice,
+      closeDate: raw.closeDate ?? portfolioItem.closeDate,
+    };
+  }
+
   await d1Query(baseUrl, key, `INSERT OR REPLACE INTO portfolio_positions
     (id, sym, grade, state, entry_date, entry_price, current_price, closed_price, pnl_pct, updated_at, raw_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-    portfolioItem.id,
+    savedPortfolioItem.id,
     alert.sym,
     alert.grade || "",
-    portfolioItem.state,
-    portfolioItem.entryDate,
-    portfolioItem.entryPrice,
-    portfolioItem.currentPrice,
-    portfolioItem.state === "closed" ? portfolioItem.closedPrice : null,
+    savedPortfolioItem.state,
+    savedPortfolioItem.entryDate,
+    savedPortfolioItem.entryPrice,
+    savedPortfolioItem.currentPrice,
+    savedPortfolioItem.state === "closed" ? savedPortfolioItem.closedPrice : null,
     null,
     updatedAt,
-    JSON.stringify(portfolioItem),
+    JSON.stringify(savedPortfolioItem),
   ]);
 }
 
@@ -702,14 +656,6 @@ async function d1Query(baseUrl, key, sql, params = []) {
 async function upsertCommandToReportCloud(env, command, post, sourceChatId) {
   const baseUrl = getReportSyncUrl(env);
   const key = getReportSyncKey(env);
-  const headers = { "X-Kalki-Key": key };
-  const loadResponse = await fetch(`${baseUrl}/d1/load`, { headers });
-  const loadData = await loadResponse.json().catch(() => ({}));
-  if (!loadResponse.ok || loadData.ok === false) {
-    throw new Error(loadData.error || loadData.message || `D1 load failed with ${loadResponse.status}`);
-  }
-
-  const record = loadData.record && typeof loadData.record === "object" ? loadData.record : {};
   const updatedAt = new Date().toISOString();
   const messageId = String(post.message_id || Date.now());
   const commandEvent = {
@@ -726,53 +672,21 @@ async function upsertCommandToReportCloud(env, command, post, sourceChatId) {
     createdAt: updatedAt,
   };
 
-  const commandEvents = Array.isArray(record.commandEvents) ? record.commandEvents : [];
-  if (!commandEvents.some((event) => String(event?.id) === commandEvent.id)) {
-    commandEvents.unshift(commandEvent);
-  }
-
-  const groupTracker = Array.isArray(record.groupTracker) ? record.groupTracker : [];
-  let tracker = groupTracker.find((item) => String(item?.sym || "").toUpperCase() === command.ticker);
-  if (!tracker) {
-    tracker = {
-      id: `tg-command-${command.ticker}`,
-      sym: command.ticker,
-      note: "Telegram command",
-      addedIso: updatedAt,
-      addedLabel: new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" }),
-      addedPrice: null,
-      currentPrice: null,
-      pctSinceAdd: null,
-      catalystScore: null,
-      grade: "",
-    };
-    groupTracker.unshift(tracker);
-  }
-  tracker.updatedAt = updatedAt;
-  tracker.latestCommand = commandEvent;
-  tracker.commandEvents = [commandEvent, ...(Array.isArray(tracker.commandEvents) ? tracker.commandEvents : [])]
-    .filter((event, index, arr) => arr.findIndex((candidate) => candidate.id === event.id) === index)
-    .slice(0, 10);
-
-  const payload = {
-    ...record,
-    groupTracker,
-    commandEvents: commandEvents.slice(0, 250),
+  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO group_alerts
+    (id, sym, note, entry_date, grade, linked_portfolio_id, status, pct_since_add, updated_at, added_at, raw_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+    commandEvent.id,
+    command.ticker,
+    command.label || "Telegram command",
+    null,
+    "",
+    null,
+    command.action,
+    null,
     updatedAt,
-  };
-
-  const saveResponse = await fetch(`${baseUrl}/d1/save`, {
-    method: "POST",
-    headers: {
-      ...headers,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  const saveData = await saveResponse.json().catch(() => ({}));
-  if (!saveResponse.ok || saveData.ok === false) {
-    throw new Error(saveData.error || saveData.message || `D1 save failed with ${saveResponse.status}`);
-  }
+    updatedAt,
+    JSON.stringify(commandEvent),
+  ]);
 }
 
 function normalizeForwardMode(value) {
