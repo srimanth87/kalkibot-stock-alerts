@@ -7470,51 +7470,48 @@ async function d1SyncAll() {
   const key = d1SyncKey();
   if (!url || !key) return alert('Enter Cloudflare D1 URL and Key first');
   d1Status('Syncing...', 'var(--accent)');
-  pfCloudStatus(`Syncing ${pfPositions.length} local positions to D1...`, 'var(--accent)');
+  pfCloudStatus(`Upserting ${pfPositions.length} local positions to D1...`, 'var(--accent)');
   try {
     let payload = syncPayload({ forD1: true });
-    syncDebug('d1SyncAll:start', { payloadPortfolio: payload.portfolio?.length || 0 });
-    try {
-      const cloudRecord = await d1FetchRecord();
-      const cloudPortfolioCount = Array.isArray(cloudRecord?.portfolio) ? cloudRecord.portfolio.length : 0;
-      const localClosedCount = (payload.portfolio || []).filter(p => p?.state === 'closed').length;
-      const cloudClosedCount = (cloudRecord?.portfolio || []).filter(p => p?.state === 'closed').length;
-      if ((payload.portfolio?.length || 0) < cloudPortfolioCount || localClosedCount < cloudClosedCount) {
-        const msg = `Blocked stale D1 sync: local ${payload.portfolio?.length || 0}/${localClosedCount} closed, D1 ${cloudPortfolioCount}/${cloudClosedCount} closed`;
-        syncDebug('d1SyncAll:block-stale', { payloadPortfolio: payload.portfolio?.length || 0, cloudPortfolioCount, localClosedCount, cloudClosedCount });
-        throw new Error(msg);
-      }
-      payload = mergeD1PayloadForSave(payload, cloudRecord);
-      syncDebug('d1SyncAll:merged', { payloadPortfolio: payload.portfolio?.length || 0, cloudPortfolioCount, localClosedCount, cloudClosedCount });
-    } catch (_e) {
-      syncDebug('d1SyncAll:preflight-failed', { message: _e?.message || String(_e) });
-      throw _e;
-    }
-    const endpoint = url.replace(/\/+$/,'') + '/d1/save';
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Kalki-Key': key
-      },
-      body: JSON.stringify(payload)
-    });
-    const d = await res.json();
-    if (!res.ok || d.ok === false) throw new Error(d.error || d.message || 'D1 sync failed');
-    syncDebug('d1SyncAll:saved', { payloadPortfolio: payload.portfolio?.length || 0 });
+    syncDebug('d1SyncAll:row-upsert-start', { payloadPortfolio: payload.portfolio?.length || 0 });
+    await d1UpsertPortfolioRows(payload.portfolio || [], payload.updatedAt);
+    syncDebug('d1SyncAll:row-upsert-saved', { payloadPortfolio: payload.portfolio?.length || 0 });
     localStorage.setItem('kalki_d1_url', url);
     localStorage.setItem('kalki_d1_key', key);
     noteCloudHydration(payload.updatedAt);
     noteCloudSync(payload.updatedAt);
-    noteGroupTrackerCloudSync(gaTrackers);
-    d1Status(`✅ Synced ${payload.portfolio?.length || 0} D1 positions`);
-    pfCloudStatus(`Synced ${payload.portfolio?.length || 0} positions to D1`, 'var(--green)');
+    d1Status(`✅ Upserted ${payload.portfolio?.length || 0} D1 positions`);
+    pfCloudStatus(`Upserted ${payload.portfolio?.length || 0} positions to D1 without deleting cloud rows`, 'var(--green)');
   } catch(e) {
     const msg = e?.message === 'Failed to fetch'
       ? 'Browser could not complete the D1 save request.'
       : e.message;
     d1Status('❌ ' + msg, 'var(--red)');
     pfCloudStatus('D1 sync failed: ' + msg, 'var(--red)');
+  }
+}
+
+async function d1UpsertPortfolioRows(items = [], updatedAt = new Date().toISOString()) {
+  for (const item of items) {
+    const id = textOrNull(item?.id);
+    const sym = textOrNull(item?.sym)?.toUpperCase();
+    if (!id || !sym) continue;
+    const state = textOrNull(item?.state) || 'open';
+    await d1Query(`INSERT OR REPLACE INTO portfolio_positions
+      (id, sym, grade, state, entry_date, entry_price, current_price, closed_price, pnl_pct, updated_at, raw_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+      id,
+      sym,
+      textOrNull(item?.grade) || '',
+      state,
+      textOrNull(item?.entryDate),
+      finiteOrNull(item?.entryPrice),
+      finiteOrNull(item?.currentPrice),
+      state === 'closed' ? finiteOrNull(item?.closedPrice) : null,
+      finiteOrNull(item?.pnlPct),
+      updatedAt,
+      JSON.stringify(item)
+    ]);
   }
 }
 
