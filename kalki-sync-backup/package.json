@@ -1,0 +1,1 @@
+{"name":"kalki-sync-backup","version":"1.0.0","private":true,"type":"module","devDependencies":{"wrangler":"^4.84.1"},"scripts":{"deploy":"wrangler deploy"}}
