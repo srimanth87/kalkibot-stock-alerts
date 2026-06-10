@@ -285,14 +285,21 @@ async function handleScorerAlert(request, env) {
 
 // ── Telegram / D1 signal handlers ──────────────────────────────────────────
 
+async function ensureExecutedColumn(env) {
+  await env.KALKI_DB.prepare(`ALTER TABLE alerts ADD COLUMN executed INTEGER DEFAULT 0`).run().catch(() => {});
+  await env.KALKI_DB.prepare(`ALTER TABLE alerts ADD COLUMN executed_at TEXT`).run().catch(() => {});
+}
+
 async function handlePendingSignals(env) {
   if (!env.KALKI_DB) {
     return json({ ok: false, error: "KALKI_DB not bound. Add D1 binding in wrangler.jsonc." }, 503);
   }
+  await ensureExecutedColumn(env);
   const { results } = await env.KALKI_DB.prepare(
-    `SELECT id, ticker, grade, entry_price, stop_price, target1, signal_text, created_at
-     FROM group_alerts
-     WHERE executed = 0 AND grade IN ('A+','A','B+')
+    `SELECT id, ticker, grade, score, pattern, entry_low, entry_high, stop, stop_pct,
+            t1, t1_pct, t2, t2_pct, t3, t4, rr, timeframe, raw_message, source, created_at
+     FROM alerts
+     WHERE (executed IS NULL OR executed = 0) AND grade IN ('A+','A','B+')
      ORDER BY created_at DESC LIMIT 20`
   ).all();
   return json({ ok: true, signals: results || [] });
@@ -303,8 +310,9 @@ async function handleMarkExecuted(env, id) {
     return json({ ok: false, error: "KALKI_DB not bound." }, 503);
   }
   if (!id) return json({ ok: false, error: "Signal id required." }, 400);
+  await ensureExecutedColumn(env);
   await env.KALKI_DB.prepare(
-    `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
+    `UPDATE alerts SET executed = 1, executed_at = ? WHERE id = ?`
   ).bind(new Date().toISOString(), id).run();
   return json({ ok: true, id, executed: true });
 }
@@ -369,10 +377,12 @@ async function handleMcp(request, env) {
       if (!env.KALKI_DB) {
         return mcpError(id, "KALKI_DB not bound. Add D1 binding in wrangler.jsonc.");
       }
+      await ensureExecutedColumn(env);
       const { results } = await env.KALKI_DB.prepare(
-        `SELECT id, ticker, grade, entry_price, stop_price, target1, signal_text, created_at
-         FROM group_alerts
-         WHERE executed = 0 AND grade IN ('A+','A','B+')
+        `SELECT id, ticker, grade, score, pattern, entry_low, entry_high, stop, stop_pct,
+                t1, t1_pct, t2, t2_pct, t3, t4, rr, timeframe, raw_message, source, created_at
+         FROM alerts
+         WHERE (executed IS NULL OR executed = 0) AND grade IN ('A+','A','B+')
          ORDER BY created_at DESC LIMIT 20`
       ).all();
       return mcpResponse(id, {
@@ -383,8 +393,9 @@ async function handleMcp(request, env) {
     if (toolName === "mark_signal_executed") {
       if (!env.KALKI_DB) return mcpError(id, "KALKI_DB not bound.");
       if (!args.id) return mcpError(id, "id is required");
+      await ensureExecutedColumn(env);
       await env.KALKI_DB.prepare(
-        `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
+        `UPDATE alerts SET executed = 1, executed_at = ? WHERE id = ?`
       ).bind(new Date().toISOString(), args.id).run();
       return mcpResponse(id, {
         content: [{ type: "text", text: JSON.stringify({ ok: true, id: args.id, executed: true }) }],
