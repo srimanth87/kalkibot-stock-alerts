@@ -125,6 +125,18 @@
     .toast.err { background: var(--rdim); border: 1px solid rgba(255,82,82,.3); color: var(--red); }
     .toast.info { background: var(--bdim); border: 1px solid rgba(68,138,255,.3); color: var(--blue); }
 
+    /* auto-approve toggle */
+    .toggle-wrap { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); }
+    .toggle-label { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .toggle-label.active { color: var(--gold); }
+    .toggle-track { position: relative; width: 36px; height: 20px; border-radius: 999px; background: var(--faint); border: 1px solid var(--line); cursor: pointer; transition: background .2s; flex-shrink: 0; }
+    .toggle-track.on { background: var(--gold); border-color: var(--gold); }
+    .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s; }
+    .toggle-track.on .toggle-thumb { transform: translateX(16px); background: #3d2e00; }
+    .grade-filter { display: flex; align-items: center; gap: 4px; }
+    .grade-chip { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 900; border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; transition: all .15s; }
+    .grade-chip.selected { background: var(--gdim); color: var(--green); border-color: rgba(0,230,118,.3); }
+
     @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
       .side-col { display: none; }
@@ -140,6 +152,19 @@
   <div class="bar-gap"></div>
   <button class="btn btn-green" id="connectBtn" style="display:none" onclick="connectRobinhood()">Connect Robinhood</button>
   <button class="btn btn-ghost" onclick="loadAll()" id="refreshBtn">↺ Refresh</button>
+
+  <div class="toggle-wrap">
+    <span class="toggle-label" id="autoLabel">Auto-approve</span>
+    <div class="toggle-track" id="autoToggle" onclick="toggleAutoApprove()">
+      <div class="toggle-thumb"></div>
+    </div>
+  </div>
+
+  <div class="grade-filter" id="gradeFilter" style="display:none">
+    <span class="grade-chip selected" data-grade="A+" onclick="toggleGrade(this)">A+</span>
+    <span class="grade-chip selected" data-grade="A" onclick="toggleGrade(this)">A</span>
+    <span class="grade-chip" data-grade="B+" onclick="toggleGrade(this)">B+</span>
+  </div>
 </header>
 
 <!-- approved queue banner -->
@@ -288,6 +313,9 @@ async function loadSignals() {
       added++;
       const empty = feed.querySelector(".empty");
       if(empty) empty.remove();
+      // try auto-approve before building card
+      const wasAutoApproved = await maybeAutoApprove(s);
+      if(wasAutoApproved) s.approved = true;
       feed.prepend(buildCard(s));
       if(added===1 && !s.approved) notifyNew(s);
     }
@@ -520,6 +548,65 @@ async function loadAll() {
   $("refreshBtn").textContent = "↺ Refresh";
   $("refreshBtn").disabled = false;
 }
+
+// ── auto-approve ──
+let autoApproveOn = localStorage.getItem("kalki_auto") === "1";
+let autoGrades = new Set(JSON.parse(localStorage.getItem("kalki_auto_grades")||'["A+","A"]'));
+
+function syncAutoUI() {
+  const track = $("autoToggle");
+  const label = $("autoLabel");
+  const filter = $("gradeFilter");
+  if(autoApproveOn) {
+    track.classList.add("on");
+    label.classList.add("active");
+    label.textContent = "Auto ON";
+    filter.style.display = "flex";
+  } else {
+    track.classList.remove("on");
+    label.classList.remove("active");
+    label.textContent = "Auto-approve";
+    filter.style.display = "none";
+  }
+  document.querySelectorAll(".grade-chip").forEach(c => {
+    c.classList.toggle("selected", autoGrades.has(c.dataset.grade));
+  });
+}
+
+function toggleAutoApprove() {
+  autoApproveOn = !autoApproveOn;
+  localStorage.setItem("kalki_auto", autoApproveOn ? "1" : "0");
+  syncAutoUI();
+  toast(autoApproveOn
+    ? `Auto-approve ON for grades: ${[...autoGrades].join(", ")}`
+    : "Auto-approve OFF — manual review mode", autoApproveOn ? "ok" : "info");
+}
+
+function toggleGrade(el) {
+  const g = el.dataset.grade;
+  if(autoGrades.has(g)) { autoGrades.delete(g); }
+  else { autoGrades.add(g); }
+  // always keep at least one grade
+  if(autoGrades.size === 0) autoGrades.add("A+");
+  localStorage.setItem("kalki_auto_grades", JSON.stringify([...autoGrades]));
+  syncAutoUI();
+}
+
+async function maybeAutoApprove(signal) {
+  if(!autoApproveOn) return false;
+  if(!autoGrades.has(signal.grade)) return false;
+  if(signal.approved) return false;
+  try {
+    await api(`/api/signals/${signal.id}/approve`, {method:"POST"});
+    toast(`Auto-approved ${signal.ticker} ${signal.grade} — queued for Claude`, "ok");
+    return true;
+  } catch(e) {
+    console.warn("auto-approve failed:", e.message);
+    return false;
+  }
+}
+
+syncAutoUI();
 
 // notifications
 if(Notification?.permission==="default") Notification.requestPermission();
