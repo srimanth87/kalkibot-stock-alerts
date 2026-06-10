@@ -155,6 +155,16 @@
     .state.filled { background: var(--green2); color: #063c15; }
     .state.open, .state.new, .state.queued, .state.confirmed, .state.unconfirmed { background: var(--blue); color: #1855b8; }
     code { background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 2px 5px; }
+    .signal-row { display: grid; grid-template-columns: 64px 56px 1fr auto; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .signal-row:last-child { border-bottom: 0; }
+    .signal-ticker { font-weight: 950; font-size: 15px; }
+    .signal-grade { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-weight: 950; font-size: 12px; background: var(--green2); color: #063c15; }
+    .signal-grade.A\+ { background: #d4f7dc; color: #04420f; }
+    .signal-grade.B\+ { background: var(--blue); color: #1855b8; }
+    .signal-prices { color: var(--muted); line-height: 1.5; }
+    .signal-prices strong { color: var(--ink); }
+    .signal-est { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .badge-est { display: inline-flex; padding: 2px 6px; border-radius: 4px; background: var(--gold); color: #7a5a00; font-size: 10px; font-weight: 950; margin-left: 4px; }
     @media (max-width: 1120px) {
       .layout { display: block; }
       .review { position: static; margin-top: 14px; }
@@ -222,6 +232,14 @@
         <section class="panel">
           <div class="panel-head"><div><div class="panel-title">Live positions</div><div class="panel-meta" id="positionMeta">Waiting for Robinhood MCP</div></div></div>
           <div class="panel-body"><div class="list" id="positionsList"></div></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div><div class="panel-title">Pending signals</div><div class="panel-meta" id="signalMeta">Loading from Kalki…</div></div>
+            <button class="btn" onclick="loadSignals()" style="font-size:12px;padding:7px 11px">Refresh</button>
+          </div>
+          <div id="signalsList"></div>
         </section>
 
         <section class="panel">
@@ -460,6 +478,44 @@
       return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
     }
 
+    async function loadSignals() {
+      $("signalMeta").textContent = "Loading…";
+      try {
+        const data = await api("/api/signals/pending");
+        const signals = data.signals || [];
+        $("signalMeta").textContent = signals.length ? `${signals.length} signal${signals.length === 1 ? "" : "s"} ready` : "No pending signals";
+        $("signalsList").innerHTML = signals.length ? signals.map((s) => {
+          const est = !s.has_parsed_prices;
+          return `<div class="signal-row">
+            <div class="signal-ticker">${escapeHtml(s.ticker)}</div>
+            <div><span class="signal-grade ${escapeHtml(s.grade)}">${escapeHtml(s.grade)}</span></div>
+            <div class="signal-prices">
+              <strong>Entry</strong> ${s.entry_mid ? money(s.entry_mid) : "--"}
+              &nbsp;·&nbsp;<strong>Stop</strong> ${s.stop ? money(s.stop) : "--"}
+              &nbsp;·&nbsp;<strong>T1</strong> ${s.t1 ? money(s.t1) : "--"}
+              ${est ? '<span class="badge-est">EST</span>' : ""}
+              <div class="signal-est">${escapeHtml(s.pattern || s.ai_why || "")}</div>
+            </div>
+            <button class="btn" onclick='loadSignalToTicket(${JSON.stringify(s)})' style="font-size:12px;padding:7px 11px;white-space:nowrap">Trade →</button>
+          </div>`;
+        }).join("") : `<div style="padding:18px 16px;color:var(--muted);font-size:13px">No open signals — waiting for next Telegram alert.</div>`;
+      } catch (e) {
+        $("signalMeta").textContent = "Error loading signals";
+        $("signalsList").innerHTML = `<div style="padding:14px 16px;color:var(--red);font-size:13px">${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function loadSignalToTicket(s) {
+      $("symbol").value = s.ticker;
+      $("side").value = "buy";
+      $("type").value = "limit";
+      $("quantity").value = "1";
+      $("limitPrice").value = s.entry_mid ? Number(s.entry_mid).toFixed(2) : "";
+      $("alertText").value = s.ai_why || `${s.ticker} ${s.grade} entry ${s.entry_mid} stop ${s.stop} t1 ${s.t1}`;
+      show(`Loaded ${s.ticker} (${s.grade}${!s.has_parsed_prices ? " · prices estimated" : ""}). Adjust quantity, then click Review Order.`, "good");
+      document.querySelector(".review").scrollIntoView({ behavior: "smooth" });
+    }
+
     $("refreshBtn").addEventListener("click", loadDashboard);
     $("healthBtn").addEventListener("click", health);
     $("connectBtn").addEventListener("click", connectRobinhood);
@@ -469,6 +525,7 @@
     $("placeBtn").addEventListener("click", placeOrder);
     $("clearBtn").addEventListener("click", clearTicket);
     loadDashboard();
+    loadSignals();
   </script>
 </body>
 </html>
