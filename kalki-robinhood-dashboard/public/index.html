@@ -1,146 +1,161 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Kalki · Signal Feed</title>
   <style>
     :root {
-      --bg: #090d0a; --paper: #0f1410; --card: #141a15; --card2: #192019;
-      --line: #1c251d; --ink: #e4ebe5; --muted: #5a6b5c; --faint: #2a352b;
-      --green: #00e676; --gdim: rgba(0,230,118,.1); --gbright: #69f0ae;
-      --gold: #ffd54f; --ydim: rgba(255,213,79,.1);
-      --red: #ff5252; --rdim: rgba(255,82,82,.1);
-      --blue: #448aff; --bdim: rgba(68,138,255,.1);
-      --purple: #ce93d8; --pdim: rgba(206,147,216,.1);
+      --bg:#090d0a; --paper:#0f1410; --card:#141a15; --card2:#192019;
+      --line:#1c251d; --ink:#e4ebe5; --muted:#5a6b5c; --faint:#2a352b;
+      --green:#00e676; --gdim:rgba(0,230,118,.1); --gbright:#69f0ae;
+      --gold:#ffd54f; --ydim:rgba(255,213,79,.1);
+      --red:#ff5252; --rdim:rgba(255,82,82,.1);
+      --blue:#448aff; --bdim:rgba(68,138,255,.1);
     }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, sans-serif; min-height: 100vh; font-size: 14px; }
-    button { cursor: pointer; font: inherit; }
-    a { color: var(--green); text-decoration: none; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,sans-serif;min-height:100vh;font-size:14px}
+    button{cursor:pointer;font:inherit}
 
-    /* topbar */
-    .bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 0 20px; height: 52px; background: var(--paper); border-bottom: 1px solid var(--line); }
-    .logo { width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: #031409; display: grid; place-items: center; font-weight: 900; font-size: 12px; flex-shrink: 0; }
-    .bar-title { font-weight: 900; font-size: 15px; letter-spacing: -.4px; }
-    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--muted); }
-    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
-    .pill .dot.on { background: var(--green); box-shadow: 0 0 0 3px var(--gdim); }
-    .bar-gap { flex: 1; }
-    .btn { border: 1px solid var(--line); border-radius: 7px; padding: 7px 13px; background: var(--card); color: var(--ink); font-weight: 700; font-size: 13px; transition: opacity .15s; white-space: nowrap; }
-    .btn:hover { opacity: .8; }
-    .btn:disabled { opacity: .35; cursor: not-allowed; }
-    .btn-green { background: var(--green); color: #031409; border-color: var(--green); }
-    .btn-gold { background: var(--gold); color: #3d2e00; border-color: var(--gold); }
-    .btn-red { background: var(--red); color: #fff; border-color: var(--red); }
-    .btn-ghost { background: transparent; border-color: var(--line); }
+    /* ── topbar ── */
+    .bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;padding:0 16px;height:52px;background:var(--paper);border-bottom:1px solid var(--line)}
+    .logo{width:28px;height:28px;border-radius:50%;background:var(--green);color:#031409;display:grid;place-items:center;font-weight:900;font-size:12px;flex-shrink:0}
+    .bar-title{font-weight:900;font-size:15px;letter-spacing:-.4px}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:700;color:var(--muted)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0}
+    .dot.on{background:var(--green);box-shadow:0 0 0 3px var(--gdim)}
+    .bar-gap{flex:1}
+    .btn{border:1px solid var(--line);border-radius:7px;padding:7px 13px;background:var(--card);color:var(--ink);font-weight:700;font-size:13px;white-space:nowrap}
+    .btn:hover{opacity:.8} .btn:disabled{opacity:.35;cursor:not-allowed}
+    .btn-green{background:var(--green);color:#031409;border-color:var(--green)}
+    .btn-gold{background:var(--gold);color:#3d2e00;border-color:var(--gold)}
+    .btn-red{background:var(--red);color:#fff;border-color:var(--red)}
+    .btn-ghost{background:transparent;border-color:var(--line)}
+    .icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;font-size:16px;flex-shrink:0}
+    .icon-btn:hover{background:var(--faint)}
+    .auto-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:12px;font-weight:800;color:var(--muted);cursor:pointer;transition:all .2s}
+    .auto-chip.on{background:var(--ydim);border-color:rgba(255,213,79,.35);color:var(--gold)}
+    .auto-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
 
-    /* layout */
-    .layout { display: grid; grid-template-columns: 1fr 320px; height: calc(100vh - 52px); overflow: hidden; }
-    .feed-col { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-    .side-col { border-left: 1px solid var(--line); overflow-y: auto; background: var(--paper); display: flex; flex-direction: column; }
+    /* ── layout ── */
+    .layout{display:grid;grid-template-columns:1fr 310px;height:calc(100vh - 52px);overflow:hidden}
+    .feed-col{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+    .side-col{border-left:1px solid var(--line);overflow-y:auto;background:var(--paper);display:flex;flex-direction:column}
 
-    /* empty */
-    .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); text-align: center; padding: 40px 20px; }
-    .empty-icon { font-size: 36px; opacity: .25; }
-    .empty h3 { font-size: 15px; font-weight: 800; color: var(--ink); }
-    .empty p { font-size: 13px; line-height: 1.6; max-width: 260px; }
+    /* ── queue banner ── */
+    .banner{display:none;align-items:center;gap:10px;padding:9px 16px;background:rgba(255,213,79,.07);border-bottom:1px solid rgba(255,213,79,.18);font-size:12px;font-weight:700}
+    .banner.show{display:flex} .banner strong{color:var(--gold)}
+    .banner code{background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:11px}
 
-    /* signal card */
-    @keyframes pop { from { opacity:0; transform:translateY(-10px) scale(.98); } to { opacity:1; transform:none; } }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; animation: pop .25s ease; }
-    .card.fresh { border-color: var(--green); box-shadow: 0 0 0 1px var(--green), 0 4px 24px var(--gdim); }
-    .card.approved-card { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 24px var(--ydim); }
-    .card.executed-card { opacity: .4; }
-    .card.dismissed-card { display: none; }
+    /* ── empty ── */
+    .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);text-align:center;padding:40px 20px}
+    .empty-icon{font-size:36px;opacity:.2}
+    .empty h3{font-size:15px;font-weight:800;color:var(--ink)}
+    .empty p{font-size:13px;line-height:1.6;max-width:260px}
 
-    .card-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
-    .ticker { font-size: 20px; font-weight: 950; letter-spacing: -.8px; min-width: 60px; }
-    .grade { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 950; }
-    .g-Ap { background: rgba(0,230,118,.2); color: var(--green); }
-    .g-A  { background: rgba(105,240,174,.15); color: var(--gbright); }
-    .g-Bp { background: var(--bdim); color: var(--blue); }
-    .score-badge { font-size: 11px; color: var(--muted); }
-    .time-badge { font-size: 11px; color: var(--muted); margin-left: auto; }
-    .approved-flag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: var(--ydim); color: var(--gold); font-size: 11px; font-weight: 900; border: 1px solid rgba(255,213,79,.25); }
+    /* ── signal card ── */
+    @keyframes pop{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;animation:pop .25s ease}
+    .card.fresh{border-color:var(--green);box-shadow:0 0 0 1px var(--green),0 4px 24px var(--gdim)}
+    .card.approved-card{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 4px 24px var(--ydim)}
+    .card.executed-card{opacity:.35}
+    .card.dismissed-card{display:none}
+    .card-head{display:flex;align-items:center;gap:9px;padding:12px 14px;flex-wrap:wrap}
+    .ticker{font-size:20px;font-weight:950;letter-spacing:-.8px}
+    .grade{padding:3px 8px;border-radius:999px;font-size:11px;font-weight:950}
+    .g-Ap{background:rgba(0,230,118,.2);color:var(--green)}
+    .g-A{background:rgba(105,240,174,.15);color:var(--gbright)}
+    .g-Bp{background:var(--bdim);color:var(--blue)}
+    .score-tag{font-size:11px;color:var(--muted)}
+    .time-tag{font-size:11px;color:var(--muted);margin-left:auto}
+    .approved-flag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:var(--ydim);color:var(--gold);font-size:11px;font-weight:900;border:1px solid rgba(255,213,79,.25)}
+    .card-prices{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--line);gap:1px}
+    .pcell{background:var(--card);padding:9px 13px}
+    .plbl{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;gap:4px}
+    .est{background:var(--ydim);color:var(--gold);padding:1px 4px;border-radius:3px;font-size:9px;font-weight:900}
+    .pval{font-size:15px;font-weight:950;letter-spacing:-.4px}
+    .c-g{color:var(--green)} .c-r{color:var(--red)} .c-y{color:var(--gold)}
+    .card-why{padding:7px 14px;font-size:12px;color:var(--muted);line-height:1.45;border-bottom:1px solid var(--line)}
+    .card-actions{display:flex;gap:7px;padding:10px 14px}
+    .card-actions .btn{flex:1;text-align:center;font-size:12px;padding:7px 8px}
 
-    .card-prices { display: grid; grid-template-columns: repeat(3,1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--line); gap: 1px; }
-    .price-cell { background: var(--card); padding: 9px 13px; }
-    .price-lbl { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
-    .est-tag { background: var(--ydim); color: var(--gold); padding: 1px 4px; border-radius: 3px; font-size: 9px; font-weight: 900; }
-    .price-num { font-size: 15px; font-weight: 950; letter-spacing: -.4px; }
-    .c-green { color: var(--green); } .c-red { color: var(--red); } .c-gold { color: var(--gold); }
+    /* ── sidebar ── */
+    .ss{border-bottom:1px solid var(--line);padding:13px 15px}
+    .ss-lbl{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:9px}
+    .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+    .stat{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+    .stat-l{font-size:10px;color:var(--muted);font-weight:800;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px}
+    .stat-v{font-size:17px;font-weight:950;letter-spacing:-.5px}
+    .mr{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+    .mr:last-child{border-bottom:0}
+    .sym{font-weight:900} .gain{color:var(--green);font-weight:800} .loss{color:var(--red);font-weight:800}
+    .os{padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800;background:var(--card2);border:1px solid var(--line)}
+    .os.filled{background:var(--gdim);color:var(--green);border-color:transparent}
+    .os.rejected{background:var(--rdim);color:var(--red);border-color:transparent}
+    .os.new,.os.confirmed,.os.partially_filled{background:var(--bdim);color:var(--blue);border-color:transparent}
+    .se{font-size:12px;color:var(--muted)}
 
-    .card-why { padding: 7px 14px; font-size: 12px; color: var(--muted); line-height: 1.45; border-bottom: 1px solid var(--line); }
-    .card-actions { display: flex; gap: 8px; padding: 10px 14px; }
-    .card-actions .btn { flex: 1; text-align: center; font-size: 13px; padding: 8px 10px; }
+    /* ── settings drawer ── */
+    @keyframes slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}
+    @keyframes slide-out{from{transform:translateX(0)}to{transform:translateX(100%)}}
+    .drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:80}
+    .drawer-bg.open{display:block}
+    .drawer{position:fixed;top:0;right:0;bottom:0;width:min(400px,100vw);background:var(--paper);border-left:1px solid var(--line);z-index:90;overflow-y:auto;transform:translateX(100%);transition:transform .25s ease}
+    .drawer.open{transform:translateX(0)}
+    .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:1}
+    .drawer-head h2{font-size:16px;font-weight:950;letter-spacing:-.4px}
+    .drawer-body{padding:20px;display:flex;flex-direction:column;gap:20px}
+    .setting-group{display:flex;flex-direction:column;gap:10px}
+    .setting-group-title{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+    .setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+    .setting-info{flex:1}
+    .setting-name{font-size:13px;font-weight:800;margin-bottom:2px}
+    .setting-desc{font-size:12px;color:var(--muted);line-height:1.4}
+    /* toggle switch */
+    .sw{position:relative;width:40px;height:22px;flex-shrink:0}
+    .sw input{opacity:0;width:0;height:0;position:absolute}
+    .sw-track{position:absolute;inset:0;border-radius:999px;background:var(--faint);border:1px solid var(--line);transition:background .2s,border-color .2s;cursor:pointer}
+    .sw input:checked~.sw-track{background:var(--green);border-color:var(--green)}
+    .sw-thumb{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#aaa;transition:transform .2s,background .2s;pointer-events:none}
+    .sw input:checked~.sw-track .sw-thumb{transform:translateX(18px);background:#031409}
+    /* grade chips */
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid var(--line);background:var(--card2);color:var(--muted);cursor:pointer;transition:all .15s}
+    .chip.on{border-color:rgba(0,230,118,.35);background:var(--gdim);color:var(--green)}
+    /* number input */
+    .num-input{background:var(--card2);border:1px solid var(--line);border-radius:7px;padding:7px 11px;color:var(--ink);font:inherit;font-weight:700;font-size:14px;width:100px;text-align:right}
+    .num-input:focus{outline:1px solid var(--green);border-color:var(--green)}
+    /* divider */
+    .divider{height:1px;background:var(--line)}
 
-    /* sidebar */
-    .side-section { border-bottom: 1px solid var(--line); padding: 14px 16px; }
-    .side-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
-    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .stat { background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
-    .stat-lbl { font-size: 10px; color: var(--muted); font-weight: 800; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
-    .stat-val { font-size: 17px; font-weight: 950; letter-spacing: -.5px; }
-    .mini-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-    .mini-row:last-child { border-bottom: 0; }
-    .sym { font-weight: 900; }
-    .gain { color: var(--green); font-weight: 800; }
-    .loss { color: var(--red); font-weight: 800; }
-    .order-state { padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); }
-    .order-state.filled { background: var(--gdim); color: var(--green); border-color: transparent; }
-    .order-state.rejected { background: var(--rdim); color: var(--red); border-color: transparent; }
-    .order-state.new, .order-state.confirmed, .order-state.partially_filled { background: var(--bdim); color: var(--blue); border-color: transparent; }
-    .side-empty { font-size: 12px; color: var(--muted); }
+    /* ── modal ── */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:16px}
+    .overlay.open{display:flex}
+    .modal{background:var(--card);border:1px solid var(--line);border-radius:14px;width:min(460px,100%);overflow:hidden}
+    .modal-top{padding:18px 20px;background:linear-gradient(135deg,#0c1a0f,#182b1c);border-bottom:1px solid var(--line)}
+    .modal-top h2{font-size:20px;font-weight:950;letter-spacing:-.8px;margin-bottom:3px}
+    .modal-top p{font-size:12px;color:var(--muted)}
+    .modal-body{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+    .field{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+    .field label{display:block;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:5px}
+    .field input,.field select{width:100%;background:transparent;border:0;outline:0;color:var(--ink);font:inherit;font-weight:700;font-size:14px}
+    .field select option{background:#1a1a1a}
+    .field-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .rout{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:11px;font-size:11px;color:var(--muted);white-space:pre-wrap;line-height:1.55;min-height:56px;max-height:160px;overflow-y:auto}
+    .rout.ok{border-color:rgba(0,230,118,.3);color:#a0f5c0}
+    .rout.err{border-color:rgba(255,82,82,.3);color:#ffb3b3}
+    .modal-foot{display:flex;gap:8px;padding:12px 20px;border-top:1px solid var(--line)}
+    .modal-foot .btn{flex:1;text-align:center;padding:10px;font-size:13px}
 
-    /* approved queue banner */
-    .queue-banner { display: none; align-items: center; gap: 10px; padding: 10px 16px; background: rgba(255,213,79,.08); border-bottom: 1px solid rgba(255,213,79,.2); font-size: 13px; }
-    .queue-banner.visible { display: flex; }
-    .queue-banner strong { color: var(--gold); }
+    /* ── toasts ── */
+    @keyframes ti{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .toasts{position:fixed;bottom:18px;right:18px;z-index:200;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+    .toast{padding:9px 15px;border-radius:9px;font-size:13px;font-weight:700;animation:ti .2s ease;pointer-events:auto;max-width:300px;line-height:1.4}
+    .toast.ok{background:var(--gdim);border:1px solid rgba(0,230,118,.3);color:var(--green)}
+    .toast.err{background:var(--rdim);border:1px solid rgba(255,82,82,.3);color:var(--red)}
+    .toast.info{background:var(--bdim);border:1px solid rgba(68,138,255,.3);color:var(--blue)}
 
-    /* modal */
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
-    .overlay.open { display: flex; }
-    .modal { background: var(--card); border: 1px solid var(--line); border-radius: 14px; width: min(460px,100%); overflow: hidden; }
-    .modal-top { padding: 18px 20px; background: linear-gradient(135deg,#0c1a0f,#182b1c); border-bottom: 1px solid var(--line); }
-    .modal-top h2 { font-size: 20px; font-weight: 950; letter-spacing: -.8px; margin-bottom: 3px; }
-    .modal-top p { font-size: 12px; color: var(--muted); }
-    .modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-    .field { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
-    .field label { display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 5px; }
-    .field input, .field select { width: 100%; background: transparent; border: 0; outline: 0; color: var(--ink); font: inherit; font-weight: 700; font-size: 14px; }
-    .field select option { background: #1a1a1a; }
-    .field-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .review-out { background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 8px; padding: 11px; font-size: 11px; color: var(--muted); white-space: pre-wrap; line-height: 1.55; min-height: 56px; max-height: 160px; overflow-y: auto; }
-    .review-out.ok { border-color: rgba(0,230,118,.3); color: #a0f5c0; }
-    .review-out.err { border-color: rgba(255,82,82,.3); color: #ffb3b3; }
-    .modal-foot { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
-    .modal-foot .btn { flex: 1; text-align: center; padding: 10px; font-size: 13px; }
-
-    /* toast */
-    @keyframes toast-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
-    .toast-wrap { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-    .toast { padding: 10px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; animation: toast-in .2s ease; pointer-events: auto; max-width: 320px; line-height: 1.4; }
-    .toast.ok { background: var(--gdim); border: 1px solid rgba(0,230,118,.3); color: var(--green); }
-    .toast.err { background: var(--rdim); border: 1px solid rgba(255,82,82,.3); color: var(--red); }
-    .toast.info { background: var(--bdim); border: 1px solid rgba(68,138,255,.3); color: var(--blue); }
-
-    /* auto-approve toggle */
-    .toggle-wrap { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); }
-    .toggle-label { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
-    .toggle-label.active { color: var(--gold); }
-    .toggle-track { position: relative; width: 36px; height: 20px; border-radius: 999px; background: var(--faint); border: 1px solid var(--line); cursor: pointer; transition: background .2s; flex-shrink: 0; }
-    .toggle-track.on { background: var(--gold); border-color: var(--gold); }
-    .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s; }
-    .toggle-track.on .toggle-thumb { transform: translateX(16px); background: #3d2e00; }
-    .grade-filter { display: flex; align-items: center; gap: 4px; }
-    .grade-chip { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 900; border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; transition: all .15s; }
-    .grade-chip.selected { background: var(--gdim); color: var(--green); border-color: rgba(0,230,118,.3); }
-
-    @media (max-width: 860px) {
-      .layout { grid-template-columns: 1fr; }
-      .side-col { display: none; }
-    }
+    @media(max-width:860px){.layout{grid-template-columns:1fr}.side-col{display:none}}
   </style>
 </head>
 <body>
@@ -151,74 +166,202 @@
   <div class="pill"><span class="dot" id="rhDot"></span><span id="rhStatus">Checking…</span></div>
   <div class="bar-gap"></div>
   <button class="btn btn-green" id="connectBtn" style="display:none" onclick="connectRobinhood()">Connect Robinhood</button>
-  <button class="btn btn-ghost" onclick="loadAll()" id="refreshBtn">↺ Refresh</button>
-
-  <div class="toggle-wrap">
-    <span class="toggle-label" id="autoLabel">Auto-approve</span>
-    <div class="toggle-track" id="autoToggle" onclick="toggleAutoApprove()">
-      <div class="toggle-thumb"></div>
-    </div>
+  <div class="auto-chip" id="autoChip" onclick="openSettings()">
+    <span class="auto-dot"></span>
+    <span id="autoChipLabel">Manual</span>
   </div>
-
-  <div class="grade-filter" id="gradeFilter" style="display:none">
-    <span class="grade-chip selected" data-grade="A+" onclick="toggleGrade(this)">A+</span>
-    <span class="grade-chip selected" data-grade="A" onclick="toggleGrade(this)">A</span>
-    <span class="grade-chip" data-grade="B+" onclick="toggleGrade(this)">B+</span>
-  </div>
+  <button class="icon-btn" onclick="loadAll()" title="Refresh">↺</button>
+  <button class="icon-btn" onclick="openSettings()" title="Settings">⚙</button>
 </header>
 
-<!-- approved queue banner -->
-<div class="queue-banner" id="queueBanner">
-  <span>⚡</span>
-  <span><strong id="queueCount">0</strong> signal(s) approved — waiting for Claude Code to execute</span>
-  <span style="flex:1"></span>
-  <span style="font-size:12px;color:var(--muted)">Run <code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px">claude</code> in the dashboard folder to execute</span>
+<!-- queue banner -->
+<div class="banner" id="banner">
+  ⚡ <strong><span id="qCount">0</span> approved</strong> — waiting for Claude Code &nbsp;·&nbsp;
+  run <code>claude --dangerously-skip-permissions "$(cat KALKI_AGENT.md)"</code> to execute
 </div>
 
 <div class="layout">
-  <!-- feed -->
   <div class="feed-col" id="feed">
     <div class="empty" id="emptyState">
       <div class="empty-icon">📡</div>
       <h3>Waiting for signals</h3>
-      <p>New Kalki alerts from Telegram appear here automatically. Approve a signal to queue it for Claude Code execution on Robinhood.</p>
+      <p>New Kalki alerts from Telegram appear here automatically every 30 seconds.</p>
     </div>
   </div>
-
-  <!-- sidebar -->
   <div class="side-col">
-    <div class="side-section">
-      <div class="side-label">Portfolio</div>
+    <div class="ss">
+      <div class="ss-lbl">Portfolio</div>
       <div class="stat-row">
-        <div class="stat"><div class="stat-lbl">Buying power</div><div class="stat-val" id="sbp">--</div></div>
-        <div class="stat"><div class="stat-lbl">Account value</div><div class="stat-val" id="sav">--</div></div>
-        <div class="stat"><div class="stat-lbl">Open orders</div><div class="stat-val" id="soo">--</div></div>
-        <div class="stat"><div class="stat-lbl">Positions</div><div class="stat-val" id="spc">--</div></div>
+        <div class="stat"><div class="stat-l">Buying power</div><div class="stat-v" id="sbp">--</div></div>
+        <div class="stat"><div class="stat-l">Account value</div><div class="stat-v" id="sav">--</div></div>
+        <div class="stat"><div class="stat-l">Open orders</div><div class="stat-v" id="soo">--</div></div>
+        <div class="stat"><div class="stat-l">Positions</div><div class="stat-v" id="spc">--</div></div>
       </div>
     </div>
-    <div class="side-section">
-      <div class="side-label">Positions</div>
-      <div id="sPositions"><span class="side-empty">Connect Robinhood to load.</span></div>
+    <div class="ss">
+      <div class="ss-lbl">Positions</div>
+      <div id="sPos"><span class="se">Connect Robinhood to load.</span></div>
     </div>
-    <div class="side-section">
-      <div class="side-label">Recent orders <span id="sOrderMeta" style="font-weight:400;text-transform:none;letter-spacing:0"></span></div>
-      <div id="sOrders"><span class="side-empty">Connect Robinhood to load.</span></div>
+    <div class="ss">
+      <div class="ss-lbl">Recent orders</div>
+      <div id="sOrd"><span class="se">Connect Robinhood to load.</span></div>
     </div>
-    <div class="side-section" style="flex:1">
-      <div class="side-label">How it works</div>
-      <div style="font-size:12px;color:var(--muted);line-height:1.7">
-        <p>1. Signal arrives from Telegram</p>
-        <p>2. You review and click <strong style="color:var(--gold)">Approve</strong></p>
-        <p>3. Claude Code sees approved signal</p>
-        <p>4. Claude calls <code style="background:var(--faint);padding:1px 4px;border-radius:3px">review_equity_order</code></p>
-        <p>5. Claude calls <code style="background:var(--faint);padding:1px 4px;border-radius:3px">place_equity_order</code></p>
-        <p>6. Trade appears in orders ↑</p>
+    <div class="ss" style="flex:1">
+      <div class="ss-lbl">Flow</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8">
+        1. Signal arrives from Telegram<br>
+        2. Auto-approve fires (if on) OR you tap Approve<br>
+        3. Claude Code sees approved signal<br>
+        4. Claude reviews → places order on Robinhood<br>
+        5. Order appears in Recent orders ↑
       </div>
     </div>
   </div>
 </div>
 
-<!-- execute modal (for manual override) -->
+<!-- settings drawer -->
+<div class="drawer-bg" id="drawerBg" onclick="closeSettings()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>⚙ Settings</h2>
+    <button class="btn btn-ghost" onclick="closeSettings()">✕ Close</button>
+  </div>
+  <div class="drawer-body">
+
+    <div class="setting-group">
+      <div class="setting-group-title">Auto-approve</div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Auto-approve signals</div>
+          <div class="setting-desc">Automatically approve incoming signals without manual review. Claude Code will then execute them.</div>
+        </div>
+        <label class="sw">
+          <input type="checkbox" id="cfgAuto" onchange="saveSettings()">
+          <div class="sw-track"><div class="sw-thumb"></div></div>
+        </label>
+      </div>
+      <div class="setting-row" id="gradeRow">
+        <div class="setting-info">
+          <div class="setting-name">Auto-approve grades</div>
+          <div class="setting-desc">Only auto-approve signals with these grades. Toggle any grade on/off.</div>
+        </div>
+        <div class="chips" id="gradeChips">
+          <span class="chip" data-g="A+" onclick="toggleGrade(this)">A+</span>
+          <span class="chip" data-g="A"  onclick="toggleGrade(this)">A</span>
+          <span class="chip" data-g="B+" onclick="toggleGrade(this)">B+</span>
+          <span class="chip" data-g="B"  onclick="toggleGrade(this)">B</span>
+          <span class="chip" data-g="C"  onclick="toggleGrade(this)">C</span>
+        </div>
+      </div>
+      <div class="setting-row" id="allGradesRow">
+        <div class="setting-info">
+          <div class="setting-name">Allow all grades</div>
+          <div class="setting-desc">When on, ignore grade filter and auto-approve every incoming signal regardless of grade.</div>
+        </div>
+        <label class="sw">
+          <input type="checkbox" id="cfgAllGrades" onchange="saveSettings()">
+          <div class="sw-track"><div class="sw-thumb"></div></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">Position sizing</div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Position size ($)</div>
+          <div class="setting-desc">Dollar amount per trade. Claude will buy floor(size / price) shares.</div>
+        </div>
+        <input class="num-input" type="number" id="cfgSize" min="50" max="50000" step="50" value="500" onchange="saveSettings()">
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Max position size ($)</div>
+          <div class="setting-desc">Hard cap. Claude will never spend more than this per trade.</div>
+        </div>
+        <input class="num-input" type="number" id="cfgMaxSize" min="100" max="100000" step="100" value="1000" onchange="saveSettings()">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">Price gates</div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Max entry slippage (%)</div>
+          <div class="setting-desc">Skip if current price is more than X% above the signal entry. Default 3%.</div>
+        </div>
+        <input class="num-input" type="number" id="cfgSlip" min="0" max="20" step="0.5" value="3" onchange="saveSettings()">
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Max entry drop (%)</div>
+          <div class="setting-desc">Skip if current price has dropped more than X% below entry. Default 5%.</div>
+        </div>
+        <input class="num-input" type="number" id="cfgDrop" min="0" max="20" step="0.5" value="5" onchange="saveSettings()">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">Order settings</div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Order type</div>
+          <div class="setting-desc">Limit uses signal entry price. Market fills immediately at current price.</div>
+        </div>
+        <select class="num-input" id="cfgOrderType" style="width:120px" onchange="saveSettings()">
+          <option value="limit">Limit</option>
+          <option value="market">Market</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Time in force</div>
+          <div class="setting-desc">GFD = good for day (cancels at close). GTC = good till cancelled.</div>
+        </div>
+        <select class="num-input" id="cfgTIF" style="width:120px" onchange="saveSettings()">
+          <option value="gfd">GFD</option>
+          <option value="gtc">GTC</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Min buying power ($)</div>
+          <div class="setting-desc">Claude pauses trading if buying power drops below this amount.</div>
+        </div>
+        <input class="num-input" type="number" id="cfgMinBP" min="0" max="10000" step="50" value="200" onchange="saveSettings()">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">Estimated prices</div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Trade estimated prices</div>
+          <div class="setting-desc">Some signals don't have exact entry/stop prices (marked EST). Allow Claude to trade them using estimated prices.</div>
+        </div>
+        <label class="sw">
+          <input type="checkbox" id="cfgAllowEst" onchange="saveSettings()">
+          <div class="sw-track"><div class="sw-thumb"></div></div>
+        </label>
+      </div>
+    </div>
+
+    <div style="padding:12px 0">
+      <button class="btn btn-ghost" style="width:100%;font-size:12px;color:var(--muted)" onclick="resetSettings()">Reset all settings to defaults</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- manual trade modal -->
 <div class="overlay" id="overlay">
   <div class="modal">
     <div class="modal-top">
@@ -227,18 +370,18 @@
     </div>
     <div class="modal-body">
       <div class="field-2">
-        <div class="field"><label>Symbol</label><input id="mSym" readonly /></div>
+        <div class="field"><label>Symbol</label><input id="mSym" readonly/></div>
         <div class="field"><label>Side</label><select id="mSide"><option value="buy">Buy</option><option value="sell">Sell</option></select></div>
       </div>
       <div class="field-2">
-        <div class="field"><label>Qty</label><input id="mQty" type="number" min="1" value="1" /></div>
-        <div class="field"><label>Limit price</label><input id="mPrice" type="number" step="0.01" /></div>
+        <div class="field"><label>Qty</label><input id="mQty" type="number" min="1" value="1"/></div>
+        <div class="field"><label>Limit price</label><input id="mPrice" type="number" step="0.01"/></div>
       </div>
       <div class="field-2">
         <div class="field"><label>Type</label><select id="mType"><option value="limit">Limit</option><option value="market">Market</option></select></div>
-        <div class="field"><label>Account # (optional)</label><input id="mAcct" placeholder="auto" /></div>
+        <div class="field"><label>Account # (optional)</label><input id="mAcct" placeholder="auto"/></div>
       </div>
-      <div class="review-out" id="mOut">Click Review to preview with Robinhood before placing.</div>
+      <div class="rout" id="mOut">Click Review to preview with Robinhood before placing.</div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -248,376 +391,319 @@
   </div>
 </div>
 
-<div class="toast-wrap" id="toasts"></div>
+<div class="toasts" id="toasts"></div>
 
 <script>
 const API = location.hostname.endsWith(".pages.dev")
   ? "https://kalki-robinhood-dashboard.srimanthgada87.workers.dev" : "";
 const $ = id => document.getElementById(id);
-const money = v => v == null ? "--" : "$" + Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const money = v => v==null?"--":"$"+Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const timeAgo = iso => {
-  const s = Math.floor((Date.now()-new Date(iso))/1000);
+  const s=Math.floor((Date.now()-new Date(iso))/1000);
   return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:s<86400?`${Math.floor(s/3600)}h ago`:`${Math.floor(s/86400)}d ago`;
 };
-const esc = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let seenIds = new Set();
-let activeSignal = null;
-let reviewOk = false;
+// ── settings ──
+const DEFAULTS = {
+  auto: false,
+  allGrades: false,
+  grades: ["A+","A"],
+  size: 500,
+  maxSize: 1000,
+  slip: 3,
+  drop: 5,
+  orderType: "limit",
+  tif: "gfd",
+  minBP: 200,
+  allowEst: false,
+};
+
+function loadSettings() {
+  try { return {...DEFAULTS,...JSON.parse(localStorage.getItem("kalki_cfg")||"{}")}; }
+  catch { return {...DEFAULTS}; }
+}
+
+function saveSettings() {
+  const cfg = {
+    auto: $("cfgAuto").checked,
+    allGrades: $("cfgAllGrades").checked,
+    grades: [...document.querySelectorAll(".chip.on")].map(c=>c.dataset.g),
+    size: Number($("cfgSize").value)||500,
+    maxSize: Number($("cfgMaxSize").value)||1000,
+    slip: Number($("cfgSlip").value)||3,
+    drop: Number($("cfgDrop").value)||5,
+    orderType: $("cfgOrderType").value,
+    tif: $("cfgTIF").value,
+    minBP: Number($("cfgMinBP").value)||200,
+    allowEst: $("cfgAllowEst").checked,
+  };
+  localStorage.setItem("kalki_cfg", JSON.stringify(cfg));
+  syncSettingsUI(cfg);
+  return cfg;
+}
+
+function syncSettingsUI(cfg) {
+  $("cfgAuto").checked = cfg.auto;
+  $("cfgAllGrades").checked = cfg.allGrades;
+  $("cfgSize").value = cfg.size;
+  $("cfgMaxSize").value = cfg.maxSize;
+  $("cfgSlip").value = cfg.slip;
+  $("cfgDrop").value = cfg.drop;
+  $("cfgOrderType").value = cfg.orderType;
+  $("cfgTIF").value = cfg.tif;
+  $("cfgMinBP").value = cfg.minBP;
+  $("cfgAllowEst").checked = cfg.allowEst;
+  document.querySelectorAll(".chip").forEach(c => {
+    c.classList.toggle("on", cfg.allGrades || cfg.grades.includes(c.dataset.g));
+  });
+  // update auto chip in topbar
+  const chip = $("autoChip");
+  const label = $("autoChipLabel");
+  if(cfg.auto) {
+    chip.classList.add("on");
+    label.textContent = cfg.allGrades ? "Auto: ALL" : `Auto: ${cfg.grades.join("+")}`;
+  } else {
+    chip.classList.remove("on");
+    label.textContent = "Manual";
+  }
+}
+
+function toggleGrade(el) {
+  el.classList.toggle("on");
+  saveSettings();
+}
+
+function resetSettings() {
+  if(!confirm("Reset all settings to defaults?")) return;
+  localStorage.removeItem("kalki_cfg");
+  syncSettingsUI({...DEFAULTS});
+  toast("Settings reset to defaults", "info");
+}
+
+function openSettings() {
+  $("drawer").classList.add("open");
+  $("drawerBg").classList.add("open");
+}
+function closeSettings() {
+  $("drawer").classList.remove("open");
+  $("drawerBg").classList.remove("open");
+}
+
+// init settings UI
+syncSettingsUI(loadSettings());
 
 // ── api ──
-async function api(path, opts={}) {
-  const r = await fetch(`${API}${path}`,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});
-  const d = await r.json().catch(()=>({}));
+async function api(path,opts={}) {
+  const r=await fetch(`${API}${path}`,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});
+  const d=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
   return d;
 }
 
 // ── toast ──
-function toast(msg, type="info", dur=3500) {
-  const t = document.createElement("div");
-  t.className = `toast ${type}`;
-  t.textContent = msg;
+function toast(msg,type="info",dur=3500) {
+  const t=document.createElement("div");
+  t.className=`toast ${type}`;
+  t.textContent=msg;
   $("toasts").appendChild(t);
-  setTimeout(()=>t.remove(), dur);
+  setTimeout(()=>t.remove(),dur);
 }
 
 // ── signals ──
+let seenIds=new Set();
+let activeSignal=null;
+let reviewOk=false;
+
 async function loadSignals() {
   try {
-    const { signals } = await api("/api/signals/pending");
+    const {signals}=await api("/api/signals/pending");
     if(!signals?.length) return;
-    const feed = $("feed");
-    let added = 0;
+    const feed=$("feed");
+    const cfg=loadSettings();
+    let added=0;
     for(const s of signals) {
-      const existing = feed.querySelector(`[data-id="${s.id}"]`);
+      const existing=feed.querySelector(`[data-id="${s.id}"]`);
       if(existing) {
-        // update approved state
-        if(s.approved) {
+        if(s.approved && !existing.classList.contains("approved-card")) {
           existing.classList.remove("fresh");
           existing.classList.add("approved-card");
-          const flag = existing.querySelector(".approved-flag");
-          if(!flag) {
-            const head = existing.querySelector(".card-head");
-            const f = document.createElement("span");
-            f.className = "approved-flag";
-            f.innerHTML = "✓ Approved";
-            head.appendChild(f);
+          const ab=existing.querySelector(".approve-btn");
+          if(ab){ab.textContent="Approved ✓";ab.disabled=true}
+          const head=existing.querySelector(".card-head");
+          if(!head.querySelector(".approved-flag")){
+            const f=document.createElement("span");
+            f.className="approved-flag";f.innerHTML="✓ Approved";
+            head.insertBefore(f,head.querySelector(".time-tag"));
           }
-          const ab = existing.querySelector(".approve-btn");
-          if(ab) { ab.textContent = "Approved ✓"; ab.disabled = true; }
         }
         continue;
       }
       seenIds.add(s.id);
       added++;
-      const empty = feed.querySelector(".empty");
-      if(empty) empty.remove();
-      // try auto-approve before building card
-      const wasAutoApproved = await maybeAutoApprove(s);
-      if(wasAutoApproved) s.approved = true;
+      $("emptyState")?.remove();
+      // auto-approve?
+      let approved=s.approved;
+      if(!approved && cfg.auto) {
+        const gradeOk=cfg.allGrades||cfg.grades.includes(s.grade);
+        const estOk=!s.has_parsed_prices||cfg.allowEst;
+        if(gradeOk&&estOk) {
+          try {
+            await api(`/api/signals/${s.id}/approve`,{method:"POST"});
+            approved=true;
+            s.approved=true;
+            toast(`Auto-approved ${s.ticker} ${s.grade}${s.has_parsed_prices?"":" (EST prices)"}`, "ok");
+          } catch(e){ console.warn("auto-approve:",e.message); }
+        }
+      }
       feed.prepend(buildCard(s));
-      if(added===1 && !s.approved) notifyNew(s);
+      if(added===1&&!approved) notifyNew(s);
     }
-    // update queue banner
-    const approvedCount = signals.filter(s=>s.approved).length;
-    if(approvedCount > 0) {
-      $("queueBanner").classList.add("visible");
-      $("queueCount").textContent = approvedCount;
-    } else {
-      $("queueBanner").classList.remove("visible");
-    }
-  } catch(e) { console.warn("signals:", e.message); }
+    // update banner
+    const approvedCount=signals.filter(s=>s.approved).length;
+    if(approvedCount>0){$("banner").classList.add("show");$("qCount").textContent=approvedCount}
+    else $("banner").classList.remove("show");
+  } catch(e){console.warn("signals:",e.message)}
 }
 
-function gradeClass(g) {
-  return g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
-}
+const gradeClass=g=>g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
 
 function buildCard(s) {
-  const div = document.createElement("div");
-  div.className = `card${s.approved?" approved-card":" fresh"}`;
-  div.dataset.id = s.id;
-  const est = !s.has_parsed_prices;
-  const approvedHtml = s.approved
-    ? `<span class="approved-flag">✓ Approved</span>`
-    : "";
-  div.innerHTML = `
+  const div=document.createElement("div");
+  div.className=`card${s.approved?" approved-card":" fresh"}`;
+  div.dataset.id=s.id;
+  const est=!s.has_parsed_prices;
+  div.innerHTML=`
     <div class="card-head">
       <div class="ticker">${esc(s.ticker)}</div>
       <span class="grade ${gradeClass(s.grade)}">${esc(s.grade)}</span>
-      ${s.score?`<span class="score-badge">score ${s.score}</span>`:""}
-      ${approvedHtml}
-      <span class="time-badge">${timeAgo(s.added_at)}</span>
+      ${s.score?`<span class="score-tag">score ${s.score}</span>`:""}
+      ${s.approved?`<span class="approved-flag">✓ Approved</span>`:""}
+      <span class="time-tag">${timeAgo(s.added_at)}</span>
     </div>
     <div class="card-prices">
-      <div class="price-cell">
-        <div class="price-lbl">Entry${est?`<span class="est-tag">EST</span>`:""}</div>
-        <div class="price-num c-gold">${money(s.entry_mid)}</div>
-      </div>
-      <div class="price-cell">
-        <div class="price-lbl">Stop</div>
-        <div class="price-num c-red">${money(s.stop)}</div>
-      </div>
-      <div class="price-cell">
-        <div class="price-lbl">T1</div>
-        <div class="price-num c-green">${money(s.t1)}</div>
-      </div>
+      <div class="pcell"><div class="plbl">Entry${est?`<span class="est">EST</span>`:""}</div><div class="pval c-y">${money(s.entry_mid)}</div></div>
+      <div class="pcell"><div class="plbl">Stop</div><div class="pval c-r">${money(s.stop)}</div></div>
+      <div class="pcell"><div class="plbl">T1</div><div class="pval c-g">${money(s.t1)}</div></div>
     </div>
     ${s.ai_why?`<div class="card-why">${esc(s.ai_why)}</div>`:""}
     <div class="card-actions">
       <button class="btn btn-gold approve-btn" onclick='approveSignal("${s.id}",this)' ${s.approved?"disabled":""}>
-        ${s.approved?"Approved ✓":"Approve for trading"}
+        ${s.approved?"Approved ✓":"Approve"}
       </button>
       <button class="btn" onclick='openManual(${JSON.stringify(s)})'>Manual</button>
-      <button class="btn btn-ghost" onclick='dismissSignal("${s.id}",this)'>✕ Dismiss</button>
+      <button class="btn btn-ghost" onclick='dismissSignal("${s.id}",this)'>✕</button>
     </div>`;
   return div;
 }
 
 function notifyNew(s) {
-  if(Notification?.permission==="granted") {
-    new Notification(`Kalki: ${s.ticker} ${s.grade}`, {
-      body:`Entry ${money(s.entry_mid)} · Stop ${money(s.stop)} · T1 ${money(s.t1)}`,
-    });
-  }
+  if(Notification?.permission==="granted")
+    new Notification(`Kalki: ${s.ticker} ${s.grade}`,{body:`Entry ${money(s.entry_mid)} · Stop ${money(s.stop)} · T1 ${money(s.t1)}`});
 }
 
-async function approveSignal(id, btn) {
-  btn.disabled = true;
-  btn.textContent = "Approving…";
+async function approveSignal(id,btn) {
+  btn.disabled=true;btn.textContent="…";
   try {
-    await api(`/api/signals/${id}/approve`, {method:"POST"});
-    btn.textContent = "Approved ✓";
-    const card = btn.closest(".card");
-    card.classList.remove("fresh");
-    card.classList.add("approved-card");
-    // add approved flag to head
-    const head = card.querySelector(".card-head");
-    if(!head.querySelector(".approved-flag")) {
-      const f = document.createElement("span");
-      f.className = "approved-flag";
-      f.innerHTML = "✓ Approved";
-      // insert before time badge
-      const tb = head.querySelector(".time-badge");
-      head.insertBefore(f, tb);
+    await api(`/api/signals/${id}/approve`,{method:"POST"});
+    btn.textContent="Approved ✓";
+    const card=btn.closest(".card");
+    card.classList.remove("fresh");card.classList.add("approved-card");
+    const head=card.querySelector(".card-head");
+    if(!head.querySelector(".approved-flag")){
+      const f=document.createElement("span");f.className="approved-flag";f.innerHTML="✓ Approved";
+      head.insertBefore(f,head.querySelector(".time-tag"));
     }
-    toast(`${card.querySelector(".ticker").textContent} approved — Claude Code will execute on next poll`, "ok");
-    loadSignals(); // refresh banner
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = "Approve for trading";
-    toast(e.message, "err");
-  }
+    toast(`${card.querySelector(".ticker").textContent} approved — Claude Code will execute`, "ok");
+    loadSignals();
+  } catch(e){btn.disabled=false;btn.textContent="Approve";toast(e.message,"err")}
 }
 
-async function dismissSignal(id, btn) {
-  btn.disabled = true;
+async function dismissSignal(id,btn) {
+  btn.disabled=true;
   try {
-    await api(`/api/signals/${id}/dismiss`, {method:"POST"});
-    const card = btn.closest(".card");
-    card.classList.add("dismissed-card");
-    setTimeout(()=>card.remove(), 300);
-  } catch(e) {
-    btn.disabled = false;
-    toast(e.message, "err");
-  }
+    await api(`/api/signals/${id}/dismiss`,{method:"POST"});
+    btn.closest(".card").classList.add("dismissed-card");
+  } catch(e){btn.disabled=false;toast(e.message,"err")}
 }
 
 // ── manual modal ──
 function openManual(s) {
-  activeSignal = s;
-  reviewOk = false;
-  $("mPlace").disabled = true;
-  $("mTitle").textContent = `Manual trade — ${s.ticker}`;
-  $("mSub").textContent = `${s.grade} · ${money(s.entry_mid)} entry · ${money(s.stop)} stop · ${money(s.t1)} T1`;
-  $("mSym").value = s.ticker;
-  $("mPrice").value = s.entry_mid ? Number(s.entry_mid).toFixed(2) : "";
-  $("mQty").value = "1";
-  $("mSide").value = "buy";
-  $("mType").value = "limit";
-  $("mAcct").value = "";
-  $("mOut").className = "review-out";
-  $("mOut").textContent = "Click Review to preview with Robinhood before placing.";
+  activeSignal=s;reviewOk=false;
+  $("mPlace").disabled=true;
+  $("mTitle").textContent=`Manual — ${s.ticker}`;
+  $("mSub").textContent=`${s.grade} · ${money(s.entry_mid)} entry · ${money(s.stop)} stop · ${money(s.t1)} T1`;
+  $("mSym").value=s.ticker;
+  $("mPrice").value=s.entry_mid?Number(s.entry_mid).toFixed(2):"";
+  $("mQty").value="1";$("mSide").value="buy";$("mType").value="limit";$("mAcct").value="";
+  $("mOut").className="rout";$("mOut").textContent="Click Review to preview with Robinhood.";
   $("overlay").classList.add("open");
 }
-
-function closeModal() {
-  $("overlay").classList.remove("open");
-  activeSignal = null;
-  reviewOk = false;
-  $("mPlace").disabled = true;
-}
+function closeModal(){$("overlay").classList.remove("open");activeSignal=null;reviewOk=false;$("mPlace").disabled=true}
 
 async function reviewOrder() {
-  $("mReview").disabled = true;
-  $("mOut").className = "review-out";
-  $("mOut").textContent = "Sending to Robinhood for review…";
+  $("mReview").disabled=true;$("mOut").className="rout";$("mOut").textContent="Reviewing…";
   try {
-    const body = {
-      symbol:$("mSym").value, side:$("mSide").value, type:$("mType").value,
-      quantity:$("mQty").value, limitPrice:$("mPrice").value,
-    };
-    if($("mAcct").value.trim()) body.account_number = $("mAcct").value.trim();
-    const data = await api("/api/review-order",{method:"POST",body:JSON.stringify(body)});
-    const checks = data.review?.order_checks||{};
-    const warns = Object.values(checks);
-    $("mOut").className = `review-out ${warns.length?"err":"ok"}`;
-    $("mOut").textContent = warns.length
-      ? `⚠ Broker warnings:\n${warns.join("\n")}`
-      : `✓ Preview OK\n${JSON.stringify(data.review,null,2)}`;
-    reviewOk = !warns.length;
-    $("mPlace").disabled = !reviewOk;
-  } catch(e) {
-    $("mOut").className = "review-out err";
-    $("mOut").textContent = `Error: ${e.message}`;
-  }
-  $("mReview").disabled = false;
+    const body={symbol:$("mSym").value,side:$("mSide").value,type:$("mType").value,quantity:$("mQty").value,limitPrice:$("mPrice").value};
+    if($("mAcct").value.trim())body.account_number=$("mAcct").value.trim();
+    const data=await api("/api/review-order",{method:"POST",body:JSON.stringify(body)});
+    const warns=Object.values(data.review?.order_checks||{});
+    $("mOut").className=`rout ${warns.length?"err":"ok"}`;
+    $("mOut").textContent=warns.length?`⚠ ${warns.join("\n")}`:(`✓ Preview OK\n${JSON.stringify(data.review,null,2)}`);
+    reviewOk=!warns.length;$("mPlace").disabled=!reviewOk;
+  } catch(e){$("mOut").className="rout err";$("mOut").textContent=`Error: ${e.message}`}
+  $("mReview").disabled=false;
 }
 
 async function placeOrder() {
-  if(!confirm(`Place real Robinhood order: ${$("mSide").value.toUpperCase()} ${$("mQty").value} ${$("mSym").value} @ $${$("mPrice").value}?\n\nThis will execute immediately.`)) return;
-  $("mPlace").disabled = true;
-  $("mOut").className = "review-out";
-  $("mOut").textContent = "Placing order on Robinhood…";
+  if(!confirm(`Place: ${$("mSide").value.toUpperCase()} ${$("mQty").value} ${$("mSym").value} @ $${$("mPrice").value}?`))return;
+  $("mPlace").disabled=true;$("mOut").className="rout";$("mOut").textContent="Placing…";
   try {
-    const body = {
-      symbol:$("mSym").value, side:$("mSide").value, type:$("mType").value,
-      quantity:$("mQty").value, limitPrice:$("mPrice").value, confirm:true,
-    };
-    if($("mAcct").value.trim()) body.account_number = $("mAcct").value.trim();
-    const data = await api("/api/place-order",{method:"POST",body:JSON.stringify(body)});
-    $("mOut").className = "review-out ok";
-    $("mOut").textContent = `✓ Order placed!\n${JSON.stringify(data.placed,null,2)}`;
-    if(activeSignal) {
-      await api(`/api/signals/${activeSignal.id}/executed`,{method:"POST"}).catch(()=>{});
-      const card = document.querySelector(`[data-id="${activeSignal.id}"]`);
-      if(card) card.classList.add("executed-card");
-    }
-    toast(`Order placed for ${$("mSym").value}!`, "ok", 5000);
-    setTimeout(()=>{ closeModal(); loadDashboard(); }, 2000);
-  } catch(e) {
-    $("mOut").className = "review-out err";
-    $("mOut").textContent = `Error: ${e.message}`;
-    $("mPlace").disabled = false;
-  }
+    const body={symbol:$("mSym").value,side:$("mSide").value,type:$("mType").value,quantity:$("mQty").value,limitPrice:$("mPrice").value,confirm:true};
+    if($("mAcct").value.trim())body.account_number=$("mAcct").value.trim();
+    const data=await api("/api/place-order",{method:"POST",body:JSON.stringify(body)});
+    $("mOut").className="rout ok";$("mOut").textContent=`✓ Placed!\n${JSON.stringify(data.placed,null,2)}`;
+    if(activeSignal)await api(`/api/signals/${activeSignal.id}/executed`,{method:"POST"}).catch(()=>{});
+    toast(`Order placed for ${$("mSym").value}!`,"ok",5000);
+    setTimeout(()=>{closeModal();loadDashboard();},2000);
+  } catch(e){$("mOut").className="rout err";$("mOut").textContent=`Error: ${e.message}`;$("mPlace").disabled=false}
 }
 
 // ── dashboard ──
 async function loadDashboard() {
   try {
-    const d = await api("/api/dashboard");
-    $("rhDot").className = "dot on";
-    $("rhStatus").textContent = "Robinhood connected";
-    $("connectBtn").style.display = "none";
-    const p = d.portfolio||{};
-    $("sbp").textContent = money(p.buying_power);
-    $("sav").textContent = money(p.total_value);
-    const orders = d.orders||[];
-    const open = orders.filter(o=>["new","queued","confirmed","unconfirmed","partially_filled"].includes((o.state||"").toLowerCase()));
-    $("soo").textContent = open.length;
-    const positions = d.positions||[];
-    $("spc").textContent = positions.length;
-    $("sPositions").innerHTML = positions.length
-      ? positions.slice(0,8).map(p=>`
-          <div class="mini-row">
-            <span class="sym">${esc(p.symbol)}</span>
-            <span style="color:var(--muted);font-size:12px">${p.quantity}sh @ ${money(p.average_buy_price)}</span>
-            <span class="${(p.unrealized||0)>=0?"gain":"loss"}">${money(p.unrealized)}</span>
-          </div>`).join("")
-      : `<span class="side-empty">No open positions.</span>`;
-    $("sOrders").innerHTML = orders.slice(0,6).map(o=>`
-      <div class="mini-row">
-        <span class="sym">${esc(o.symbol||"-")}</span>
-        <span style="color:var(--muted);font-size:12px">${esc(o.side||"")} ${o.quantity||""}</span>
-        <span class="order-state ${(o.state||"").toLowerCase()}">${esc(o.state||"-")}</span>
-      </div>`).join("") || `<span class="side-empty">No recent orders.</span>`;
-  } catch(e) {
-    $("rhDot").className = "dot";
-    $("rhStatus").textContent = "Not connected";
-    $("connectBtn").style.display = "";
-  }
+    const d=await api("/api/dashboard");
+    $("rhDot").className="dot on";$("rhStatus").textContent="Robinhood connected";$("connectBtn").style.display="none";
+    const p=d.portfolio||{};
+    $("sbp").textContent=money(p.buying_power);$("sav").textContent=money(p.total_value);
+    const orders=d.orders||[];
+    $("soo").textContent=orders.filter(o=>["new","queued","confirmed","unconfirmed","partially_filled"].includes((o.state||"").toLowerCase())).length;
+    const positions=d.positions||[];$("spc").textContent=positions.length;
+    $("sPos").innerHTML=positions.length?positions.slice(0,8).map(p=>`
+      <div class="mr"><span class="sym">${esc(p.symbol)}</span><span style="color:var(--muted);font-size:12px">${p.quantity}sh</span><span class="${(p.unrealized||0)>=0?"gain":"loss"}">${money(p.unrealized)}</span></div>`).join(""):`<span class="se">No open positions.</span>`;
+    $("sOrd").innerHTML=orders.slice(0,6).map(o=>`
+      <div class="mr"><span class="sym">${esc(o.symbol||"-")}</span><span style="color:var(--muted);font-size:12px">${esc(o.side||"")} ${o.quantity||""}</span><span class="os ${(o.state||"").toLowerCase()}">${esc(o.state||"-")}</span></div>`).join()||`<span class="se">No recent orders.</span>`;
+  } catch(e){$("rhDot").className="dot";$("rhStatus").textContent="Not connected";$("connectBtn").style.display=""}
 }
 
-function connectRobinhood() { location.href = `${API}/api/robinhood/connect`; }
+function connectRobinhood(){location.href=`${API}/api/robinhood/connect`}
 
 async function loadAll() {
-  $("refreshBtn").textContent = "↺ Loading…";
-  $("refreshBtn").disabled = true;
-  await Promise.all([loadDashboard(), loadSignals()]);
-  $("refreshBtn").textContent = "↺ Refresh";
-  $("refreshBtn").disabled = false;
+  await Promise.all([loadDashboard(),loadSignals()]);
 }
 
-// ── auto-approve ──
-let autoApproveOn = localStorage.getItem("kalki_auto") === "1";
-let autoGrades = new Set(JSON.parse(localStorage.getItem("kalki_auto_grades")||'["A+","A"]'));
-
-function syncAutoUI() {
-  const track = $("autoToggle");
-  const label = $("autoLabel");
-  const filter = $("gradeFilter");
-  if(autoApproveOn) {
-    track.classList.add("on");
-    label.classList.add("active");
-    label.textContent = "Auto ON";
-    filter.style.display = "flex";
-  } else {
-    track.classList.remove("on");
-    label.classList.remove("active");
-    label.textContent = "Auto-approve";
-    filter.style.display = "none";
-  }
-  document.querySelectorAll(".grade-chip").forEach(c => {
-    c.classList.toggle("selected", autoGrades.has(c.dataset.grade));
-  });
+// also write settings to a /api/agent-config endpoint so Claude Code can read them
+async function pushSettingsToWorker(cfg) {
+  await api("/api/agent-config",{method:"POST",body:JSON.stringify(cfg)}).catch(()=>{});
 }
-
-function toggleAutoApprove() {
-  autoApproveOn = !autoApproveOn;
-  localStorage.setItem("kalki_auto", autoApproveOn ? "1" : "0");
-  syncAutoUI();
-  toast(autoApproveOn
-    ? `Auto-approve ON for grades: ${[...autoGrades].join(", ")}`
-    : "Auto-approve OFF — manual review mode", autoApproveOn ? "ok" : "info");
-}
-
-function toggleGrade(el) {
-  const g = el.dataset.grade;
-  if(autoGrades.has(g)) { autoGrades.delete(g); }
-  else { autoGrades.add(g); }
-  // always keep at least one grade
-  if(autoGrades.size === 0) autoGrades.add("A+");
-  localStorage.setItem("kalki_auto_grades", JSON.stringify([...autoGrades]));
-  syncAutoUI();
-}
-
-async function maybeAutoApprove(signal) {
-  if(!autoApproveOn) return false;
-  if(!autoGrades.has(signal.grade)) return false;
-  if(signal.approved) return false;
-  try {
-    await api(`/api/signals/${signal.id}/approve`, {method:"POST"});
-    toast(`Auto-approved ${signal.ticker} ${signal.grade} — queued for Claude`, "ok");
-    return true;
-  } catch(e) {
-    console.warn("auto-approve failed:", e.message);
-    return false;
-  }
-}
-
-syncAutoUI();
 
 // notifications
 if(Notification?.permission==="default") Notification.requestPermission();
 
-// boot
+// init
 loadAll();
-
-// poll every 30s for new signals
-setInterval(loadSignals, 30000);
-// poll every 60s for dashboard data
-setInterval(loadDashboard, 60000);
+setInterval(loadSignals,30000);
+setInterval(loadDashboard,60000);
 </script>
 </body>
 </html>
