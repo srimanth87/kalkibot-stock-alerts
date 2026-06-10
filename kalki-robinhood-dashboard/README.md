@@ -1,6 +1,6 @@
 # Kalki Robinhood Dashboard
 
-Colorful Robinhood-first dashboard prototype for the MCP order-review flow.
+Colorful Robinhood-first dashboard for live Robinhood MCP data and scorer alert order review.
 
 ## Local
 
@@ -16,4 +16,25 @@ npm run deploy
 npm run deploy:pages
 ```
 
-The current prototype is static mock data. It is structured so the review panel can later call a Worker API that proxies Robinhood MCP/OAuth safely server-side.
+## Production Wiring
+
+The dashboard does not render dummy account balances, positions, orders, or alerts. It calls Worker API routes and shows setup states until the required secrets are configured.
+
+Required Worker secrets/vars:
+
+- `ROBINHOOD_MCP_BEARER_TOKEN`: bearer token for Robinhood MCP.
+- `ROBINHOOD_ACCOUNT_NUMBER`: Robinhood account number used for reads and trading.
+- `SCORER_WEBHOOK_SECRET`: bearer token expected from the scorer webhook.
+
+Optional:
+
+- `ROBINHOOD_AUTO_TRADE=true`: allows `/api/alerts/scorer` to place orders after broker review passes.
+- `ROBINHOOD_POSITION_SIZE`: default notional used to size scorer alerts.
+- `ROBINHOOD_ORDER_TYPE`: defaults to `limit`.
+
+Scorer alerts post to:
+
+```text
+POST /api/alerts/scorer
+Authorization: Bearer <SCORER_WEBHOOK_SECRET>
+```
