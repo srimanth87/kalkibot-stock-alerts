@@ -91,6 +91,17 @@ export default {
         return await handleIngestAlert(request, env);
       }
 
+      if (url.pathname === "/api/agent-config") {
+        if (request.method === "POST") {
+          const body = await request.json().catch(() => ({}));
+          await env.ROBINHOOD_STATE?.put("agent:config", JSON.stringify(body));
+          return json({ ok: true });
+        }
+        const raw = await env.ROBINHOOD_STATE?.get("agent:config") || "{}";
+        const cfg = JSON.parse(raw);
+        return json({ ok: true, config: cfg });
+      }
+
       // ── MCP server (for Claude Code to connect to) ───────────────────────
       if (url.pathname === "/mcp") {
         return await handleMcp(request, env);
