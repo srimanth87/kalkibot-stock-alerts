@@ -261,12 +261,15 @@
   </main>
 
   <script>
+    const API_ORIGIN = location.hostname.endsWith(".pages.dev")
+      ? "https://kalki-robinhood-dashboard.srimanthgada87.workers.dev"
+      : "";
     const $ = (id) => document.getElementById(id);
     const money = (value) => value == null ? "--" : "$" + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const pct = (value) => value == null ? "--" : `${Number(value).toFixed(2)}%`;
 
     async function api(path, options = {}) {
-      const response = await fetch(path, {
+      const response = await fetch(`${API_ORIGIN}${path}`, {
         ...options,
         headers: { "Content-Type": "application/json", ...(options.headers || {}) },
       });
