@@ -63,6 +63,21 @@ export default {
         return await handleScorerAlert(request, env);
       }
 
+      // ── Telegram / D1 signal routes ──────────────────────────────────────
+      if (request.method === "GET" && url.pathname === "/api/signals/pending") {
+        return await handlePendingSignals(env);
+      }
+
+      if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/executed")) {
+        const id = url.pathname.split("/")[3];
+        return await handleMarkExecuted(env, id);
+      }
+
+      // ── MCP server (for Claude Code to connect to) ───────────────────────
+      if (url.pathname === "/mcp") {
+        return await handleMcp(request, env);
+      }
+
       return env.ASSETS.fetch(request);
     } catch (error) {
       return json({ ok: false, error: errorMessage(error) }, 500);
@@ -266,6 +281,128 @@ async function handleScorerAlert(request, env) {
     review: reviewData,
     placed: placed?.data || placed,
   });
+}
+
+// ── Telegram / D1 signal handlers ──────────────────────────────────────────
+
+async function handlePendingSignals(env) {
+  if (!env.KALKI_DB) {
+    return json({ ok: false, error: "KALKI_DB not bound. Add D1 binding in wrangler.jsonc." }, 503);
+  }
+  const { results } = await env.KALKI_DB.prepare(
+    `SELECT id, ticker, grade, entry_price, stop_price, target1, signal_text, created_at
+     FROM group_alerts
+     WHERE executed = 0 AND grade IN ('A+','A','B+')
+     ORDER BY created_at DESC LIMIT 20`
+  ).all();
+  return json({ ok: true, signals: results || [] });
+}
+
+async function handleMarkExecuted(env, id) {
+  if (!env.KALKI_DB) {
+    return json({ ok: false, error: "KALKI_DB not bound." }, 503);
+  }
+  if (!id) return json({ ok: false, error: "Signal id required." }, 400);
+  await env.KALKI_DB.prepare(
+    `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
+  ).bind(new Date().toISOString(), id).run();
+  return json({ ok: true, id, executed: true });
+}
+
+// ── MCP server — lets Claude Code connect via:
+//    claude mcp add kalki-signals --transport http https://kalki-robinhood-dashboard.srimanthgada87.workers.dev/mcp
+async function handleMcp(request, env) {
+  if (request.method === "GET") {
+    // SSE handshake for streamable-http transport
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  const body = await request.json().catch(() => ({}));
+  const { method, params, id } = body;
+
+  // MCP initialize handshake
+  if (method === "initialize") {
+    return mcpResponse(id, {
+      protocolVersion: "2024-11-05",
+      serverInfo: { name: "kalki-signals", version: "1.0.0" },
+      capabilities: { tools: {} },
+    });
+  }
+
+  // List available tools
+  if (method === "tools/list") {
+    return mcpResponse(id, {
+      tools: [
+        {
+          name: "get_pending_signals",
+          description: "Get pending Kalki trade signals from Telegram (grade B+ or better, not yet executed)",
+          inputSchema: { type: "object", properties: {}, required: [] },
+        },
+        {
+          name: "mark_signal_executed",
+          description: "Mark a Kalki signal as executed after placing the trade",
+          inputSchema: {
+            type: "object",
+            properties: { id: { type: "string", description: "Signal ID from get_pending_signals" } },
+            required: ["id"],
+          },
+        },
+      ],
+    });
+  }
+
+  // Execute a tool
+  if (method === "tools/call") {
+    const toolName = params?.name;
+    const args = params?.arguments || {};
+
+    if (toolName === "get_pending_signals") {
+      if (!env.KALKI_DB) {
+        return mcpError(id, "KALKI_DB not bound. Add D1 binding in wrangler.jsonc.");
+      }
+      const { results } = await env.KALKI_DB.prepare(
+        `SELECT id, ticker, grade, entry_price, stop_price, target1, signal_text, created_at
+         FROM group_alerts
+         WHERE executed = 0 AND grade IN ('A+','A','B+')
+         ORDER BY created_at DESC LIMIT 20`
+      ).all();
+      return mcpResponse(id, {
+        content: [{ type: "text", text: JSON.stringify({ ok: true, count: results.length, signals: results }) }],
+      });
+    }
+
+    if (toolName === "mark_signal_executed") {
+      if (!env.KALKI_DB) return mcpError(id, "KALKI_DB not bound.");
+      if (!args.id) return mcpError(id, "id is required");
+      await env.KALKI_DB.prepare(
+        `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
+      ).bind(new Date().toISOString(), args.id).run();
+      return mcpResponse(id, {
+        content: [{ type: "text", text: JSON.stringify({ ok: true, id: args.id, executed: true }) }],
+      });
+    }
+
+    return mcpError(id, `Unknown tool: ${toolName}`);
+  }
+
+  return mcpResponse(id, {});
+}
+
+function mcpResponse(id, result) {
+  return json({ jsonrpc: "2.0", id, result });
+}
+
+function mcpError(id, message) {
+  return json({ jsonrpc: "2.0", id, error: { code: -32000, message } });
 }
 
 async function callRobinhood(env, toolName, args) {
