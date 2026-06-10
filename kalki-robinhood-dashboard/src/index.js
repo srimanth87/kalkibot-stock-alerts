@@ -286,33 +286,55 @@ async function handleScorerAlert(request, env) {
 // ── Telegram / D1 signal handlers ──────────────────────────────────────────
 
 async function ensureExecutedColumn(env) {
-  await env.KALKI_DB.prepare(`ALTER TABLE alerts ADD COLUMN executed INTEGER DEFAULT 0`).run().catch(() => {});
-  await env.KALKI_DB.prepare(`ALTER TABLE alerts ADD COLUMN executed_at TEXT`).run().catch(() => {});
+  const db = env.KALKI_SYNC_DB;
+  await db.prepare(`ALTER TABLE group_alerts ADD COLUMN executed INTEGER DEFAULT 0`).run().catch(() => {});
+  await db.prepare(`ALTER TABLE group_alerts ADD COLUMN executed_at TEXT`).run().catch(() => {});
+}
+
+function parseSignalFromRow(row) {
+  let raw = {};
+  try { raw = row.raw_json ? JSON.parse(row.raw_json) : {}; } catch { raw = {}; }
+  return {
+    id: row.id,
+    ticker: row.sym,
+    grade: row.grade,
+    score: raw.catalystScore ?? raw.score ?? null,
+    pattern: row.note || raw.pattern || null,
+    entry_low: raw.entryLow ?? raw.entryMid ?? null,
+    entry_high: raw.entryHigh ?? raw.entryMid ?? null,
+    entry_mid: raw.entryMid ?? null,
+    stop: raw.supLow ?? raw.stop ?? null,
+    targets: raw.resistances ?? raw.res ?? [],
+    t1: raw.resistances?.[0] ?? raw.res?.[0] ?? null,
+    t2: raw.resistances?.[1] ?? raw.res?.[1] ?? null,
+    source: raw.source || "telegram",
+    added_at: row.added_at || row.updated_at,
+  };
 }
 
 async function handlePendingSignals(env) {
-  if (!env.KALKI_DB) {
-    return json({ ok: false, error: "KALKI_DB not bound. Add D1 binding in wrangler.jsonc." }, 503);
+  if (!env.KALKI_SYNC_DB) {
+    return json({ ok: false, error: "KALKI_SYNC_DB not bound. Add kalki-sync-db D1 binding in wrangler.jsonc." }, 503);
   }
   await ensureExecutedColumn(env);
-  const { results } = await env.KALKI_DB.prepare(
-    `SELECT id, ticker, grade, score, pattern, entry_low, entry_high, stop, stop_pct,
-            t1, t1_pct, t2, t2_pct, t3, t4, rr, timeframe, raw_message, source, created_at
-     FROM alerts
+  const { results } = await env.KALKI_SYNC_DB.prepare(
+    `SELECT id, sym, grade, note, added_at, updated_at, raw_json
+     FROM group_alerts
      WHERE (executed IS NULL OR executed = 0) AND grade IN ('A+','A','B+')
-     ORDER BY created_at DESC LIMIT 20`
+     ORDER BY added_at DESC LIMIT 20`
   ).all();
-  return json({ ok: true, signals: results || [] });
+  const signals = (results || []).map(parseSignalFromRow);
+  return json({ ok: true, signals });
 }
 
 async function handleMarkExecuted(env, id) {
-  if (!env.KALKI_DB) {
-    return json({ ok: false, error: "KALKI_DB not bound." }, 503);
+  if (!env.KALKI_SYNC_DB) {
+    return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   }
   if (!id) return json({ ok: false, error: "Signal id required." }, 400);
   await ensureExecutedColumn(env);
-  await env.KALKI_DB.prepare(
-    `UPDATE alerts SET executed = 1, executed_at = ? WHERE id = ?`
+  await env.KALKI_SYNC_DB.prepare(
+    `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
   ).bind(new Date().toISOString(), id).run();
   return json({ ok: true, id, executed: true });
 }
@@ -374,28 +396,28 @@ async function handleMcp(request, env) {
     const args = params?.arguments || {};
 
     if (toolName === "get_pending_signals") {
-      if (!env.KALKI_DB) {
-        return mcpError(id, "KALKI_DB not bound. Add D1 binding in wrangler.jsonc.");
+      if (!env.KALKI_SYNC_DB) {
+        return mcpError(id, "KALKI_SYNC_DB not bound. Add kalki-sync-db D1 binding in wrangler.jsonc.");
       }
       await ensureExecutedColumn(env);
-      const { results } = await env.KALKI_DB.prepare(
-        `SELECT id, ticker, grade, score, pattern, entry_low, entry_high, stop, stop_pct,
-                t1, t1_pct, t2, t2_pct, t3, t4, rr, timeframe, raw_message, source, created_at
-         FROM alerts
+      const { results } = await env.KALKI_SYNC_DB.prepare(
+        `SELECT id, sym, grade, note, added_at, updated_at, raw_json
+         FROM group_alerts
          WHERE (executed IS NULL OR executed = 0) AND grade IN ('A+','A','B+')
-         ORDER BY created_at DESC LIMIT 20`
+         ORDER BY added_at DESC LIMIT 20`
       ).all();
+      const signals = (results || []).map(parseSignalFromRow);
       return mcpResponse(id, {
-        content: [{ type: "text", text: JSON.stringify({ ok: true, count: results.length, signals: results }) }],
+        content: [{ type: "text", text: JSON.stringify({ ok: true, count: signals.length, signals }) }],
       });
     }
 
     if (toolName === "mark_signal_executed") {
-      if (!env.KALKI_DB) return mcpError(id, "KALKI_DB not bound.");
+      if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
       if (!args.id) return mcpError(id, "id is required");
       await ensureExecutedColumn(env);
-      await env.KALKI_DB.prepare(
-        `UPDATE alerts SET executed = 1, executed_at = ? WHERE id = ?`
+      await env.KALKI_SYNC_DB.prepare(
+        `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
       ).bind(new Date().toISOString(), args.id).run();
       return mcpResponse(id, {
         content: [{ type: "text", text: JSON.stringify({ ok: true, id: args.id, executed: true }) }],
