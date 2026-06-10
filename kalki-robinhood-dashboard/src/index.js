@@ -73,6 +73,10 @@ export default {
         return await handleMarkExecuted(env, id);
       }
 
+      if (request.method === "POST" && url.pathname === "/api/alerts/ingest") {
+        return await handleIngestAlert(request, env);
+      }
+
       // ── MCP server (for Claude Code to connect to) ───────────────────────
       if (url.pathname === "/mcp") {
         return await handleMcp(request, env);
@@ -284,6 +288,44 @@ async function handleScorerAlert(request, env) {
 }
 
 // ── Telegram / D1 signal handlers ──────────────────────────────────────────
+
+async function handleIngestAlert(request, env) {
+  // Validate optional secret
+  const secret = String(env.INGEST_SECRET || "").trim();
+  if (secret) {
+    const provided = request.headers.get("x-kalki-secret") || "";
+    if (provided !== secret) return json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const { ticker, grade, entry_price, stop_price, t1, raw, source, received_at } = body;
+  if (!ticker || !grade || !entry_price) {
+    return json({ ok: false, error: "ticker, grade, entry_price are required" }, 400);
+  }
+
+  if (!env.KALKI_DB) return json({ ok: false, error: "KALKI_DB not bound" }, 503);
+
+  // Upsert into kalki-db alerts table (the one with full schema)
+  const id = `auto-${ticker}-${Date.now()}`;
+  const entryMid = Number(entry_price);
+  await env.KALKI_DB.prepare(
+    `INSERT OR REPLACE INTO alerts
+      (ticker, grade, entry_low, entry_high, stop, t1, raw_message, source, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    ticker.toUpperCase(),
+    grade,
+    entryMid,
+    entryMid,
+    Number(stop_price) || null,
+    Number(t1) || null,
+    raw || null,
+    source || "autotrader",
+    received_at || new Date().toISOString(),
+  ).run();
+
+  return json({ ok: true, ticker, grade, id });
+}
 
 async function ensureExecutedColumn(env) {
   const db = env.KALKI_SYNC_DB;
