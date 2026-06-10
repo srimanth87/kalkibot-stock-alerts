@@ -1,0 +1,15 @@
+{
+  "name": "kalki-robinhood-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "deploy:pages": "wrangler pages deploy public --project-name=kalki-robinhood-dashboard",
+    "dev": "wrangler dev",
+    "pages:dev": "wrangler pages dev public"
+  },
+  "devDependencies": {
+    "wrangler": "^4.90.1"
+  }
+}

@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kalki Robinhood Dashboard</title>
+  <style>
+    :root {
+      --bg: #f4f7ef;
+      --paper: #ffffff;
+      --ink: #101412;
+      --muted: #69746d;
+      --line: #dde7dc;
+      --soft: #ecf3eb;
+      --green: #00c805;
+      --green-2: #c9ffd6;
+      --dark: #061d10;
+      --gold: #ffcb66;
+      --gold-2: #fff2ce;
+      --red: #ef4444;
+      --red-2: #ffe4e4;
+      --blue: #2f80ed;
+      --blue-2: #dcecff;
+      --purple: #8b5cf6;
+      --purple-2: #eee7ff;
+      --shadow: 0 24px 70px rgba(16, 20, 18, .12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(0, 200, 5, .12), transparent 30%),
+        linear-gradient(180deg, #fbfcf8 0%, var(--bg) 100%);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 18px;
+      background: rgba(255,255,255,.86);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 10px 36px rgba(16, 20, 18, .05);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 260px;
+    }
+
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--green);
+      color: var(--dark);
+      font-weight: 1000;
+      letter-spacing: -1px;
+      box-shadow: inset 0 -6px 14px rgba(0,0,0,.08);
+    }
+
+    .brand-title { font-size: 24px; font-weight: 950; letter-spacing: -1px; line-height: 1; }
+    .brand-sub { margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 800; }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #27322b;
+      font-size: 13px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 5px rgba(0, 200, 5, .12);
+    }
+
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+
+    .btn {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 15px;
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 900;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); border-color: #b8c8b7; }
+    .btn.primary { background: var(--dark); color: white; border-color: var(--dark); }
+    .btn.green { background: var(--green); color: #031409; border-color: var(--green); }
+    .btn.red { background: var(--red); color: white; border-color: var(--red); }
+    .btn:disabled { cursor: not-allowed; opacity: .48; transform: none; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: end;
+      margin: 28px 0 18px;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 900px;
+      font-size: clamp(44px, 6vw, 88px);
+      line-height: .9;
+      letter-spacing: -4px;
+    }
+
+    h1 span { color: var(--green); }
+
+    .hero p {
+      max-width: 650px;
+      margin: 18px 0 0;
+      color: #334039;
+      font-size: 20px;
+      line-height: 1.28;
+      letter-spacing: -.2px;
+    }
+
+    .account-card {
+      width: 340px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .account-card .small { color: var(--muted); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; }
+    .account-card .acct { margin-top: 8px; font-size: 24px; font-weight: 950; letter-spacing: -1px; }
+    .agentic {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: var(--green-2);
+      color: #063c15;
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(430px, .75fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .layout > * { min-width: 0; }
+
+    .bento {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .tile {
+      min-height: 152px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tile::after {
+      content: "";
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      right: -70px;
+      bottom: -80px;
+      background: rgba(255,255,255,.32);
+    }
+
+    .tile.dark { grid-column: span 2; grid-row: span 2; min-height: 318px; background: var(--dark); color: white; }
+    .tile.green { background: var(--green); color: #031409; }
+    .tile.gold { background: var(--gold-2); }
+    .tile.blue { background: var(--blue-2); }
+    .tile.red { background: var(--red-2); }
+    .tile.purple { background: var(--purple-2); }
+
+    .kicker {
+      color: currentColor;
+      opacity: .68;
+      font-size: 12px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .value {
+      margin-top: 10px;
+      font-size: 42px;
+      font-weight: 1000;
+      letter-spacing: -2px;
+      line-height: .95;
+    }
+
+    .caption {
+      position: absolute;
+      left: 17px;
+      right: 17px;
+      bottom: 17px;
+      color: currentColor;
+      opacity: .7;
+      font-size: 13px;
+      line-height: 1.35;
+      z-index: 1;
+    }
+
+    .position-list {
+      margin-top: 26px;
+      display: grid;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pos-row {
+      display: grid;
+      grid-template-columns: 70px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.16);
+    }
+
+    .pos-row strong { font-size: 18px; }
+    .pos-row span { color: rgba(255,255,255,.72); font-size: 13px; }
+    .gain { color: #81ff9b; font-weight: 950; }
+
+    .panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title { font-size: 14px; font-weight: 950; text-transform: uppercase; letter-spacing: .8px; }
+    .panel-meta { color: var(--muted); font-size: 13px; font-weight: 800; }
+
+    .signals { display: grid; gap: 10px; padding: 12px; }
+
+    .signal {
+      width: 100%;
+      text-align: left;
+      display: grid;
+      grid-template-columns: 68px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+    }
+
+    .signal.active { border-color: var(--green); box-shadow: 0 0 0 4px rgba(0,200,5,.12); }
+    .grade { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--green); color: #031409; font-weight: 1000; }
+    .signal h3 { margin: 0; font-size: 20px; letter-spacing: -.6px; }
+    .signal p { margin: 4px 0 0; color: var(--muted); font-size: 13px; font-weight: 750; }
+    .tag { padding: 6px 9px; border-radius: 999px; background: var(--soft); color: #26342b; font-size: 12px; font-weight: 950; white-space: nowrap; }
+
+    .review-card {
+      position: sticky;
+      top: 104px;
+      border-radius: 16px;
+      background: #0a120d;
+      color: white;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .review-top {
+      padding: 22px;
+      background:
+        radial-gradient(circle at top right, rgba(0,200,5,.28), transparent 34%),
+        linear-gradient(135deg, #0a120d, #102617);
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+
+    .step {
+      min-height: 50px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.7);
+      font-size: 11px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    .step.done { background: var(--green); border-color: var(--green); color: #031409; }
+
+    .review-title { margin: 0; font-size: 42px; letter-spacing: -2px; line-height: .95; }
+    .review-sub { margin: 12px 0 0; color: rgba(255,255,255,.72); font-size: 15px; line-height: 1.45; }
+
+    .review-body { padding: 18px 22px 22px; }
+
+    .quote-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .quote-box {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 11px;
+      padding: 13px;
+      background: rgba(255,255,255,.06);
+    }
+
+    .quote-box span { color: rgba(255,255,255,.58); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; }
+    .quote-box b { display: block; margin-top: 6px; font-size: 24px; letter-spacing: -1px; }
+
+    .order-form {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .field {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 11px;
+      background: rgba(255,255,255,.06);
+      padding: 12px;
+    }
+
+    .field label {
+      display: block;
+      color: rgba(255,255,255,.58);
+      font-size: 11px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      margin-bottom: 8px;
+    }
+
+    .field input, .field select {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: white;
+      font-weight: 950;
+      font-size: 18px;
+    }
+
+    .field select option { color: #111; }
+
+    .alert {
+      display: none;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 11px;
+      border: 1px solid rgba(255, 203, 102, .38);
+      background: rgba(255, 203, 102, .12);
+      color: #ffe5ad;
+      font-size: 13px;
+      line-height: 1.4;
+      font-weight: 760;
+    }
+
+    .alert.show { display: block; }
+    .alert.bad { border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.14); color: #ffc7c7; }
+
+    .disclosure {
+      margin-top: 12px;
+      color: rgba(255,255,255,.56);
+      font-size: 12px;
+      line-height: 1.4;
+      padding: 10px 0 0;
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .actions .btn { border-radius: 11px; padding: 15px; }
+    .status-card {
+      display: none;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(0,200,5,.13);
+      border: 1px solid rgba(0,200,5,.35);
+      color: #bfffd0;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .status-card.show { display: block; }
+
+    .order-table { width: 100%; border-collapse: collapse; }
+    .order-table th, .order-table td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; font-size: 13px; }
+    .order-table th { color: var(--muted); text-transform: uppercase; letter-spacing: .8px; font-size: 11px; }
+    .state { display: inline-flex; padding: 5px 8px; border-radius: 999px; font-weight: 950; font-size: 12px; }
+    .state.rejected { background: var(--red-2); color: #ad1f1f; }
+    .state.open { background: var(--blue-2); color: #1855b8; }
+    .state.filled { background: var(--green-2); color: #063c15; }
+
+    @media (max-width: 1120px) {
+      .layout, .hero { grid-template-columns: 1fr; }
+      .review-card { position: static; }
+      .account-card { width: 100%; }
+    }
+
+    @media (max-width: 820px) {
+      .app { padding: 12px; }
+      .topbar { height: auto; align-items: flex-start; flex-direction: column; padding: 14px; }
+      .brand { min-width: 0; }
+      .status-line { max-width: 100%; white-space: normal; }
+      .top-actions { width: 100%; overflow-x: auto; padding-bottom: 2px; }
+      .hero { margin-top: 22px; }
+      h1 { letter-spacing: -2px; }
+      .layout { display: block; }
+      .bento { grid-template-columns: 1fr; }
+      .tile { min-width: 0; }
+      .tile.dark { grid-column: auto; grid-row: auto; }
+      .pos-row { grid-template-columns: 1fr auto; }
+      .pos-row strong { grid-column: 1; }
+      .pos-row span { grid-column: 1 / -1; }
+      .pos-row .gain { grid-column: 2; grid-row: 1; }
+      .review-card { margin-top: 14px; }
+      .panel { overflow-x: auto; }
+      .order-table { min-width: 620px; }
+      .signal { grid-template-columns: 54px 1fr; }
+      .signal .tag { grid-column: 2; justify-self: start; }
+      .quote-grid, .order-form, .actions { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">K</div>
+        <div>
+          <div class="brand-title">Kalki Robinhood</div>
+          <div class="brand-sub">Agentic trading cockpit</div>
+        </div>
+      </div>
+      <div class="status-line"><span class="dot"></span>Robinhood connected · Agentic account ready</div>
+      <div class="top-actions">
+        <button class="btn">Sync MCP</button>
+        <button class="btn">Risk Rules</button>
+        <button class="btn primary">New Review</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <h1>Colorful control for <span>review-first</span> trades.</h1>
+        <p>A Robinhood-first dashboard that starts with account state, highlights what is green, and turns every signal into a clear review before real money moves.</p>
+      </div>
+      <aside class="account-card">
+        <div class="small">Selected account</div>
+        <div class="acct">Agentic · ••••3959</div>
+        <div class="agentic"><span class="dot"></span> Trading allowed by MCP</div>
+      </aside>
+    </section>
+
+    <section class="layout">
+      <div>
+        <section class="bento" aria-label="Portfolio overview">
+          <article class="tile dark">
+            <div class="kicker">Default account winners</div>
+            <div class="value">+$130.23</div>
+            <div class="position-list">
+              <div class="pos-row"><strong>SOXS</strong><span>174.672489 shares · avg $5.73</span><div class="gain">+$102.18</div></div>
+              <div class="pos-row"><strong>QQQI</strong><span>19.084472 shares · avg $53.16</span><div class="gain">+$28.05</div></div>
+            </div>
+            <div class="caption">Green positions compare current quote against Robinhood average cost.</div>
+          </article>
+          <article class="tile green">
+            <div class="kicker">Buying power</div>
+            <div class="value">$4,232</div>
+            <div class="caption">Default account spendable balance.</div>
+          </article>
+          <article class="tile gold">
+            <div class="kicker">Options value</div>
+            <div class="value">$3,600</div>
+            <div class="caption">Contract-level P/L awaits MCP support.</div>
+          </article>
+          <article class="tile blue">
+            <div class="kicker">Open orders</div>
+            <div class="value" id="openOrderCount">0</div>
+            <div class="caption">Live order status updates land here.</div>
+          </article>
+          <article class="tile red">
+            <div class="kicker">Rejected</div>
+            <div class="value">1</div>
+            <div class="caption">AAPL $1 limit was rejected.</div>
+          </article>
+          <article class="tile purple">
+            <div class="kicker">Risk mode</div>
+            <div class="value">Review</div>
+            <div class="caption">Every order requires explicit confirmation.</div>
+          </article>
+          <article class="tile">
+            <div class="kicker">Account value</div>
+            <div class="value">$52.2K</div>
+            <div class="caption">Default account snapshot.</div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Signal queue</div>
+              <div class="panel-meta">Pick a signal to load it into the review flow</div>
+            </div>
+            <span class="tag">3 candidates</span>
+          </div>
+          <div class="signals" id="signals"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Recent orders</div>
+              <div class="panel-meta">Mocked from the Robinhood MCP order shape</div>
+            </div>
+            <button class="btn" id="clearOrdersBtn">Clear demo orders</button>
+          </div>
+          <table class="order-table">
+            <thead>
+              <tr><th>Time</th><th>Symbol</th><th>Side</th><th>Type</th><th>Status</th><th>Detail</th></tr>
+            </thead>
+            <tbody id="orders"></tbody>
+          </table>
+        </section>
+      </div>
+
+      <aside class="review-card" aria-label="Order review">
+        <div class="review-top">
+          <div class="steps">
+            <div class="step done" id="stepSignal">1 Signal</div>
+            <div class="step done" id="stepTradability">2 Tradability</div>
+            <div class="step done" id="stepReview">3 Review</div>
+            <div class="step" id="stepConfirm">4 Confirm</div>
+          </div>
+          <h2 class="review-title" id="reviewTitle">Review AAPL buy</h2>
+          <p class="review-sub" id="reviewSub">A marketable limit near the ask is suggested. You can adjust the order, preview broker checks, then confirm.</p>
+        </div>
+        <div class="review-body">
+          <div class="quote-grid">
+            <div class="quote-box"><span>Bid</span><b id="bid">$294.48</b></div>
+            <div class="quote-box"><span>Ask</span><b id="ask">$294.50</b></div>
+            <div class="quote-box"><span>Last</span><b id="last">$294.49</b></div>
+          </div>
+
+          <div class="order-form">
+            <div class="field">
+              <label>Side</label>
+              <select id="side">
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Order type</label>
+              <select id="type">
+                <option value="limit">Limit</option>
+                <option value="market">Market</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Quantity</label>
+              <input id="quantity" inputmode="decimal" value="1" />
+            </div>
+            <div class="field">
+              <label>Limit price</label>
+              <input id="limitPrice" inputmode="decimal" value="294.50" />
+            </div>
+          </div>
+
+          <div class="alert" id="reviewAlert"></div>
+          <div class="status-card" id="statusCard"></div>
+
+          <div class="disclosure" id="disclosure">
+            Bid $294.48 x 200 · Ask $294.50 x 40 · Last $294.49. Demo quote disclosure.
+          </div>
+
+          <div class="actions">
+            <button class="btn" id="reviewBtn">Run review</button>
+            <button class="btn green" id="confirmBtn" disabled>Confirm order</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const signals = [
+      {
+        symbol: "AAPL",
+        grade: "A-",
+        label: "Breakout continuation",
+        note: "Entry $294.50 · Stop $286.00 · T1 $310.00",
+        bid: 294.48,
+        ask: 294.50,
+        last: 294.49,
+        side: "buy",
+        type: "limit",
+        quantity: 1,
+        limit: 294.50,
+        quality: "marketable"
+      },
+      {
+        symbol: "SOXS",
+        grade: "Green",
+        label: "Manage winner",
+        note: "Position +10.2% · consider trim review",
+        bid: 6.31,
+        ask: 6.32,
+        last: 6.315,
+        side: "sell",
+        type: "limit",
+        quantity: 25,
+        limit: 6.31,
+        quality: "position"
+      },
+      {
+        symbol: "AAPL",
+        grade: "Risk",
+        label: "Unmarketable demo",
+        note: "Limit $1.00 · likely reject or never fill",
+        bid: 294.48,
+        ask: 294.50,
+        last: 294.49,
+        side: "buy",
+        type: "limit",
+        quantity: 1,
+        limit: 1,
+        quality: "bad"
+      }
+    ];
+
+    const orders = [
+      {
+        time: "2:07 PM",
+        symbol: "AAPL",
+        side: "Buy",
+        type: "Limit",
+        state: "rejected",
+        detail: "1 share at $1.00"
+      }
+    ];
+
+    let selected = signals[0];
+    let reviewed = false;
+
+    const $ = (id) => document.getElementById(id);
+    const money = (value) => "$" + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function renderSignals() {
+      $("signals").innerHTML = signals.map((signal, index) => `
+        <button class="signal ${signal === selected ? "active" : ""}" data-index="${index}">
+          <div class="grade">${signal.grade}</div>
+          <div>
+            <h3>${signal.symbol} · ${signal.label}</h3>
+            <p>${signal.note}</p>
+          </div>
+          <span class="tag">${signal.side.toUpperCase()} review</span>
+        </button>
+      `).join("");
+
+      document.querySelectorAll(".signal").forEach((button) => {
+        button.addEventListener("click", () => {
+          selected = signals[Number(button.dataset.index)];
+          reviewed = false;
+          renderSignals();
+          loadReview();
+        });
+      });
+    }
+
+    function renderOrders() {
+      $("orders").innerHTML = orders.length ? orders.map((order) => `
+        <tr>
+          <td>${order.time}</td>
+          <td><strong>${order.symbol}</strong></td>
+          <td>${order.side}</td>
+          <td>${order.type}</td>
+          <td><span class="state ${order.state}">${order.state}</span></td>
+          <td>${order.detail}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="6" style="color:var(--muted);font-weight:800;">No demo orders yet</td></tr>`;
+
+      $("openOrderCount").textContent = orders.filter((order) => order.state === "open").length;
+    }
+
+    function loadReview() {
+      $("reviewTitle").textContent = `Review ${selected.symbol} ${selected.side}`;
+      $("reviewSub").textContent = selected.quality === "bad"
+        ? "This loads the same kind of broker warning you saw for the $1 AAPL limit order."
+        : "The dashboard keeps order entry and broker checks in one visible review flow.";
+      $("bid").textContent = money(selected.bid);
+      $("ask").textContent = money(selected.ask);
+      $("last").textContent = money(selected.last);
+      $("side").value = selected.side;
+      $("type").value = selected.type;
+      $("quantity").value = selected.quantity;
+      $("limitPrice").value = Number(selected.limit).toFixed(2);
+      $("disclosure").textContent = `Bid ${money(selected.bid)} x 200 · Ask ${money(selected.ask)} x 40 · Last ${money(selected.last)}. Demo quote disclosure.`;
+      $("reviewAlert").className = "alert";
+      $("reviewAlert").textContent = "";
+      $("statusCard").className = "status-card";
+      $("statusCard").textContent = "";
+      $("confirmBtn").disabled = true;
+      $("stepConfirm").className = "step";
+      syncLimitField();
+    }
+
+    function syncLimitField() {
+      const limitField = $("limitPrice").closest(".field");
+      limitField.style.display = $("type").value === "market" ? "none" : "block";
+    }
+
+    function runReview() {
+      const side = $("side").value;
+      const type = $("type").value;
+      const quantity = Math.max(0, Number($("quantity").value || 0));
+      const limit = Number($("limitPrice").value || 0);
+      const alert = $("reviewAlert");
+      const status = $("statusCard");
+
+      alert.className = "alert show";
+      status.className = "status-card";
+      status.textContent = "";
+
+      if (!quantity) {
+        reviewed = false;
+        alert.className = "alert show bad";
+        alert.textContent = "Quantity must be greater than zero before review can pass.";
+        $("confirmBtn").disabled = true;
+        return;
+      }
+
+      if (type === "limit" && !limit) {
+        reviewed = false;
+        alert.className = "alert show bad";
+        alert.textContent = "Limit orders need a limit price.";
+        $("confirmBtn").disabled = true;
+        return;
+      }
+
+      const marketReference = side === "buy" ? selected.ask : selected.bid;
+      const distancePct = type === "limit" ? Math.abs((limit - marketReference) / marketReference) * 100 : 0;
+
+      reviewed = true;
+      $("stepConfirm").className = "step done";
+      $("confirmBtn").disabled = false;
+
+      if (type === "limit" && distancePct > 20) {
+        alert.className = "alert show bad";
+        alert.textContent = `Broker-style alert: ${side.toUpperCase()} limit ${money(limit)} is ${distancePct.toFixed(1)}% away from the current ${side === "buy" ? "ask" : "bid"}. Expect rejection or no fill.`;
+        return;
+      }
+
+      if (type === "limit" && distancePct > 3) {
+        alert.textContent = `Caution: limit ${money(limit)} is ${distancePct.toFixed(1)}% away from the current ${side === "buy" ? "ask" : "bid"}.`;
+        return;
+      }
+
+      alert.textContent = `Review passed: ${side} ${quantity} ${selected.symbol} using a ${type} order${type === "limit" ? ` at ${money(limit)}` : ""}. Explicit confirmation is now enabled.`;
+    }
+
+    function confirmOrder() {
+      if (!reviewed) return;
+      const side = $("side").value;
+      const type = $("type").value;
+      const quantity = Math.max(0, Number($("quantity").value || 0));
+      const limit = Number($("limitPrice").value || 0);
+      const marketReference = side === "buy" ? selected.ask : selected.bid;
+      const distancePct = type === "limit" ? Math.abs((limit - marketReference) / marketReference) * 100 : 0;
+      const state = type === "limit" && distancePct > 20 ? "rejected" : "open";
+
+      orders.unshift({
+        time: "Now",
+        symbol: selected.symbol,
+        side: side[0].toUpperCase() + side.slice(1),
+        type: type[0].toUpperCase() + type.slice(1),
+        state,
+        detail: type === "limit" ? `${quantity} share${quantity === 1 ? "" : "s"} at ${money(limit)}` : `${quantity} share${quantity === 1 ? "" : "s"} at market`
+      });
+
+      renderOrders();
+      $("statusCard").className = "status-card show";
+      $("statusCard").textContent = state === "rejected"
+        ? "Demo result: order rejected. In production this panel would show the Robinhood MCP order state and rejection reason."
+        : "Demo result: order submitted and waiting for fill. In production this would include the Robinhood MCP order id.";
+      $("confirmBtn").disabled = true;
+      reviewed = false;
+    }
+
+    $("reviewBtn").addEventListener("click", runReview);
+    $("confirmBtn").addEventListener("click", confirmOrder);
+    $("type").addEventListener("change", syncLimitField);
+    $("clearOrdersBtn").addEventListener("click", () => {
+      orders.length = 0;
+      renderOrders();
+    });
+
+    renderSignals();
+    renderOrders();
+    loadReview();
+  </script>
+</body>
+</html>
