@@ -1,7 +1,13 @@
 const MCP_URL = "https://agent.robinhood.com/mcp/trading";
+const AUTHORIZATION_ENDPOINT = "https://robinhood.com/oauth";
+const REGISTRATION_ENDPOINT = "https://agent.robinhood.com/oauth/trading/register";
+const TOKEN_ENDPOINT = "https://api.robinhood.com/oauth2/token/";
+const RESOURCE = "https://agent.robinhood.com/mcp/trading";
 const DEFAULT_ORDER_TYPE = "limit";
 const DEFAULT_TIME_IN_FORCE = "gfd";
 const DEFAULT_MARKET_HOURS = "regular_hours";
+const TOKEN_KEY = "robinhood:tokens";
+const CLIENT_KEY = "robinhood:client";
 
 export default {
   async fetch(request, env) {
@@ -15,15 +21,28 @@ export default {
           ok: true,
           service: "kalki-robinhood-dashboard",
           mode: "production-wiring",
-          robinhood_configured: robinhoodConfigured(env),
+          robinhood_configured: await robinhoodConfigured(env),
           account_configured: Boolean(accountNumber(env)),
           scorer_webhook_configured: Boolean(env.SCORER_WEBHOOK_SECRET),
           auto_trade_enabled: autoTradeEnabled(env),
         });
       }
 
+      if (request.method === "GET" && url.pathname === "/api/robinhood/connect") {
+        return await handleRobinhoodConnect(request, env);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/robinhood/callback") {
+        return await handleRobinhoodCallback(request, env);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/robinhood/logout") {
+        await env.ROBINHOOD_STATE?.delete(TOKEN_KEY);
+        return Response.redirect(dashboardUrl(env), 302);
+      }
+
       if (request.method === "GET" && url.pathname === "/api/config") {
-        return json(publicConfig(env));
+        return json(await publicConfig(env));
       }
 
       if (request.method === "GET" && url.pathname === "/api/dashboard") {
@@ -52,12 +71,12 @@ export default {
 };
 
 async function handleDashboard(env) {
-  if (!robinhoodConfigured(env)) {
+  if (!(await robinhoodConfigured(env))) {
     return json({
       ok: false,
       connected: false,
-      setup: setupChecklist(env),
-      error: "Robinhood MCP bearer token is not configured for this Worker.",
+      setup: await setupChecklist(env),
+      error: "Robinhood is not connected. Use Connect Robinhood to complete OAuth.",
     }, 503);
   }
 
@@ -67,7 +86,7 @@ async function handleDashboard(env) {
     return json({
       ok: false,
       connected: true,
-      setup: setupChecklist(env),
+      setup: await setupChecklist(env),
       accounts: accounts?.data?.accounts || [],
       error: "No Robinhood account selected. Set ROBINHOOD_ACCOUNT_NUMBER, or use an agentic_allowed account for trading.",
     }, 409);
@@ -88,14 +107,64 @@ async function handleDashboard(env) {
   return json({
     ok: true,
     connected: true,
-    config: publicConfig(env),
+    config: await publicConfig(env),
     account: publicAccount(account),
     accounts: (accounts?.data?.accounts || []).map(publicAccount),
     portfolio: normalizePortfolio(portfolio?.data),
     positions: normalizePositions(longPositions, quotes?.data?.results || []),
     orders: normalizeOrders(orders?.data?.orders || []),
-    setup: setupChecklist(env),
+    setup: await setupChecklist(env),
   });
+}
+
+async function handleRobinhoodConnect(request, env) {
+  requireStateStore(env);
+  const client = await getOrRegisterClient(request, env);
+  const state = base64Url(randomBytes(24));
+  const codeVerifier = base64Url(randomBytes(48));
+  const codeChallenge = await sha256Base64Url(codeVerifier);
+  const redirectUri = callbackUrl(request, env);
+
+  await env.ROBINHOOD_STATE.put(`oauth:state:${state}`, JSON.stringify({
+    codeVerifier,
+    redirectUri,
+    created_at: new Date().toISOString(),
+  }), { expirationTtl: 600 });
+
+  const auth = new URL(AUTHORIZATION_ENDPOINT);
+  auth.searchParams.set("response_type", "code");
+  auth.searchParams.set("client_id", client.client_id);
+  auth.searchParams.set("state", state);
+  auth.searchParams.set("code_challenge", codeChallenge);
+  auth.searchParams.set("code_challenge_method", "S256");
+  auth.searchParams.set("redirect_uri", redirectUri);
+  auth.searchParams.set("scope", "internal");
+  auth.searchParams.set("resource", RESOURCE);
+  return Response.redirect(auth.toString(), 302);
+}
+
+async function handleRobinhoodCallback(request, env) {
+  requireStateStore(env);
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  if (!code || !state) return html("Robinhood OAuth callback is missing code or state.", 400);
+
+  const stored = await env.ROBINHOOD_STATE.get(`oauth:state:${state}`, { type: "json" });
+  if (!stored?.codeVerifier) return html("Robinhood OAuth state expired or was not found.", 400);
+  await env.ROBINHOOD_STATE.delete(`oauth:state:${state}`);
+
+  const client = await getOrRegisterClient(request, env);
+  const token = await exchangeToken({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: stored.redirectUri,
+    client_id: client.client_id,
+    code_verifier: stored.codeVerifier,
+    resource: RESOURCE,
+  });
+  await storeToken(env, token);
+  return Response.redirect(dashboardUrl(env), 302);
 }
 
 async function handleReviewOrder(env, body) {
@@ -201,10 +270,11 @@ async function handleScorerAlert(request, env) {
 
 async function callRobinhood(env, toolName, args) {
   requireRobinhood(env);
+  const accessToken = await robinhoodAccessToken(env);
   const response = await fetch(env.ROBINHOOD_MCP_URL || MCP_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${env.ROBINHOOD_MCP_BEARER_TOKEN}`,
+      "Authorization": `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       "Accept": "application/json, text/event-stream",
       "MCP-Protocol-Version": "2025-06-18",
@@ -231,6 +301,74 @@ async function callRobinhood(env, toolName, args) {
     return JSON.parse(content[0].text);
   }
   return data?.result || data;
+}
+
+async function robinhoodAccessToken(env) {
+  if (env.ROBINHOOD_MCP_BEARER_TOKEN) return env.ROBINHOOD_MCP_BEARER_TOKEN;
+  requireStateStore(env);
+  const token = await env.ROBINHOOD_STATE.get(TOKEN_KEY, { type: "json" });
+  if (!token?.access_token) throw new Error("Robinhood is not connected. Use Connect Robinhood first.");
+  if (!token.expires_at || Date.now() < Number(token.expires_at) - 60_000) return token.access_token;
+  if (!token.refresh_token) throw new Error("Robinhood access expired and no refresh token is available. Reconnect Robinhood.");
+
+  const client = await env.ROBINHOOD_STATE.get(CLIENT_KEY, { type: "json" });
+  const refreshed = await exchangeToken({
+    grant_type: "refresh_token",
+    refresh_token: token.refresh_token,
+    client_id: client?.client_id || token.client_id,
+    resource: RESOURCE,
+  });
+  await storeToken(env, { ...refreshed, refresh_token: refreshed.refresh_token || token.refresh_token, client_id: client?.client_id || token.client_id });
+  return refreshed.access_token;
+}
+
+async function getOrRegisterClient(request, env) {
+  requireStateStore(env);
+  const redirectUri = callbackUrl(request, env);
+  const cached = await env.ROBINHOOD_STATE.get(CLIENT_KEY, { type: "json" });
+  if (cached?.client_id && cached.redirect_uris?.includes(redirectUri)) return cached;
+
+  const response = await fetch(REGISTRATION_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({
+      client_name: "Kalki Robinhood Dashboard",
+      redirect_uris: [redirectUri],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+      scope: "internal",
+    }),
+  });
+  const client = await response.json().catch(() => ({}));
+  if (!response.ok || !client.client_id) throw new Error(client.error_description || client.error || `Robinhood client registration failed with HTTP ${response.status}`);
+  await env.ROBINHOOD_STATE.put(CLIENT_KEY, JSON.stringify(client));
+  return client;
+}
+
+async function exchangeToken(params) {
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null && value !== "") body.set(key, value);
+  }
+  const response = await fetch(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+    body,
+  });
+  const token = await response.json().catch(() => ({}));
+  if (!response.ok || !token.access_token) throw new Error(token.error_description || token.error || `Robinhood token exchange failed with HTTP ${response.status}`);
+  return token;
+}
+
+async function storeToken(env, token) {
+  const expiresIn = Number(token.expires_in || 3600);
+  const payload = {
+    ...token,
+    expires_at: Date.now() + expiresIn * 1000,
+    updated_at: new Date().toISOString(),
+  };
+  await env.ROBINHOOD_STATE.put(TOKEN_KEY, JSON.stringify(payload));
 }
 
 function parseMcpResponse(text) {
@@ -376,22 +514,74 @@ function buildDecision(alert, env) {
   return { tradeable: true, reason: "accepted", shares, position_size: positionSize, notional: roundMoney(shares * alert.entryPrice) };
 }
 
-function publicConfig(env) {
+async function publicConfig(env) {
   return {
     ok: true,
-    connected: robinhoodConfigured(env),
+    connected: await robinhoodConfigured(env),
     account_configured: Boolean(accountNumber(env)),
     scorer_webhook_configured: Boolean(env.SCORER_WEBHOOK_SECRET),
     auto_trade_enabled: autoTradeEnabled(env),
     webhook_url: "/api/alerts/scorer",
-    setup: setupChecklist(env),
+    connect_url: "/api/robinhood/connect",
+    logout_url: "/api/robinhood/logout",
+    setup: await setupChecklist(env),
   };
 }
 
-function setupChecklist(env) {
+function requireStateStore(env) {
+  if (!env.ROBINHOOD_STATE) throw new Error("ROBINHOOD_STATE KV storage is not configured");
+}
+
+function callbackUrl(request, env) {
+  if (env.ROBINHOOD_CALLBACK_URL) return env.ROBINHOOD_CALLBACK_URL;
+  const url = new URL(request.url);
+  url.pathname = "/api/robinhood/callback";
+  url.search = "";
+  return url.toString();
+}
+
+function dashboardUrl(env) {
+  return env.DASHBOARD_URL || "https://kalki-robinhood-dashboard.pages.dev/";
+}
+
+function randomBytes(length) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function base64Url(value) {
+  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function sha256Base64Url(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return base64Url(new Uint8Array(digest));
+}
+
+function html(message, status = 200) {
+  return cors(`<!doctype html><title>Robinhood OAuth</title><body><main style="font-family:system-ui;padding:32px;max-width:720px;margin:auto"><h1>Robinhood OAuth</h1><p>${escapeHtml(message)}</p><p><a href="${dashboardUrl({})}">Return to dashboard</a></p></main></body>`, status, {
+    "Content-Type": "text/html; charset=utf-8",
+  });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[char]));
+}
+
+async function setupChecklist(env) {
   return [
-    { key: "ROBINHOOD_MCP_BEARER_TOKEN", done: robinhoodConfigured(env), label: "Set Robinhood MCP bearer token as a Worker secret" },
-    { key: "ROBINHOOD_ACCOUNT_NUMBER", done: Boolean(accountNumber(env)), label: "Set the Robinhood account number to use for reads/trades" },
+    { key: "Robinhood OAuth", done: await robinhoodConfigured(env), label: "Connect Robinhood through OAuth from this dashboard" },
+    { key: "ROBINHOOD_ACCOUNT_NUMBER", done: Boolean(accountNumber(env)), label: "Optional: pin a specific account number; otherwise the Worker selects an agentic/default account" },
     { key: "SCORER_WEBHOOK_SECRET", done: Boolean(env.SCORER_WEBHOOK_SECRET), label: "Set scorer webhook secret for authenticated alert intake" },
     { key: "ROBINHOOD_AUTO_TRADE", done: autoTradeEnabled(env), label: "Optional: enable automatic placement after review passes" },
   ];
@@ -405,11 +595,12 @@ function requireScorerAuth(request, env) {
 }
 
 function requireRobinhood(env) {
-  if (!robinhoodConfigured(env)) throw new Error("ROBINHOOD_MCP_BEARER_TOKEN is not configured");
+  if (!env.ROBINHOOD_MCP_BEARER_TOKEN && !env.ROBINHOOD_STATE) throw new Error("Robinhood OAuth storage is not configured");
 }
 
-function robinhoodConfigured(env) {
-  return Boolean(env.ROBINHOOD_MCP_BEARER_TOKEN);
+async function robinhoodConfigured(env) {
+  if (env.ROBINHOOD_MCP_BEARER_TOKEN) return true;
+  return Boolean(await env.ROBINHOOD_STATE?.get(TOKEN_KEY));
 }
 
 function autoTradeEnabled(env) {

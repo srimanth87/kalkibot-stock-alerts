@@ -188,6 +188,8 @@
       </div>
       <div class="status" id="connectionStatus"><span class="dot off"></span>Checking Robinhood MCP...</div>
       <div class="actions">
+        <button class="btn green" id="connectBtn">Connect Robinhood</button>
+        <button class="btn" id="logoutBtn">Disconnect</button>
         <button class="btn" id="refreshBtn">Refresh</button>
         <button class="btn primary" id="healthBtn">Health</button>
       </div>
@@ -283,12 +285,14 @@
       try {
         const data = await api("/api/dashboard");
         setStatus(data.connected ? "Robinhood MCP connected" : "Robinhood MCP not connected", data.connected);
+        setConnectionButtons(data.connected);
         renderSetup(data.setup || data.config?.setup || []);
         renderPortfolio(data);
         renderPositions(data.positions || []);
         renderOrders(data.orders || []);
       } catch (error) {
         setStatus("Robinhood MCP not connected", false);
+        setConnectionButtons(false);
         $("greenTotal").textContent = "--";
         $("buyingPower").textContent = "--";
         $("optionsValue").textContent = "--";
@@ -301,6 +305,7 @@
         try {
           const config = await api("/api/config");
           renderSetup(config.setup || []);
+          setConnectionButtons(config.connected);
         } catch {
           renderSetup([]);
         }
@@ -308,12 +313,16 @@
     }
 
     function renderSetup(items) {
-      $("setupList").innerHTML = items.length ? items.map((item) => `
+      const rows = items.length ? items.map((item) => `
         <div class="setup-row">
           <div class="check ${item.done ? "done" : ""}">${item.done ? "✓" : "!"}</div>
           <div><strong>${escapeHtml(item.key)}</strong><div class="panel-meta">${escapeHtml(item.label)}</div></div>
         </div>
       `).join("") : `<div class="setup-row"><div class="check">!</div><div><strong>No setup data</strong><div class="panel-meta">The Worker did not return setup status.</div></div></div>`;
+      const needsRobinhood = items.some((item) => item.key === "Robinhood OAuth" && !item.done);
+      $("setupList").innerHTML = needsRobinhood
+        ? `<button class="btn green" type="button" onclick="connectRobinhood()">Connect Robinhood</button>${rows}`
+        : rows;
     }
 
     function renderPortfolio(data) {
@@ -420,6 +429,19 @@
       $("connectionStatus").innerHTML = `<span class="dot ${connected ? "" : "off"}"></span>${escapeHtml(text)}`;
     }
 
+    function setConnectionButtons(connected) {
+      $("connectBtn").style.display = connected ? "none" : "";
+      $("logoutBtn").style.display = connected ? "" : "none";
+    }
+
+    function connectRobinhood() {
+      location.href = `${API_ORIGIN}/api/robinhood/connect`;
+    }
+
+    function disconnectRobinhood() {
+      location.href = `${API_ORIGIN}/api/robinhood/logout`;
+    }
+
     function clearTicket() {
       ["alertText", "symbol", "quantity", "limitPrice"].forEach((id) => $(id).value = "");
       $("side").value = "buy";
@@ -440,6 +462,8 @@
 
     $("refreshBtn").addEventListener("click", loadDashboard);
     $("healthBtn").addEventListener("click", health);
+    $("connectBtn").addEventListener("click", connectRobinhood);
+    $("logoutBtn").addEventListener("click", disconnectRobinhood);
     $("parseBtn").addEventListener("click", parseAlert);
     $("reviewBtn").addEventListener("click", reviewOrder);
     $("placeBtn").addEventListener("click", placeOrder);

@@ -7,6 +7,12 @@
     "directory": "./public",
     "binding": "ASSETS"
   },
+  "kv_namespaces": [
+    {
+      "binding": "ROBINHOOD_STATE",
+      "id": "be4811267edc4d56ac81f5cfe8152d03"
+    }
+  ],
   "observability": {
     "enabled": true
   }
