@@ -68,6 +68,20 @@ export default {
         return await handlePendingSignals(env);
       }
 
+      if (request.method === "GET" && url.pathname === "/api/signals/approved") {
+        return await handleApprovedSignals(env);
+      }
+
+      if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/approve")) {
+        const id = url.pathname.split("/")[3];
+        return await handleApproveSignal(env, id);
+      }
+
+      if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/dismiss")) {
+        const id = url.pathname.split("/")[3];
+        return await handleDismissSignal(env, id);
+      }
+
       if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/executed")) {
         const id = url.pathname.split("/")[3];
         return await handleMarkExecuted(env, id);
@@ -327,11 +341,17 @@ async function handleIngestAlert(request, env) {
   return json({ ok: true, ticker, grade, id });
 }
 
-async function ensureExecutedColumn(env) {
+async function ensureSignalColumns(env) {
   const db = env.KALKI_SYNC_DB;
   await db.prepare(`ALTER TABLE group_alerts ADD COLUMN executed INTEGER DEFAULT 0`).run().catch(() => {});
   await db.prepare(`ALTER TABLE group_alerts ADD COLUMN executed_at TEXT`).run().catch(() => {});
+  await db.prepare(`ALTER TABLE group_alerts ADD COLUMN approved INTEGER DEFAULT 0`).run().catch(() => {});
+  await db.prepare(`ALTER TABLE group_alerts ADD COLUMN approved_at TEXT`).run().catch(() => {});
+  await db.prepare(`ALTER TABLE group_alerts ADD COLUMN dismissed INTEGER DEFAULT 0`).run().catch(() => {});
 }
+
+// keep alias for backward compat
+const ensureExecutedColumn = ensureSignalColumns;
 
 function parseSignalFromRow(row) {
   let raw = {};
@@ -375,27 +395,74 @@ function parseSignalFromRow(row) {
 
 async function handlePendingSignals(env) {
   if (!env.KALKI_SYNC_DB) {
-    return json({ ok: false, error: "KALKI_SYNC_DB not bound. Add kalki-sync-db D1 binding in wrangler.jsonc." }, 503);
+    return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   }
-  await ensureExecutedColumn(env);
+  await ensureSignalColumns(env);
   const { results } = await env.KALKI_SYNC_DB.prepare(
-    `SELECT id, sym, grade, note, added_at, updated_at, raw_json
+    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+            approved, approved_at, executed, dismissed
      FROM group_alerts
      WHERE (executed IS NULL OR executed = 0)
+       AND (dismissed IS NULL OR dismissed = 0)
        AND grade IN ('A+','A','B+')
        AND (status IS NULL OR status != 'closed')
-     ORDER BY added_at DESC LIMIT 20`
+     ORDER BY added_at DESC LIMIT 30`
   ).all();
-  const signals = (results || []).map(parseSignalFromRow);
+  const signals = (results || []).map(r => ({
+    ...parseSignalFromRow(r),
+    approved: Boolean(r.approved),
+    approved_at: r.approved_at || null,
+  }));
   return json({ ok: true, signals });
 }
 
-async function handleMarkExecuted(env, id) {
+async function handleApprovedSignals(env) {
   if (!env.KALKI_SYNC_DB) {
     return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   }
+  await ensureSignalColumns(env);
+  const { results } = await env.KALKI_SYNC_DB.prepare(
+    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+            approved, approved_at, executed, dismissed
+     FROM group_alerts
+     WHERE approved = 1
+       AND (executed IS NULL OR executed = 0)
+       AND (dismissed IS NULL OR dismissed = 0)
+       AND grade IN ('A+','A','B+')
+     ORDER BY approved_at DESC LIMIT 20`
+  ).all();
+  const signals = (results || []).map(r => ({
+    ...parseSignalFromRow(r),
+    approved: true,
+    approved_at: r.approved_at,
+  }));
+  return json({ ok: true, signals });
+}
+
+async function handleApproveSignal(env, id) {
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   if (!id) return json({ ok: false, error: "Signal id required." }, 400);
-  await ensureExecutedColumn(env);
+  await ensureSignalColumns(env);
+  await env.KALKI_SYNC_DB.prepare(
+    `UPDATE group_alerts SET approved = 1, approved_at = ? WHERE id = ?`
+  ).bind(new Date().toISOString(), id).run();
+  return json({ ok: true, id, approved: true });
+}
+
+async function handleDismissSignal(env, id) {
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
+  if (!id) return json({ ok: false, error: "Signal id required." }, 400);
+  await ensureSignalColumns(env);
+  await env.KALKI_SYNC_DB.prepare(
+    `UPDATE group_alerts SET dismissed = 1 WHERE id = ?`
+  ).bind(id).run();
+  return json({ ok: true, id, dismissed: true });
+}
+
+async function handleMarkExecuted(env, id) {
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
+  if (!id) return json({ ok: false, error: "Signal id required." }, 400);
+  await ensureSignalColumns(env);
   await env.KALKI_SYNC_DB.prepare(
     `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
   ).bind(new Date().toISOString(), id).run();
@@ -437,15 +504,29 @@ async function handleMcp(request, env) {
       tools: [
         {
           name: "get_pending_signals",
-          description: "Get pending Kalki trade signals from Telegram (grade B+ or better, not yet executed)",
+          description: "Get all pending Kalki signals (approved and unapproved). Use this to show the full feed.",
+          inputSchema: { type: "object", properties: {}, required: [] },
+        },
+        {
+          name: "get_approved_signals",
+          description: "Get only user-approved signals ready for Robinhood execution. Poll this every 30s during market hours.",
           inputSchema: { type: "object", properties: {}, required: [] },
         },
         {
           name: "mark_signal_executed",
-          description: "Mark a Kalki signal as executed after placing the trade",
+          description: "Mark a signal as executed after placing the Robinhood trade",
           inputSchema: {
             type: "object",
-            properties: { id: { type: "string", description: "Signal ID from get_pending_signals" } },
+            properties: { id: { type: "string", description: "Signal ID" } },
+            required: ["id"],
+          },
+        },
+        {
+          name: "dismiss_signal",
+          description: "Dismiss a signal without trading it",
+          inputSchema: {
+            type: "object",
+            properties: { id: { type: "string", description: "Signal ID" } },
             required: ["id"],
           },
         },
@@ -459,19 +540,36 @@ async function handleMcp(request, env) {
     const args = params?.arguments || {};
 
     if (toolName === "get_pending_signals") {
-      if (!env.KALKI_SYNC_DB) {
-        return mcpError(id, "KALKI_SYNC_DB not bound. Add kalki-sync-db D1 binding in wrangler.jsonc.");
-      }
-      await ensureExecutedColumn(env);
+      if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
+      await ensureSignalColumns(env);
       const { results } = await env.KALKI_SYNC_DB.prepare(
-        `SELECT id, sym, grade, note, added_at, updated_at, raw_json
+        `SELECT id, sym, grade, note, added_at, updated_at, raw_json, approved, approved_at, executed, dismissed
          FROM group_alerts
          WHERE (executed IS NULL OR executed = 0)
+           AND (dismissed IS NULL OR dismissed = 0)
            AND grade IN ('A+','A','B+')
            AND (status IS NULL OR status != 'closed')
          ORDER BY added_at DESC LIMIT 20`
       ).all();
-      const signals = (results || []).map(parseSignalFromRow);
+      const signals = results.map(r => ({ ...parseSignalFromRow(r), approved: Boolean(r.approved), approved_at: r.approved_at }));
+      return mcpResponse(id, {
+        content: [{ type: "text", text: JSON.stringify({ ok: true, count: signals.length, signals }) }],
+      });
+    }
+
+    if (toolName === "get_approved_signals") {
+      if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
+      await ensureSignalColumns(env);
+      const { results } = await env.KALKI_SYNC_DB.prepare(
+        `SELECT id, sym, grade, note, added_at, updated_at, raw_json, approved, approved_at
+         FROM group_alerts
+         WHERE approved = 1
+           AND (executed IS NULL OR executed = 0)
+           AND (dismissed IS NULL OR dismissed = 0)
+           AND grade IN ('A+','A','B+')
+         ORDER BY approved_at DESC LIMIT 20`
+      ).all();
+      const signals = results.map(r => ({ ...parseSignalFromRow(r), approved: true, approved_at: r.approved_at }));
       return mcpResponse(id, {
         content: [{ type: "text", text: JSON.stringify({ ok: true, count: signals.length, signals }) }],
       });
@@ -480,12 +578,24 @@ async function handleMcp(request, env) {
     if (toolName === "mark_signal_executed") {
       if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
       if (!args.id) return mcpError(id, "id is required");
-      await ensureExecutedColumn(env);
+      await ensureSignalColumns(env);
       await env.KALKI_SYNC_DB.prepare(
         `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
       ).bind(new Date().toISOString(), args.id).run();
       return mcpResponse(id, {
         content: [{ type: "text", text: JSON.stringify({ ok: true, id: args.id, executed: true }) }],
+      });
+    }
+
+    if (toolName === "dismiss_signal") {
+      if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
+      if (!args.id) return mcpError(id, "id is required");
+      await ensureSignalColumns(env);
+      await env.KALKI_SYNC_DB.prepare(
+        `UPDATE group_alerts SET dismissed = 1 WHERE id = ?`
+      ).bind(args.id).run();
+      return mcpResponse(id, {
+        content: [{ type: "text", text: JSON.stringify({ ok: true, id: args.id, dismissed: true }) }],
       });
     }
 
