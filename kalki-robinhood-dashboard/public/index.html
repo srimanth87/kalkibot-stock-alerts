@@ -6,418 +6,531 @@
   <title>Kalki · Signal Feed</title>
   <style>
     :root {
-      --bg: #0b0f0c;
-      --paper: #111612;
-      --card: #161d18;
-      --line: #1e2820;
-      --ink: #e8ede9;
-      --muted: #6b7a6e;
-      --green: #00e676;
-      --green-dim: rgba(0,230,118,.12);
-      --gold: #ffd54f;
-      --gold-dim: rgba(255,213,79,.1);
-      --red: #ff5252;
-      --red-dim: rgba(255,82,82,.12);
-      --blue: #448aff;
-      --blue-dim: rgba(68,138,255,.12);
+      --bg: #090d0a; --paper: #0f1410; --card: #141a15; --card2: #192019;
+      --line: #1c251d; --ink: #e4ebe5; --muted: #5a6b5c; --faint: #2a352b;
+      --green: #00e676; --gdim: rgba(0,230,118,.1); --gbright: #69f0ae;
+      --gold: #ffd54f; --ydim: rgba(255,213,79,.1);
+      --red: #ff5252; --rdim: rgba(255,82,82,.1);
+      --blue: #448aff; --bdim: rgba(68,138,255,.1);
+      --purple: #ce93d8; --pdim: rgba(206,147,216,.1);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, sans-serif; min-height: 100vh; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, sans-serif; min-height: 100vh; font-size: 14px; }
     button { cursor: pointer; font: inherit; }
+    a { color: var(--green); text-decoration: none; }
 
-    /* ── topbar ── */
-    .topbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 20px; border-bottom: 1px solid var(--line);
-      background: var(--paper); position: sticky; top: 0; z-index: 50;
-    }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .logo { width: 32px; height: 32px; border-radius: 50%; background: var(--green); color: #031409; display: grid; place-items: center; font-weight: 900; font-size: 14px; }
-    .brand-name { font-weight: 900; font-size: 16px; letter-spacing: -.5px; }
-    .brand-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px var(--green-dim); display: inline-block; }
-    .dot.off { background: var(--red); box-shadow: 0 0 0 3px var(--red-dim); }
-    .status-pill { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--muted); }
-    .topbar-actions { display: flex; gap: 8px; align-items: center; }
-    .btn { border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; background: var(--card); color: var(--ink); font-weight: 700; font-size: 13px; }
-    .btn.green { background: var(--green); color: #031409; border-color: var(--green); }
-    .btn.red { background: var(--red); color: #fff; border-color: var(--red); }
-    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    /* topbar */
+    .bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 0 20px; height: 52px; background: var(--paper); border-bottom: 1px solid var(--line); }
+    .logo { width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: #031409; display: grid; place-items: center; font-weight: 900; font-size: 12px; flex-shrink: 0; }
+    .bar-title { font-weight: 900; font-size: 15px; letter-spacing: -.4px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+    .pill .dot.on { background: var(--green); box-shadow: 0 0 0 3px var(--gdim); }
+    .bar-gap { flex: 1; }
+    .btn { border: 1px solid var(--line); border-radius: 7px; padding: 7px 13px; background: var(--card); color: var(--ink); font-weight: 700; font-size: 13px; transition: opacity .15s; white-space: nowrap; }
+    .btn:hover { opacity: .8; }
+    .btn:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-green { background: var(--green); color: #031409; border-color: var(--green); }
+    .btn-gold { background: var(--gold); color: #3d2e00; border-color: var(--gold); }
+    .btn-red { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn-ghost { background: transparent; border-color: var(--line); }
 
-    /* ── layout ── */
-    .layout { display: grid; grid-template-columns: 1fr 380px; height: calc(100vh - 57px); }
-    .feed { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-    .sidebar { border-left: 1px solid var(--line); overflow-y: auto; background: var(--paper); }
+    /* layout */
+    .layout { display: grid; grid-template-columns: 1fr 320px; height: calc(100vh - 52px); overflow: hidden; }
+    .feed-col { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .side-col { border-left: 1px solid var(--line); overflow-y: auto; background: var(--paper); display: flex; flex-direction: column; }
 
-    /* ── empty state ── */
-    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 300px; color: var(--muted); text-align: center; }
-    .empty-icon { font-size: 40px; opacity: .3; }
-    .empty h3 { font-size: 16px; font-weight: 700; color: var(--ink); }
-    .empty p { font-size: 13px; line-height: 1.5; max-width: 280px; }
+    /* empty */
+    .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); text-align: center; padding: 40px 20px; }
+    .empty-icon { font-size: 36px; opacity: .25; }
+    .empty h3 { font-size: 15px; font-weight: 800; color: var(--ink); }
+    .empty p { font-size: 13px; line-height: 1.6; max-width: 260px; }
 
-    /* ── signal card ── */
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
-    .signal-card {
-      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-      overflow: hidden; animation: slideIn .3s ease;
-    }
-    .signal-card.new { border-color: var(--green); box-shadow: 0 0 0 1px var(--green), 0 0 24px var(--green-dim); }
-    .signal-card.dismissed { opacity: .35; }
-    .card-top { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
-    .ticker { font-size: 22px; font-weight: 950; letter-spacing: -1px; min-width: 64px; }
-    .grade-badge { padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 950; }
-    .grade-Aplus { background: rgba(0,230,118,.2); color: #00e676; }
-    .grade-A { background: rgba(0,230,118,.12); color: #69f0ae; }
-    .grade-Bplus { background: var(--blue-dim); color: var(--blue); }
-    .score-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
-    .card-prices { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--line); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-    .price-cell { background: var(--card); padding: 10px 14px; }
-    .price-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 4px; }
-    .price-val { font-size: 16px; font-weight: 950; letter-spacing: -.5px; }
-    .price-val.green { color: var(--green); }
-    .price-val.red { color: var(--red); }
-    .price-val.gold { color: var(--gold); }
-    .est-tag { display: inline-flex; padding: 1px 5px; border-radius: 3px; background: var(--gold-dim); color: var(--gold); font-size: 9px; font-weight: 900; letter-spacing: .5px; margin-left: 4px; vertical-align: middle; }
-    .card-why { padding: 8px 16px; font-size: 12px; color: var(--muted); line-height: 1.4; border-bottom: 1px solid var(--line); }
-    .card-actions { display: flex; gap: 8px; padding: 12px 16px; }
-    .card-actions .btn { flex: 1; text-align: center; font-size: 13px; }
-    .time-tag { font-size: 11px; color: var(--muted); margin-left: auto; }
+    /* signal card */
+    @keyframes pop { from { opacity:0; transform:translateY(-10px) scale(.98); } to { opacity:1; transform:none; } }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; animation: pop .25s ease; }
+    .card.fresh { border-color: var(--green); box-shadow: 0 0 0 1px var(--green), 0 4px 24px var(--gdim); }
+    .card.approved-card { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 24px var(--ydim); }
+    .card.executed-card { opacity: .4; }
+    .card.dismissed-card { display: none; }
 
-    /* ── sidebar panels ── */
-    .panel { border-bottom: 1px solid var(--line); }
-    .panel-head { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
-    .panel-title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
-    .panel-body { padding: 0 16px 14px; }
-    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
-    .stat-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 4px; }
-    .stat-val { font-size: 18px; font-weight: 950; letter-spacing: -.5px; }
-    .pos-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-    .pos-row:last-child { border-bottom: 0; }
-    .pos-sym { font-weight: 900; }
-    .pos-gain { font-weight: 900; color: var(--green); }
-    .pos-loss { font-weight: 900; color: var(--red); }
-    .order-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
-    .order-row:last-child { border-bottom: 0; }
-    .state-pill { padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 900; background: var(--card); border: 1px solid var(--line); }
-    .state-pill.filled { background: rgba(0,230,118,.15); color: var(--green); border-color: transparent; }
-    .state-pill.rejected { background: var(--red-dim); color: var(--red); border-color: transparent; }
-    .muted { color: var(--muted); }
+    .card-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+    .ticker { font-size: 20px; font-weight: 950; letter-spacing: -.8px; min-width: 60px; }
+    .grade { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 950; }
+    .g-Ap { background: rgba(0,230,118,.2); color: var(--green); }
+    .g-A  { background: rgba(105,240,174,.15); color: var(--gbright); }
+    .g-Bp { background: var(--bdim); color: var(--blue); }
+    .score-badge { font-size: 11px; color: var(--muted); }
+    .time-badge { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .approved-flag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: var(--ydim); color: var(--gold); font-size: 11px; font-weight: 900; border: 1px solid rgba(255,213,79,.25); }
 
-    /* ── execute modal overlay ── */
-    .modal-wrap { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
-    .modal-wrap.open { display: flex; }
-    .modal { background: var(--card); border: 1px solid var(--line); border-radius: 16px; width: min(480px,100%); overflow: hidden; }
-    .modal-head { padding: 20px; background: linear-gradient(135deg, #0d1a10, #1a2d1e); border-bottom: 1px solid var(--line); }
-    .modal-head h2 { font-size: 22px; font-weight: 950; letter-spacing: -1px; margin-bottom: 4px; }
-    .modal-head p { font-size: 13px; color: var(--muted); }
-    .modal-body { padding: 18px 20px; display: grid; gap: 10px; }
-    .field { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
-    .field label { display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 6px; }
-    .field input, .field select { width: 100%; background: transparent; border: 0; outline: 0; color: var(--ink); font: inherit; font-weight: 700; font-size: 15px; }
+    .card-prices { display: grid; grid-template-columns: repeat(3,1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--line); gap: 1px; }
+    .price-cell { background: var(--card); padding: 9px 13px; }
+    .price-lbl { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+    .est-tag { background: var(--ydim); color: var(--gold); padding: 1px 4px; border-radius: 3px; font-size: 9px; font-weight: 900; }
+    .price-num { font-size: 15px; font-weight: 950; letter-spacing: -.4px; }
+    .c-green { color: var(--green); } .c-red { color: var(--red); } .c-gold { color: var(--gold); }
+
+    .card-why { padding: 7px 14px; font-size: 12px; color: var(--muted); line-height: 1.45; border-bottom: 1px solid var(--line); }
+    .card-actions { display: flex; gap: 8px; padding: 10px 14px; }
+    .card-actions .btn { flex: 1; text-align: center; font-size: 13px; padding: 8px 10px; }
+
+    /* sidebar */
+    .side-section { border-bottom: 1px solid var(--line); padding: 14px 16px; }
+    .side-label { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat { background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+    .stat-lbl { font-size: 10px; color: var(--muted); font-weight: 800; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .5px; }
+    .stat-val { font-size: 17px; font-weight: 950; letter-spacing: -.5px; }
+    .mini-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .mini-row:last-child { border-bottom: 0; }
+    .sym { font-weight: 900; }
+    .gain { color: var(--green); font-weight: 800; }
+    .loss { color: var(--red); font-weight: 800; }
+    .order-state { padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 800; background: var(--card2); border: 1px solid var(--line); }
+    .order-state.filled { background: var(--gdim); color: var(--green); border-color: transparent; }
+    .order-state.rejected { background: var(--rdim); color: var(--red); border-color: transparent; }
+    .order-state.new, .order-state.confirmed, .order-state.partially_filled { background: var(--bdim); color: var(--blue); border-color: transparent; }
+    .side-empty { font-size: 12px; color: var(--muted); }
+
+    /* approved queue banner */
+    .queue-banner { display: none; align-items: center; gap: 10px; padding: 10px 16px; background: rgba(255,213,79,.08); border-bottom: 1px solid rgba(255,213,79,.2); font-size: 13px; }
+    .queue-banner.visible { display: flex; }
+    .queue-banner strong { color: var(--gold); }
+
+    /* modal */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+    .overlay.open { display: flex; }
+    .modal { background: var(--card); border: 1px solid var(--line); border-radius: 14px; width: min(460px,100%); overflow: hidden; }
+    .modal-top { padding: 18px 20px; background: linear-gradient(135deg,#0c1a0f,#182b1c); border-bottom: 1px solid var(--line); }
+    .modal-top h2 { font-size: 20px; font-weight: 950; letter-spacing: -.8px; margin-bottom: 3px; }
+    .modal-top p { font-size: 12px; color: var(--muted); }
+    .modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .field { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+    .field label { display: block; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 5px; }
+    .field input, .field select { width: 100%; background: transparent; border: 0; outline: 0; color: var(--ink); font: inherit; font-weight: 700; font-size: 14px; }
     .field select option { background: #1a1a1a; }
-    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .modal-foot { padding: 14px 20px; border-top: 1px solid var(--line); display: flex; gap: 10px; }
-    .modal-foot .btn { flex: 1; text-align: center; padding: 12px; font-size: 14px; }
-    .review-box { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--muted); white-space: pre-wrap; min-height: 60px; line-height: 1.5; }
-    .review-box.ok { border-color: rgba(0,230,118,.3); color: #a5f5c7; }
-    .review-box.err { border-color: rgba(255,82,82,.3); color: #ffaaaa; }
+    .field-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .review-out { background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 8px; padding: 11px; font-size: 11px; color: var(--muted); white-space: pre-wrap; line-height: 1.55; min-height: 56px; max-height: 160px; overflow-y: auto; }
+    .review-out.ok { border-color: rgba(0,230,118,.3); color: #a0f5c0; }
+    .review-out.err { border-color: rgba(255,82,82,.3); color: #ffb3b3; }
+    .modal-foot { display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
+    .modal-foot .btn { flex: 1; text-align: center; padding: 10px; font-size: 13px; }
 
-    @media (max-width: 900px) {
+    /* toast */
+    @keyframes toast-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .toast-wrap { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { padding: 10px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; animation: toast-in .2s ease; pointer-events: auto; max-width: 320px; line-height: 1.4; }
+    .toast.ok { background: var(--gdim); border: 1px solid rgba(0,230,118,.3); color: var(--green); }
+    .toast.err { background: var(--rdim); border: 1px solid rgba(255,82,82,.3); color: var(--red); }
+    .toast.info { background: var(--bdim); border: 1px solid rgba(68,138,255,.3); color: var(--blue); }
+
+    @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
-      .sidebar { display: none; }
+      .side-col { display: none; }
     }
   </style>
 </head>
 <body>
 
-<header class="topbar">
-  <div class="brand">
-    <div class="logo">K</div>
-    <div>
-      <div class="brand-name">Kalki Signal Feed</div>
-      <div class="brand-sub">Live · Robinhood ready</div>
-    </div>
-  </div>
-  <div class="status-pill">
-    <span class="dot off" id="rhDot"></span>
-    <span id="rhStatus">Checking…</span>
-  </div>
-  <div class="topbar-actions">
-    <button class="btn" onclick="connectRobinhood()" id="connectBtn" style="display:none">Connect Robinhood</button>
-    <button class="btn" onclick="loadAll()" id="refreshBtn">↺ Refresh</button>
-  </div>
+<header class="bar">
+  <div class="logo">K</div>
+  <span class="bar-title">Kalki Signal Feed</span>
+  <div class="pill"><span class="dot" id="rhDot"></span><span id="rhStatus">Checking…</span></div>
+  <div class="bar-gap"></div>
+  <button class="btn btn-green" id="connectBtn" style="display:none" onclick="connectRobinhood()">Connect Robinhood</button>
+  <button class="btn btn-ghost" onclick="loadAll()" id="refreshBtn">↺ Refresh</button>
 </header>
 
+<!-- approved queue banner -->
+<div class="queue-banner" id="queueBanner">
+  <span>⚡</span>
+  <span><strong id="queueCount">0</strong> signal(s) approved — waiting for Claude Code to execute</span>
+  <span style="flex:1"></span>
+  <span style="font-size:12px;color:var(--muted)">Run <code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px">claude</code> in the dashboard folder to execute</span>
+</div>
+
 <div class="layout">
-  <!-- ── signal feed ── -->
-  <div class="feed" id="feed">
-    <div class="empty">
+  <!-- feed -->
+  <div class="feed-col" id="feed">
+    <div class="empty" id="emptyState">
       <div class="empty-icon">📡</div>
       <h3>Waiting for signals</h3>
-      <p>New Kalki alerts from Telegram will appear here automatically. Click Trade on any signal to execute via Robinhood.</p>
+      <p>New Kalki alerts from Telegram appear here automatically. Approve a signal to queue it for Claude Code execution on Robinhood.</p>
     </div>
   </div>
 
-  <!-- ── sidebar ── -->
-  <div class="sidebar">
-    <div class="panel">
-      <div class="panel-head"><span class="panel-title">Portfolio</span></div>
-      <div class="panel-body">
-        <div class="stat-grid">
-          <div class="stat"><div class="stat-label">Buying power</div><div class="stat-val" id="buyingPower">--</div></div>
-          <div class="stat"><div class="stat-label">Account value</div><div class="stat-val" id="accountValue">--</div></div>
-          <div class="stat"><div class="stat-label">Open orders</div><div class="stat-val" id="openOrders">--</div></div>
-          <div class="stat"><div class="stat-label">Positions</div><div class="stat-val" id="posCount">--</div></div>
-        </div>
+  <!-- sidebar -->
+  <div class="side-col">
+    <div class="side-section">
+      <div class="side-label">Portfolio</div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-lbl">Buying power</div><div class="stat-val" id="sbp">--</div></div>
+        <div class="stat"><div class="stat-lbl">Account value</div><div class="stat-val" id="sav">--</div></div>
+        <div class="stat"><div class="stat-lbl">Open orders</div><div class="stat-val" id="soo">--</div></div>
+        <div class="stat"><div class="stat-lbl">Positions</div><div class="stat-val" id="spc">--</div></div>
       </div>
     </div>
-    <div class="panel">
-      <div class="panel-head"><span class="panel-title">Positions</span></div>
-      <div class="panel-body" id="positions"><span class="muted" style="font-size:13px">Connect Robinhood to load.</span></div>
+    <div class="side-section">
+      <div class="side-label">Positions</div>
+      <div id="sPositions"><span class="side-empty">Connect Robinhood to load.</span></div>
     </div>
-    <div class="panel">
-      <div class="panel-head"><span class="panel-title">Recent orders</span></div>
-      <div class="panel-body" id="orders"><span class="muted" style="font-size:13px">Connect Robinhood to load.</span></div>
+    <div class="side-section">
+      <div class="side-label">Recent orders <span id="sOrderMeta" style="font-weight:400;text-transform:none;letter-spacing:0"></span></div>
+      <div id="sOrders"><span class="side-empty">Connect Robinhood to load.</span></div>
+    </div>
+    <div class="side-section" style="flex:1">
+      <div class="side-label">How it works</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7">
+        <p>1. Signal arrives from Telegram</p>
+        <p>2. You review and click <strong style="color:var(--gold)">Approve</strong></p>
+        <p>3. Claude Code sees approved signal</p>
+        <p>4. Claude calls <code style="background:var(--faint);padding:1px 4px;border-radius:3px">review_equity_order</code></p>
+        <p>5. Claude calls <code style="background:var(--faint);padding:1px 4px;border-radius:3px">place_equity_order</code></p>
+        <p>6. Trade appears in orders ↑</p>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ── execute modal ── -->
-<div class="modal-wrap" id="modal">
+<!-- execute modal (for manual override) -->
+<div class="overlay" id="overlay">
   <div class="modal">
-    <div class="modal-head">
-      <h2 id="modalTitle">Trade NVDA</h2>
-      <p id="modalSub">Review order before placing on Robinhood</p>
+    <div class="modal-top">
+      <h2 id="mTitle">Review order</h2>
+      <p id="mSub"></p>
     </div>
     <div class="modal-body">
-      <div class="field-row">
-        <div class="field"><label>Symbol</label><input id="mSymbol" readonly /></div>
+      <div class="field-2">
+        <div class="field"><label>Symbol</label><input id="mSym" readonly /></div>
         <div class="field"><label>Side</label><select id="mSide"><option value="buy">Buy</option><option value="sell">Sell</option></select></div>
       </div>
-      <div class="field-row">
-        <div class="field"><label>Quantity</label><input id="mQty" type="number" min="1" value="1" /></div>
+      <div class="field-2">
+        <div class="field"><label>Qty</label><input id="mQty" type="number" min="1" value="1" /></div>
         <div class="field"><label>Limit price</label><input id="mPrice" type="number" step="0.01" /></div>
       </div>
-      <div class="field-row">
+      <div class="field-2">
         <div class="field"><label>Type</label><select id="mType"><option value="limit">Limit</option><option value="market">Market</option></select></div>
-        <div class="field"><label>Account</label><input id="mAccount" placeholder="auto-select" /></div>
+        <div class="field"><label>Account # (optional)</label><input id="mAcct" placeholder="auto" /></div>
       </div>
-      <div class="review-box" id="reviewBox">Click "Review" to preview this order before placing.</div>
+      <div class="review-out" id="mOut">Click Review to preview with Robinhood before placing.</div>
     </div>
     <div class="modal-foot">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn" onclick="reviewOrder()" id="reviewBtn">Review</button>
-      <button class="btn green" onclick="placeOrder()" id="placeBtn" disabled>Place order</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" id="mReview" onclick="reviewOrder()">Review</button>
+      <button class="btn btn-green" id="mPlace" onclick="placeOrder()" disabled>Place order</button>
     </div>
   </div>
 </div>
 
+<div class="toast-wrap" id="toasts"></div>
+
 <script>
-  const API = location.hostname.endsWith(".pages.dev")
-    ? "https://kalki-robinhood-dashboard.srimanthgada87.workers.dev"
+const API = location.hostname.endsWith(".pages.dev")
+  ? "https://kalki-robinhood-dashboard.srimanthgada87.workers.dev" : "";
+const $ = id => document.getElementById(id);
+const money = v => v == null ? "--" : "$" + Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const timeAgo = iso => {
+  const s = Math.floor((Date.now()-new Date(iso))/1000);
+  return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:s<86400?`${Math.floor(s/3600)}h ago`:`${Math.floor(s/86400)}d ago`;
+};
+const esc = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let seenIds = new Set();
+let activeSignal = null;
+let reviewOk = false;
+
+// ── api ──
+async function api(path, opts={}) {
+  const r = await fetch(`${API}${path}`,{...opts,headers:{"Content-Type":"application/json",...(opts.headers||{})}});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return d;
+}
+
+// ── toast ──
+function toast(msg, type="info", dur=3500) {
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  $("toasts").appendChild(t);
+  setTimeout(()=>t.remove(), dur);
+}
+
+// ── signals ──
+async function loadSignals() {
+  try {
+    const { signals } = await api("/api/signals/pending");
+    if(!signals?.length) return;
+    const feed = $("feed");
+    let added = 0;
+    for(const s of signals) {
+      const existing = feed.querySelector(`[data-id="${s.id}"]`);
+      if(existing) {
+        // update approved state
+        if(s.approved) {
+          existing.classList.remove("fresh");
+          existing.classList.add("approved-card");
+          const flag = existing.querySelector(".approved-flag");
+          if(!flag) {
+            const head = existing.querySelector(".card-head");
+            const f = document.createElement("span");
+            f.className = "approved-flag";
+            f.innerHTML = "✓ Approved";
+            head.appendChild(f);
+          }
+          const ab = existing.querySelector(".approve-btn");
+          if(ab) { ab.textContent = "Approved ✓"; ab.disabled = true; }
+        }
+        continue;
+      }
+      seenIds.add(s.id);
+      added++;
+      const empty = feed.querySelector(".empty");
+      if(empty) empty.remove();
+      feed.prepend(buildCard(s));
+      if(added===1 && !s.approved) notifyNew(s);
+    }
+    // update queue banner
+    const approvedCount = signals.filter(s=>s.approved).length;
+    if(approvedCount > 0) {
+      $("queueBanner").classList.add("visible");
+      $("queueCount").textContent = approvedCount;
+    } else {
+      $("queueBanner").classList.remove("visible");
+    }
+  } catch(e) { console.warn("signals:", e.message); }
+}
+
+function gradeClass(g) {
+  return g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
+}
+
+function buildCard(s) {
+  const div = document.createElement("div");
+  div.className = `card${s.approved?" approved-card":" fresh"}`;
+  div.dataset.id = s.id;
+  const est = !s.has_parsed_prices;
+  const approvedHtml = s.approved
+    ? `<span class="approved-flag">✓ Approved</span>`
     : "";
-  const $ = id => document.getElementById(id);
-  const money = v => v == null ? "--" : "$" + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const timeAgo = iso => { const s = Math.floor((Date.now() - new Date(iso)) / 1000); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s/60)}m ago` : s < 86400 ? `${Math.floor(s/3600)}h ago` : `${Math.floor(s/86400)}d ago`; };
-  const gradeClass = g => g === "A+" ? "grade-Aplus" : g === "A" ? "grade-A" : g === "B+" ? "grade-Bplus" : "grade-A";
-
-  let seenIds = new Set();
-  let activeSignal = null;
-  let reviewPassed = false;
-
-  async function api(path, opts = {}) {
-    const r = await fetch(`${API}${path}`, { ...opts, headers: { "Content-Type": "application/json", ...(opts.headers||{}) } });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
-    return d;
-  }
-
-  async function loadSignals() {
-    try {
-      const { signals } = await api("/api/signals/pending");
-      if (!signals?.length) return;
-      const feed = $("feed");
-      let added = 0;
-      for (const s of signals) {
-        if (seenIds.has(s.id)) continue;
-        seenIds.add(s.id);
-        added++;
-        // remove empty state
-        const empty = feed.querySelector(".empty");
-        if (empty) empty.remove();
-        const card = buildCard(s, added === 1 && signals.length > 0);
-        feed.prepend(card);
-        if (added === 1) notifyNew(s);
-      }
-    } catch(e) { console.warn("signals:", e.message); }
-  }
-
-  function buildCard(s, isNew) {
-    const div = document.createElement("div");
-    div.className = `signal-card${isNew ? " new" : ""}`;
-    div.dataset.id = s.id;
-    const est = !s.has_parsed_prices;
-    div.innerHTML = `
-      <div class="card-top">
-        <div class="ticker">${esc(s.ticker)}</div>
-        <span class="grade-badge ${gradeClass(s.grade)}">${esc(s.grade)}</span>
-        ${s.score ? `<span style="font-size:12px;color:var(--muted)">score ${s.score}</span>` : ""}
-        <span class="time-tag">${timeAgo(s.added_at)}</span>
+  div.innerHTML = `
+    <div class="card-head">
+      <div class="ticker">${esc(s.ticker)}</div>
+      <span class="grade ${gradeClass(s.grade)}">${esc(s.grade)}</span>
+      ${s.score?`<span class="score-badge">score ${s.score}</span>`:""}
+      ${approvedHtml}
+      <span class="time-badge">${timeAgo(s.added_at)}</span>
+    </div>
+    <div class="card-prices">
+      <div class="price-cell">
+        <div class="price-lbl">Entry${est?`<span class="est-tag">EST</span>`:""}</div>
+        <div class="price-num c-gold">${money(s.entry_mid)}</div>
       </div>
-      <div class="card-prices">
-        <div class="price-cell"><div class="price-label">Entry${est ? `<span class="est-tag">EST</span>` : ""}</div><div class="price-val gold">${money(s.entry_mid)}</div></div>
-        <div class="price-cell"><div class="price-label">Stop</div><div class="price-val red">${money(s.stop)}</div></div>
-        <div class="price-cell"><div class="price-label">T1</div><div class="price-val green">${money(s.t1)}</div></div>
+      <div class="price-cell">
+        <div class="price-lbl">Stop</div>
+        <div class="price-num c-red">${money(s.stop)}</div>
       </div>
-      ${s.ai_why ? `<div class="card-why">${esc(s.ai_why)}</div>` : ""}
-      <div class="card-actions">
-        <button class="btn green" onclick='openTrade(${JSON.stringify(s)})'>Trade →</button>
-        <button class="btn" onclick='dismissSignal("${s.id}", this)'>Dismiss</button>
-      </div>`;
-    return div;
-  }
+      <div class="price-cell">
+        <div class="price-lbl">T1</div>
+        <div class="price-num c-green">${money(s.t1)}</div>
+      </div>
+    </div>
+    ${s.ai_why?`<div class="card-why">${esc(s.ai_why)}</div>`:""}
+    <div class="card-actions">
+      <button class="btn btn-gold approve-btn" onclick='approveSignal("${s.id}",this)' ${s.approved?"disabled":""}>
+        ${s.approved?"Approved ✓":"Approve for trading"}
+      </button>
+      <button class="btn" onclick='openManual(${JSON.stringify(s)})'>Manual</button>
+      <button class="btn btn-ghost" onclick='dismissSignal("${s.id}",this)'>✕ Dismiss</button>
+    </div>`;
+  return div;
+}
 
-  function notifyNew(s) {
-    if (Notification?.permission === "granted") {
-      new Notification(`Kalki: ${s.ticker} ${s.grade}`, { body: `Entry ${money(s.entry_mid)} · Stop ${money(s.stop)} · T1 ${money(s.t1)}`, icon: "/favicon.ico" });
+function notifyNew(s) {
+  if(Notification?.permission==="granted") {
+    new Notification(`Kalki: ${s.ticker} ${s.grade}`, {
+      body:`Entry ${money(s.entry_mid)} · Stop ${money(s.stop)} · T1 ${money(s.t1)}`,
+    });
+  }
+}
+
+async function approveSignal(id, btn) {
+  btn.disabled = true;
+  btn.textContent = "Approving…";
+  try {
+    await api(`/api/signals/${id}/approve`, {method:"POST"});
+    btn.textContent = "Approved ✓";
+    const card = btn.closest(".card");
+    card.classList.remove("fresh");
+    card.classList.add("approved-card");
+    // add approved flag to head
+    const head = card.querySelector(".card-head");
+    if(!head.querySelector(".approved-flag")) {
+      const f = document.createElement("span");
+      f.className = "approved-flag";
+      f.innerHTML = "✓ Approved";
+      // insert before time badge
+      const tb = head.querySelector(".time-badge");
+      head.insertBefore(f, tb);
     }
+    toast(`${card.querySelector(".ticker").textContent} approved — Claude Code will execute on next poll`, "ok");
+    loadSignals(); // refresh banner
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = "Approve for trading";
+    toast(e.message, "err");
   }
+}
 
-  function openTrade(s) {
-    activeSignal = s;
-    reviewPassed = false;
-    $("placeBtn").disabled = true;
-    $("modalTitle").textContent = `Trade ${s.ticker}`;
-    $("modalSub").textContent = `${s.grade} · Entry ${money(s.entry_mid)} · Stop ${money(s.stop)} · T1 ${money(s.t1)}`;
-    $("mSymbol").value = s.ticker;
-    $("mPrice").value = s.entry_mid ? Number(s.entry_mid).toFixed(2) : "";
-    $("mQty").value = "1";
-    $("mSide").value = "buy";
-    $("mType").value = "limit";
-    $("mAccount").value = "";
-    $("reviewBox").className = "review-box";
-    $("reviewBox").textContent = "Click Review to preview this order before placing.";
-    $("modal").classList.add("open");
+async function dismissSignal(id, btn) {
+  btn.disabled = true;
+  try {
+    await api(`/api/signals/${id}/dismiss`, {method:"POST"});
+    const card = btn.closest(".card");
+    card.classList.add("dismissed-card");
+    setTimeout(()=>card.remove(), 300);
+  } catch(e) {
+    btn.disabled = false;
+    toast(e.message, "err");
   }
+}
 
-  function closeModal() {
-    $("modal").classList.remove("open");
-    activeSignal = null;
-    reviewPassed = false;
-    $("placeBtn").disabled = true;
+// ── manual modal ──
+function openManual(s) {
+  activeSignal = s;
+  reviewOk = false;
+  $("mPlace").disabled = true;
+  $("mTitle").textContent = `Manual trade — ${s.ticker}`;
+  $("mSub").textContent = `${s.grade} · ${money(s.entry_mid)} entry · ${money(s.stop)} stop · ${money(s.t1)} T1`;
+  $("mSym").value = s.ticker;
+  $("mPrice").value = s.entry_mid ? Number(s.entry_mid).toFixed(2) : "";
+  $("mQty").value = "1";
+  $("mSide").value = "buy";
+  $("mType").value = "limit";
+  $("mAcct").value = "";
+  $("mOut").className = "review-out";
+  $("mOut").textContent = "Click Review to preview with Robinhood before placing.";
+  $("overlay").classList.add("open");
+}
+
+function closeModal() {
+  $("overlay").classList.remove("open");
+  activeSignal = null;
+  reviewOk = false;
+  $("mPlace").disabled = true;
+}
+
+async function reviewOrder() {
+  $("mReview").disabled = true;
+  $("mOut").className = "review-out";
+  $("mOut").textContent = "Sending to Robinhood for review…";
+  try {
+    const body = {
+      symbol:$("mSym").value, side:$("mSide").value, type:$("mType").value,
+      quantity:$("mQty").value, limitPrice:$("mPrice").value,
+    };
+    if($("mAcct").value.trim()) body.account_number = $("mAcct").value.trim();
+    const data = await api("/api/review-order",{method:"POST",body:JSON.stringify(body)});
+    const checks = data.review?.order_checks||{};
+    const warns = Object.values(checks);
+    $("mOut").className = `review-out ${warns.length?"err":"ok"}`;
+    $("mOut").textContent = warns.length
+      ? `⚠ Broker warnings:\n${warns.join("\n")}`
+      : `✓ Preview OK\n${JSON.stringify(data.review,null,2)}`;
+    reviewOk = !warns.length;
+    $("mPlace").disabled = !reviewOk;
+  } catch(e) {
+    $("mOut").className = "review-out err";
+    $("mOut").textContent = `Error: ${e.message}`;
   }
+  $("mReview").disabled = false;
+}
 
-  async function reviewOrder() {
-    $("reviewBtn").disabled = true;
-    $("reviewBox").className = "review-box";
-    $("reviewBox").textContent = "Reviewing with Robinhood…";
-    try {
-      const body = { symbol: $("mSymbol").value, side: $("mSide").value, type: $("mType").value, quantity: $("mQty").value, limitPrice: $("mPrice").value };
-      if ($("mAccount").value.trim()) body.account_number = $("mAccount").value.trim();
-      const data = await api("/api/review-order", { method: "POST", body: JSON.stringify(body) });
-      const checks = data.review?.order_checks || {};
-      const warnings = Object.values(checks);
-      $("reviewBox").className = `review-box ${warnings.length ? "err" : "ok"}`;
-      $("reviewBox").textContent = warnings.length
-        ? `⚠ Broker warnings:\n${warnings.join("\n")}`
-        : `✓ Order preview OK\n${JSON.stringify(data.review, null, 2)}`;
-      reviewPassed = !warnings.length;
-      $("placeBtn").disabled = !reviewPassed;
-    } catch(e) {
-      $("reviewBox").className = "review-box err";
-      $("reviewBox").textContent = `Error: ${e.message}`;
+async function placeOrder() {
+  if(!confirm(`Place real Robinhood order: ${$("mSide").value.toUpperCase()} ${$("mQty").value} ${$("mSym").value} @ $${$("mPrice").value}?\n\nThis will execute immediately.`)) return;
+  $("mPlace").disabled = true;
+  $("mOut").className = "review-out";
+  $("mOut").textContent = "Placing order on Robinhood…";
+  try {
+    const body = {
+      symbol:$("mSym").value, side:$("mSide").value, type:$("mType").value,
+      quantity:$("mQty").value, limitPrice:$("mPrice").value, confirm:true,
+    };
+    if($("mAcct").value.trim()) body.account_number = $("mAcct").value.trim();
+    const data = await api("/api/place-order",{method:"POST",body:JSON.stringify(body)});
+    $("mOut").className = "review-out ok";
+    $("mOut").textContent = `✓ Order placed!\n${JSON.stringify(data.placed,null,2)}`;
+    if(activeSignal) {
+      await api(`/api/signals/${activeSignal.id}/executed`,{method:"POST"}).catch(()=>{});
+      const card = document.querySelector(`[data-id="${activeSignal.id}"]`);
+      if(card) card.classList.add("executed-card");
     }
-    $("reviewBtn").disabled = false;
+    toast(`Order placed for ${$("mSym").value}!`, "ok", 5000);
+    setTimeout(()=>{ closeModal(); loadDashboard(); }, 2000);
+  } catch(e) {
+    $("mOut").className = "review-out err";
+    $("mOut").textContent = `Error: ${e.message}`;
+    $("mPlace").disabled = false;
   }
+}
 
-  async function placeOrder() {
-    if (!confirm(`Place real Robinhood order: BUY ${$("mQty").value} ${$("mSymbol").value} @ $${$("mPrice").value}?`)) return;
-    $("placeBtn").disabled = true;
-    $("reviewBox").className = "review-box";
-    $("reviewBox").textContent = "Placing order…";
-    try {
-      const body = { symbol: $("mSymbol").value, side: $("mSide").value, type: $("mType").value, quantity: $("mQty").value, limitPrice: $("mPrice").value, confirm: true };
-      if ($("mAccount").value.trim()) body.account_number = $("mAccount").value.trim();
-      const data = await api("/api/place-order", { method: "POST", body: JSON.stringify(body) });
-      $("reviewBox").className = "review-box ok";
-      $("reviewBox").textContent = `✓ Order placed!\n${JSON.stringify(data.placed, null, 2)}`;
-      // mark signal executed
-      if (activeSignal) {
-        await api(`/api/signals/${activeSignal.id}/executed`, { method: "POST" }).catch(() => {});
-        const card = document.querySelector(`.signal-card[data-id="${activeSignal.id}"]`);
-        if (card) card.classList.add("dismissed");
-      }
-      setTimeout(closeModal, 2000);
-      loadDashboard();
-    } catch(e) {
-      $("reviewBox").className = "review-box err";
-      $("reviewBox").textContent = `Error: ${e.message}`;
-      $("placeBtn").disabled = false;
-    }
+// ── dashboard ──
+async function loadDashboard() {
+  try {
+    const d = await api("/api/dashboard");
+    $("rhDot").className = "dot on";
+    $("rhStatus").textContent = "Robinhood connected";
+    $("connectBtn").style.display = "none";
+    const p = d.portfolio||{};
+    $("sbp").textContent = money(p.buying_power);
+    $("sav").textContent = money(p.total_value);
+    const orders = d.orders||[];
+    const open = orders.filter(o=>["new","queued","confirmed","unconfirmed","partially_filled"].includes((o.state||"").toLowerCase()));
+    $("soo").textContent = open.length;
+    const positions = d.positions||[];
+    $("spc").textContent = positions.length;
+    $("sPositions").innerHTML = positions.length
+      ? positions.slice(0,8).map(p=>`
+          <div class="mini-row">
+            <span class="sym">${esc(p.symbol)}</span>
+            <span style="color:var(--muted);font-size:12px">${p.quantity}sh @ ${money(p.average_buy_price)}</span>
+            <span class="${(p.unrealized||0)>=0?"gain":"loss"}">${money(p.unrealized)}</span>
+          </div>`).join("")
+      : `<span class="side-empty">No open positions.</span>`;
+    $("sOrders").innerHTML = orders.slice(0,6).map(o=>`
+      <div class="mini-row">
+        <span class="sym">${esc(o.symbol||"-")}</span>
+        <span style="color:var(--muted);font-size:12px">${esc(o.side||"")} ${o.quantity||""}</span>
+        <span class="order-state ${(o.state||"").toLowerCase()}">${esc(o.state||"-")}</span>
+      </div>`).join("") || `<span class="side-empty">No recent orders.</span>`;
+  } catch(e) {
+    $("rhDot").className = "dot";
+    $("rhStatus").textContent = "Not connected";
+    $("connectBtn").style.display = "";
   }
+}
 
-  async function dismissSignal(id, btn) {
-    btn.disabled = true;
-    await api(`/api/signals/${id}/executed`, { method: "POST" }).catch(() => {});
-    const card = document.querySelector(`.signal-card[data-id="${id}"]`);
-    if (card) { card.classList.add("dismissed"); card.classList.remove("new"); }
-  }
+function connectRobinhood() { location.href = `${API}/api/robinhood/connect`; }
 
-  async function loadDashboard() {
-    try {
-      const data = await api("/api/dashboard");
-      const dot = $("rhDot"), status = $("rhStatus");
-      dot.className = "dot";
-      status.textContent = "Robinhood connected";
-      $("connectBtn").style.display = "none";
-      const p = data.portfolio || {};
-      $("buyingPower").textContent = money(p.buying_power);
-      $("accountValue").textContent = money(p.total_value);
-      const orders = data.orders || [];
-      const open = orders.filter(o => ["new","queued","confirmed","unconfirmed","partially_filled"].includes((o.state||"").toLowerCase()));
-      $("openOrders").textContent = open.length;
-      const positions = data.positions || [];
-      $("posCount").textContent = positions.length;
-      $("positions").innerHTML = positions.length ? positions.map(p => `
-        <div class="pos-row">
-          <span class="pos-sym">${esc(p.symbol)}</span>
-          <span class="muted">${p.quantity}sh</span>
-          <span class="${p.unrealized >= 0 ? "pos-gain" : "pos-loss"}">${money(p.unrealized)}</span>
-        </div>`).join("") : `<span class="muted" style="font-size:13px">No open positions.</span>`;
-      $("orders").innerHTML = orders.slice(0,8).map(o => `
-        <div class="order-row">
-          <strong>${esc(o.symbol||"-")}</strong>
-          <span class="muted">${esc(o.side||"")} ${o.quantity||""}</span>
-          <span class="state-pill ${(o.state||"").toLowerCase()}">${esc(o.state||"-")}</span>
-        </div>`).join("") || `<span class="muted" style="font-size:13px">No recent orders.</span>`;
-    } catch(e) {
-      $("rhDot").className = "dot off";
-      $("rhStatus").textContent = "Not connected";
-      $("connectBtn").style.display = "";
-    }
-  }
+async function loadAll() {
+  $("refreshBtn").textContent = "↺ Loading…";
+  $("refreshBtn").disabled = true;
+  await Promise.all([loadDashboard(), loadSignals()]);
+  $("refreshBtn").textContent = "↺ Refresh";
+  $("refreshBtn").disabled = false;
+}
 
-  function connectRobinhood() { location.href = `${API}/api/robinhood/connect`; }
+// notifications
+if(Notification?.permission==="default") Notification.requestPermission();
 
-  function esc(v) { return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// boot
+loadAll();
 
-  async function loadAll() {
-    $("refreshBtn").textContent = "↺ Loading…";
-    $("refreshBtn").disabled = true;
-    await Promise.all([loadDashboard(), loadSignals()]);
-    $("refreshBtn").textContent = "↺ Refresh";
-    $("refreshBtn").disabled = false;
-  }
-
-  // request notification permission
-  if (Notification?.permission === "default") Notification.requestPermission();
-
-  // initial load
-  loadAll();
-
-  // poll for new signals every 30s
-  setInterval(loadSignals, 30000);
+// poll every 30s for new signals
+setInterval(loadSignals, 30000);
+// poll every 60s for dashboard data
+setInterval(loadDashboard, 60000);
 </script>
 </body>
 </html>
