@@ -381,7 +381,9 @@ async function handlePendingSignals(env) {
   const { results } = await env.KALKI_SYNC_DB.prepare(
     `SELECT id, sym, grade, note, added_at, updated_at, raw_json
      FROM group_alerts
-     WHERE (executed IS NULL OR executed = 0) AND grade IN ('A+','A','B+')
+     WHERE (executed IS NULL OR executed = 0)
+       AND grade IN ('A+','A','B+')
+       AND (status IS NULL OR status != 'closed')
      ORDER BY added_at DESC LIMIT 20`
   ).all();
   const signals = (results || []).map(parseSignalFromRow);
@@ -464,7 +466,9 @@ async function handleMcp(request, env) {
       const { results } = await env.KALKI_SYNC_DB.prepare(
         `SELECT id, sym, grade, note, added_at, updated_at, raw_json
          FROM group_alerts
-         WHERE (executed IS NULL OR executed = 0) AND grade IN ('A+','A','B+')
+         WHERE (executed IS NULL OR executed = 0)
+           AND grade IN ('A+','A','B+')
+           AND (status IS NULL OR status != 'closed')
          ORDER BY added_at DESC LIMIT 20`
       ).all();
       const signals = (results || []).map(parseSignalFromRow);
