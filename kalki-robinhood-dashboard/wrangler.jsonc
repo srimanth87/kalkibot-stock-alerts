@@ -13,6 +13,13 @@
       "id": "be4811267edc4d56ac81f5cfe8152d03"
     }
   ],
+  "d1_databases": [
+    {
+      "binding": "KALKI_DB",
+      "database_name": "kalki-db",
+      "database_id": "placeholder-replace-with-your-d1-id"
+    }
+  ],
   "observability": {
     "enabled": true
   }
