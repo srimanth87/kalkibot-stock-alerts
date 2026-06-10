@@ -336,19 +336,38 @@ async function ensureExecutedColumn(env) {
 function parseSignalFromRow(row) {
   let raw = {};
   try { raw = row.raw_json ? JSON.parse(row.raw_json) : {}; } catch { raw = {}; }
+
+  // Entry price: prefer parsed entryMid/entryLow, fall back to addedPrice (watchlist records)
+  const entryMid = raw.entryMid ?? raw.addedPrice ?? null;
+  const entryLow = raw.entryLow ?? entryMid;
+  const entryHigh = raw.entryHigh ?? entryMid;
+
+  // Stop: prefer parsed supLow, fall back to ~2% below entry
+  const stop = raw.supLow ?? raw.stop ?? (entryMid ? Math.round(entryMid * 0.98 * 100) / 100 : null);
+
+  // Targets: prefer resistances array, fall back to ~3% above entry
+  const targets = (raw.resistances ?? raw.res ?? []).filter(Number.isFinite);
+  const t1 = targets[0] ?? (entryMid ? Math.round(entryMid * 1.03 * 100) / 100 : null);
+  const t2 = targets[1] ?? null;
+
+  // Flag if prices were estimated vs parsed from a real alert
+  const hasParsedPrices = Boolean(raw.entryMid ?? raw.entryLow ?? raw.supLow ?? raw.resistances);
+
   return {
     id: row.id,
     ticker: row.sym,
     grade: row.grade,
-    score: raw.catalystScore ?? raw.score ?? null,
-    pattern: row.note || raw.pattern || null,
-    entry_low: raw.entryLow ?? raw.entryMid ?? null,
-    entry_high: raw.entryHigh ?? raw.entryMid ?? null,
-    entry_mid: raw.entryMid ?? null,
-    stop: raw.supLow ?? raw.stop ?? null,
-    targets: raw.resistances ?? raw.res ?? [],
-    t1: raw.resistances?.[0] ?? raw.res?.[0] ?? null,
-    t2: raw.resistances?.[1] ?? raw.res?.[1] ?? null,
+    score: raw.catalystScore ?? raw.aiScore ?? raw.score ?? null,
+    pattern: row.note || raw.pattern || raw.aiSetup || null,
+    entry_low: entryLow,
+    entry_high: entryHigh,
+    entry_mid: entryMid,
+    stop,
+    targets,
+    t1,
+    t2,
+    has_parsed_prices: hasParsedPrices,
+    ai_why: raw.aiWhy || null,
     source: raw.source || "telegram",
     added_at: row.added_at || row.updated_at,
   };
