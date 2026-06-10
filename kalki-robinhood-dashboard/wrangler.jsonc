@@ -18,6 +18,11 @@
       "binding": "KALKI_DB",
       "database_name": "kalki-db",
       "database_id": "c7d85510-f352-4221-9024-a38792aaf33a"
+    },
+    {
+      "binding": "KALKI_SYNC_DB",
+      "database_name": "kalki-sync-db",
+      "database_id": "25a847a3-828d-452a-9670-9296c62be681"
     }
   ],
   "observability": {
