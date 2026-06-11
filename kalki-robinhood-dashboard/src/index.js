@@ -323,30 +323,42 @@ async function handleIngestAlert(request, env) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { ticker, grade, entry_price, stop_price, t1, raw, source, received_at } = body;
+  const { ticker, grade, entry_price, stop_price, t1, t2, rr, raw, pattern, source, received_at } = body;
   if (!ticker || !grade || !entry_price) {
     return json({ ok: false, error: "ticker, grade, entry_price are required" }, 400);
   }
 
-  if (!env.KALKI_DB) return json({ ok: false, error: "KALKI_DB not bound" }, 503);
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound" }, 503);
 
-  // Upsert into kalki-db alerts table (the one with full schema)
-  const id = `auto-${ticker}-${Date.now()}`;
+  await ensureSignalColumns(env);
+
+  const id = `auto-${ticker.toUpperCase()}-${Date.now()}`;
   const entryMid = Number(entry_price);
-  await env.KALKI_DB.prepare(
-    `INSERT OR REPLACE INTO alerts
-      (ticker, grade, entry_low, entry_high, stop, t1, raw_message, source, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  const now = received_at || new Date().toISOString();
+
+  // Build raw_json with all price data so parseSignalFromRow extracts correctly
+  const rawJson = JSON.stringify({
+    entryMid, entryLow: entryMid, entryHigh: entryMid,
+    supLow: Number(stop_price) || null,
+    resistances: [Number(t1)||null, Number(t2)||null].filter(Boolean),
+    rr: Number(rr) || null,
+    pattern: pattern || null,
+    aiWhy: raw || null,
+    source: source || "autotrader",
+  });
+
+  await env.KALKI_SYNC_DB.prepare(
+    `INSERT OR REPLACE INTO group_alerts
+      (id, sym, grade, note, raw_json, status, added_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`
   ).bind(
+    id,
     ticker.toUpperCase(),
     grade,
-    entryMid,
-    entryMid,
-    Number(stop_price) || null,
-    Number(t1) || null,
-    raw || null,
-    source || "autotrader",
-    received_at || new Date().toISOString(),
+    pattern || null,
+    rawJson,
+    now,
+    now,
   ).run();
 
   return json({ ok: true, ticker, grade, id });
