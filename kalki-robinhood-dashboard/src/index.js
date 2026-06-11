@@ -493,7 +493,7 @@ async function handleMarkExecuted(env, id) {
 }
 
 // ── MCP server — lets Claude Code connect via:
-//    claude mcp add kalki-signals --transport http https://kalki-robinhood-dashboard.srimanthgada87.workers.dev/mcp
+//    claude mcp add kalki-signals --transport http https://kalkialerts-api.workers.dev/mcp
 async function handleMcp(request, env) {
   if (request.method === "GET") {
     // SSE handshake for streamable-http transport
