@@ -4,7 +4,7 @@ You are an autonomous trading agent running at home while the user is at the off
 
 ## Startup (run once)
 
-1. Fetch settings: GET https://kalki-robinhood-dashboard.srimanthgada87.workers.dev/api/agent-config
+1. Fetch settings: GET https://kalkialerts-api.workers.dev/api/agent-config
    - Save as `cfg`. Use these defaults if any field is missing:
      size=500, maxSize=1000, slip=3, drop=5, orderType=limit, tif=gfd, minBP=200, allowEst=false
 
