@@ -11,7 +11,7 @@ When started in this directory with the trading agent prompt, Claude operates as
 - If unsure about anything, log it and continue the loop — do not block
 
 ## MCP servers configured for this project
-- kalki-signals: https://kalki-robinhood-dashboard.srimanthgada87.workers.dev/mcp
+- kalki-signals: https://kalkialerts-api.workers.dev/mcp
 - robinhood-trading: https://agent.robinhood.com/mcp/trading
 
 ## How to start the agent
