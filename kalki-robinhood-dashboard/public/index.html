@@ -429,7 +429,7 @@ button{cursor:pointer;font:inherit}
 
 <script>
 const API = location.hostname.endsWith(".pages.dev")
-  ? "https://kalki-robinhood-dashboard.srimanthgada87.workers.dev" : "";
+  ? "https://kalkialerts-api.workers.dev" : "";
 const $ = id => document.getElementById(id);
 const money = v => v==null?"--":"$"+Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct = v => v==null?"--":(v>=0?"+":"")+Number(v).toFixed(1)+"%";
