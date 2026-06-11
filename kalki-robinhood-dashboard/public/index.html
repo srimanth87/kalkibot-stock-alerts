@@ -154,6 +154,7 @@ button{cursor:pointer;font:inherit}
 .num-in{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:7px 11px;color:#fff;font:inherit;font-weight:700;font-size:14px;width:110px;text-align:right}
 .num-in:focus{outline:1px solid #00e676;border-color:#00e676}
 .sel-in{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:7px 11px;color:#fff;font:inherit;font-weight:700;font-size:13px;width:130px}
+.section-page{display:none}.section-page.active{display:block}
 .sel-in option{background:#1a1a2e}
 .divider{height:1px;background:rgba(255,255,255,.08)}
 
@@ -250,7 +251,7 @@ button{cursor:pointer;font:inherit}
 <div class="main" id="mainContent">
 
   <!-- pending signals -->
-  <div id="section-dashboard" class="section-page">
+  <div id="section-dashboard" class="section-page active">
   <div id="sectionDashboard">
     <div>
       <div class="sh">
@@ -306,7 +307,7 @@ button{cursor:pointer;font:inherit}
   </div><!-- /section-dashboard -->
 
   <!-- ── REPORT SECTION ── -->
-  <div id="section-report" class="section-page" style="display:none">
+  <div id="section-report" class="section-page">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
       <span class="sh-title" style="font-size:16px;font-weight:600">Performance Report</span>
       <div class="sh-gap"></div>
@@ -381,15 +382,15 @@ button{cursor:pointer;font:inherit}
   </div><!-- /section-report -->
 
   <!-- SIGNALS section placeholder (hidden by default) -->
-  <div id="section-signals" class="section-page" style="display:none">
+  <div id="section-signals" class="section-page">
     <div class="glass-card" style="padding:20px;text-align:center;color:rgba(255,255,255,.35)">Signals view coming soon</div>
   </div>
   <!-- PORTFOLIO section placeholder -->
-  <div id="section-portfolio" class="section-page" style="display:none">
+  <div id="section-portfolio" class="section-page">
     <div class="glass-card" style="padding:20px;text-align:center;color:rgba(255,255,255,.35)">Portfolio view coming soon</div>
   </div>
   <!-- SETUP section placeholder -->
-  <div id="section-setup" class="section-page" style="display:none">
+  <div id="section-setup" class="section-page">
     <div class="glass-card" style="padding:20px;text-align:center;color:rgba(255,255,255,.35)">Setup view coming soon</div>
   </div>
 
@@ -839,9 +840,9 @@ function connectRobinhood(){location.href=`${API}/api/robinhood/connect`}
 function showSection(name,btn) {
   document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active");
-  document.querySelectorAll(".section-page").forEach(s=>s.style.display="none");
+  document.querySelectorAll(".section-page").forEach(s=>s.classList.remove("active"));
   const sec=document.getElementById("section-"+name);
-  if(sec) sec.style.display="";
+  if(sec) sec.classList.add("active");
   if(name==="report") loadReport();
 }
 
@@ -992,4 +993,5 @@ setInterval(loadDashboard,60000);
 </script>
 </body>
 </html>
+
 
