@@ -256,7 +256,7 @@ async function handleRobinhoodCallback(request, env) {
 
 async function handleReviewOrder(env, body) {
   requireRobinhood(env);
-  const order = normalizeOrderRequest(body, env);
+  const order = await normalizeOrderRequest(body, env);
   const review = await callRobinhood(env, "review_equity_order", order);
   return json({ ok: true, order, review: review?.data || review });
 }
@@ -267,7 +267,7 @@ async function handlePlaceOrder(env, body) {
     return json({ ok: false, error: "Explicit confirm=true is required before placing a real Robinhood order." }, 400);
   }
 
-  const order = normalizeOrderRequest(body, env);
+  const order = await normalizeOrderRequest(body, env);
   const review = await callRobinhood(env, "review_equity_order", order);
   const checks = review?.data?.order_checks || {};
   if (Object.keys(checks).length && body.overrideBrokerAlert !== true) {
@@ -1116,9 +1116,8 @@ function parseMcpResponse(text) {
   return JSON.parse(trimmed);
 }
 
-function normalizeOrderRequest(body, env) {
-  const account = String(body.account_number || body.accountNumber || accountNumber(env) || "").trim();
-  if (!account) throw new Error("account_number is required. Set ROBINHOOD_ACCOUNT_NUMBER or pass account_number.");
+async function normalizeOrderRequest(body, env) {
+  const account = await resolveOrderAccountNumber(body, env);
 
   const type = String(body.type || DEFAULT_ORDER_TYPE).trim().toLowerCase();
   const order = {
@@ -1141,6 +1140,17 @@ function normalizeOrderRequest(body, env) {
   if (type === "stop_market" || type === "stop_limit") order.stop_price = toMoney(body.stop_price || body.stopPrice);
 
   return order;
+}
+
+async function resolveOrderAccountNumber(body, env) {
+  const explicit = String(body.account_number || body.accountNumber || accountNumber(env) || "").trim();
+  if (explicit) return explicit;
+  const accounts = await callRobinhood(env, "get_accounts", {});
+  const account = selectAccount(accounts?.data?.accounts || [], env);
+  if (!account?.account_number) {
+    throw new Error("account_number is required. Connect Robinhood or set ROBINHOOD_ACCOUNT_NUMBER.");
+  }
+  return String(account.account_number);
 }
 
 function selectAccount(accounts, env) {
