@@ -692,6 +692,7 @@ function signalSourceKey(signal) {
   const source = String(signal.source || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   if (source.includes("tradingview")) return "tradingview";
   if (source.includes("cloudflare") || source.includes("luxalgo") || source.includes("lux")) return "cloudflarescreener";
+  if (source.includes("dashboard")) return "dashboard";
   return "telegram";
 }
 
@@ -791,17 +792,44 @@ async function handleCloseSignal(env, body) {
   if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   const symbol = String(body.symbol || "").trim().toUpperCase();
   const quantity = body.quantity != null ? String(body.quantity) : null;
+  const triggerType = String(body.triggerType || body.trigger_type || "manual").toLowerCase();
+  const livePrice = Number(body.livePrice ?? body.live_price);
+  const level = Number(body.level);
+  const pnlPct = Number(body.pnlPct ?? body.pnl_pct);
   if (!symbol) return json({ ok: false, error: "symbol is required" }, 400);
 
   await ensureSignalColumns(env);
   const id = `close-${symbol.toLowerCase()}-${Date.now()}`;
   const now = new Date().toISOString();
-  const raw = JSON.stringify({ side: "sell", quantity, aiWhy: `Dashboard close: sell all ${symbol}` });
+  const priceText = Number.isFinite(livePrice) ? ` @ $${livePrice.toFixed(2)}` : "";
+  const pnlText = Number.isFinite(pnlPct) ? ` (${pnlPct > 0 ? "+" : ""}${pnlPct.toFixed(2)}%)` : "";
+  let note = `Manual close: sell all ${symbol}`;
+  if (triggerType === "stop") {
+    const levelText = Number.isFinite(level) ? ` <= stop $${level.toFixed(2)}` : " hit stop loss";
+    note = `Stop loss close: ${symbol}${priceText}${levelText}${pnlText}`;
+  } else if (triggerType === "t1") {
+    const levelText = Number.isFinite(level) ? ` >= T1 $${level.toFixed(2)}` : " reached T1";
+    note = `Take profit close: ${symbol}${priceText}${levelText}${pnlText}`;
+  } else if (triggerType === "profit") {
+    const levelText = Number.isFinite(level) ? ` reached ${level.toFixed(2)}% gain target` : " reached profit target";
+    note = `Profit target close: ${symbol}${priceText}${levelText}${pnlText}`;
+  }
+  const raw = JSON.stringify({
+    side: "sell",
+    quantity,
+    source: "dashboard-auto-close",
+    triggerType,
+    livePrice: Number.isFinite(livePrice) ? livePrice : null,
+    level: Number.isFinite(level) ? level : null,
+    pnlPct: Number.isFinite(pnlPct) ? pnlPct : null,
+    aiWhy: note,
+    note,
+  });
 
   await env.KALKI_SYNC_DB.prepare(
     `INSERT OR REPLACE INTO group_alerts (id, sym, grade, note, raw_json, status, added_at, updated_at, approved, approved_at)
      VALUES (?, ?, 'A+', ?, ?, 'close', ?, ?, 1, ?)`
-  ).bind(id, symbol, `Close position: ${symbol}`, raw, now, now, now).run();
+  ).bind(id, symbol, note, raw, now, now, now).run();
 
   return json({ ok: true, id, symbol, message: `Close signal queued — Claude will sell ${symbol} shortly` });
 }
