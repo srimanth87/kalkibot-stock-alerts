@@ -84,7 +84,7 @@ export default {
 
       if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/approve")) {
         const id = url.pathname.split("/")[3];
-        return await handleApproveSignal(env, id);
+        return await handleApproveSignal(request, env, id);
       }
 
       if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/dismiss")) {
@@ -522,11 +522,17 @@ function normalizeAgentConfig(value = {}) {
   const grades = Array.isArray(cfg.grades)
     ? cfg.grades.map((grade) => String(grade || "").trim()).filter(Boolean)
     : ["A+", "A"];
+  const rawSources = cfg.sources && typeof cfg.sources === "object" ? cfg.sources : {};
 
   return {
     auto: cfg.auto === true,
     allGrades: cfg.allGrades === true,
     grades: grades.length ? grades : ["A+", "A"],
+    sources: {
+      telegram: rawSources.telegram !== false,
+      tradingview: rawSources.tradingview !== false,
+      cloudflarescreener: rawSources.cloudflarescreener !== false,
+    },
     size: Number.isFinite(Number(cfg.size)) ? Number(cfg.size) : 500,
     maxSize: Number.isFinite(Number(cfg.maxSize)) ? Number(cfg.maxSize) : 1000,
     slip: Number.isFinite(Number(cfg.slip)) ? Number(cfg.slip) : 3,
@@ -550,9 +556,22 @@ async function getAgentConfig(env) {
 
 function autoApproveSignalAllowed(signal, cfg) {
   if (!cfg.auto) return false;
+  if (!signalSourceAllowed(signal, cfg)) return false;
   const gradeOk = cfg.allGrades || cfg.grades.includes(signal.grade);
   const priceOk = signal.has_parsed_prices || cfg.allowEst;
   return gradeOk && priceOk;
+}
+
+function signalSourceKey(signal) {
+  const source = String(signal.source || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (source.includes("tradingview")) return "tradingview";
+  if (source.includes("cloudflare") || source.includes("luxalgo") || source.includes("lux")) return "cloudflarescreener";
+  return "telegram";
+}
+
+function signalSourceAllowed(signal, cfg) {
+  const sources = cfg.sources || {};
+  return sources[signalSourceKey(signal)] !== false;
 }
 
 async function handlePendingSignals(env) {
@@ -583,6 +602,8 @@ async function handlePendingSignals(env) {
       dismissed_reason: row.dismissed_reason || null,
     };
 
+    if (!signalSourceAllowed(signal, cfg)) continue;
+
     if (!signal.executed && !signal.dismissed && !signal.approved && autoApproveSignalAllowed(signal, cfg)) {
       signal.approved = true;
       signal.approved_at = new Date().toISOString();
@@ -602,6 +623,7 @@ async function handleApprovedSignals(env) {
     return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   }
   await ensureSignalColumns(env);
+  const cfg = await getAgentConfig(env);
   const { results } = await env.KALKI_SYNC_DB.prepare(
     `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
             approved, approved_at, executed, executed_at, dismissed, dismissed_at, dismissed_reason
@@ -621,7 +643,7 @@ async function handleApprovedSignals(env) {
     dismissed: Boolean(r.dismissed),
     dismissed_at: r.dismissed_at || null,
     dismissed_reason: r.dismissed_reason || null,
-  }));
+  })).filter(signal => signalSourceAllowed(signal, cfg));
   return json({ ok: true, signals });
 }
 
@@ -644,9 +666,13 @@ async function handleCloseSignal(env, body) {
   return json({ ok: true, id, symbol, message: `Close signal queued — Claude will sell ${symbol} shortly` });
 }
 
-async function handleApproveSignal(env, id) {
+async function handleApproveSignal(request, env, id) {
   if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   if (!id) return json({ ok: false, error: "Signal id required." }, 400);
+  const body = await request.json().catch(() => ({}));
+  if (body.manual !== true) {
+    return json({ ok: false, error: "Manual approval confirmation is required." }, 409);
+  }
   await ensureSignalColumns(env);
   await env.KALKI_SYNC_DB.prepare(
     `UPDATE group_alerts SET approved = 1, approved_at = ? WHERE id = ?`

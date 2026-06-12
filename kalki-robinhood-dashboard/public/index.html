@@ -162,6 +162,8 @@ button{cursor:pointer;font:inherit}
 .srow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px}
 .sinfo-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px}
 .sinfo-desc{font-size:12px;color:rgba(255,255,255,.35);line-height:1.4}
+.smini{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:rgba(255,255,255,.72);white-space:nowrap;cursor:pointer}
+.smini input{accent-color:#00e676}
 .sw{position:relative;width:40px;height:22px;flex-shrink:0}
 .sw input{opacity:0;width:0;height:0;position:absolute}
 .sw-t{position:absolute;inset:0;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:all .2s}
@@ -421,6 +423,14 @@ button{cursor:pointer;font:inherit}
           <div class="sinfo"><div class="sinfo-name">Allow estimated prices</div><div class="sinfo-desc">Auto-approve signals marked EST (no exact entry/stop from alert). Claude will use estimated prices.</div></div>
           <label class="sw"><input type="checkbox" id="cfgAllowEst" onchange="saveSettings()"><div class="sw-t"><div class="sw-th"></div></div></label>
         </div>
+        <div class="srow">
+          <div class="sinfo"><div class="sinfo-name">Allowed sources</div><div class="sinfo-desc">Only show and process signals from enabled sources.</div></div>
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:170px">
+            <label class="smini"><input type="checkbox" id="cfgSourceTelegram" onchange="saveSettings()"> Telegram</label>
+            <label class="smini"><input type="checkbox" id="cfgSourceTradingView" onchange="saveSettings()"> TradingView</label>
+            <label class="smini"><input type="checkbox" id="cfgSourceCloudflareScreener" onchange="saveSettings()"> Cloudflare Screener</label>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -540,12 +550,20 @@ const timeAgo = iso => {
 const gradeClass = g => g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
 
 // ── settings ──
-const DEFS = {auto:false,allGrades:false,grades:["A+","A"],size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",minBP:200,allowEst:false,autoT1:false,autoStop:false};
-const loadCfg = () => { try{return{...DEFS,...JSON.parse(localStorage.getItem("kalki_cfg")||"{}")}}catch{return{...DEFS}} };
+const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",minBP:200,allowEst:false,autoT1:false,autoStop:false};
+const mergeCfg = cfg => ({...DEFS,...(cfg||{}),sources:{...DEFS.sources,...((cfg||{}).sources||{})}});
+let cfgState = loadLocalCfg();
+const loadCfg = () => cfgState;
+function loadLocalCfg(){ try{return mergeCfg(JSON.parse(localStorage.getItem("kalki_cfg")||"{}"))}catch{return mergeCfg()} }
 function saveCfg() {
   const cfg = {
     auto:$("cfgAuto").checked, allGrades:$("cfgAllGrades").checked,
     grades:[...document.querySelectorAll(".chip.on")].map(c=>c.dataset.g),
+    sources:{
+      telegram:$("cfgSourceTelegram").checked,
+      tradingview:$("cfgSourceTradingView").checked,
+      cloudflarescreener:$("cfgSourceCloudflareScreener").checked,
+    },
     size:+$("cfgSize").value||500, maxSize:+$("cfgMaxSize").value||1000,
     slip:+$("cfgSlip").value||3, drop:+$("cfgDrop").value||5,
     orderType:$("cfgOrderType").value, tif:$("cfgTIF").value,
@@ -555,6 +573,7 @@ function saveCfg() {
   localStorage.setItem("kalki_cfg", JSON.stringify(cfg));
   // push to worker so Claude Code can read it
   api("/api/agent-config",{method:"POST",body:JSON.stringify(cfg)}).catch(()=>{});
+  cfgState=mergeCfg(cfg);
   syncCfgUI(cfg);
   return cfg;
 }
@@ -566,16 +585,27 @@ function syncCfgUI(cfg) {
   $("cfgOrderType").value=cfg.orderType; $("cfgTIF").value=cfg.tif;
   $("cfgMinBP").value=cfg.minBP; $("cfgAllowEst").checked=cfg.allowEst;
   $("cfgAutoT1").checked=cfg.autoT1||false; $("cfgAutoStop").checked=cfg.autoStop||false;
+  $("cfgSourceTelegram").checked=cfg.sources?.telegram!==false;
+  $("cfgSourceTradingView").checked=cfg.sources?.tradingview!==false;
+  $("cfgSourceCloudflareScreener").checked=cfg.sources?.cloudflarescreener!==false;
   document.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", cfg.allGrades||cfg.grades.includes(c.dataset.g)));
   const chip=$("autoChip"), lbl=$("autoChipLabel");
   if(cfg.auto){chip.classList.add("on");lbl.textContent=cfg.allGrades?"Auto: ALL":`Auto: ${cfg.grades.join("+")}` }
   else{chip.classList.remove("on");lbl.textContent="Manual"}
 }
 function toggleGrade(el){el.classList.toggle("on");saveCfg()}
-function resetSettings(){if(!confirm("Reset all settings to defaults?"))return;localStorage.removeItem("kalki_cfg");syncCfgUI({...DEFS});toast("Reset to defaults","info")}
+function resetSettings(){if(!confirm("Reset all settings to defaults?"))return;localStorage.removeItem("kalki_cfg");cfgState=mergeCfg();syncCfgUI(cfgState);api("/api/agent-config",{method:"POST",body:JSON.stringify(cfgState)}).catch(()=>{});toast("Reset to defaults","info")}
 function openSettings(){$("drawer").classList.add("open");$("drawerBg").classList.add("open")}
 function closeSettings(){$("drawer").classList.remove("open");$("drawerBg").classList.remove("open")}
-syncCfgUI(loadCfg());
+async function loadServerCfg(){
+  try{
+    const {config}=await api("/api/agent-config");
+    cfgState=mergeCfg(config);
+    localStorage.setItem("kalki_cfg", JSON.stringify(cfgState));
+    syncCfgUI(cfgState);
+  }catch(e){syncCfgUI(cfgState)}
+}
+syncCfgUI(cfgState);
 
 // ── api ──
 async function api(path,opts={}) {
@@ -606,7 +636,6 @@ async function loadSignals() {
   try {
     const {signals=[]}=await api("/api/signals/pending");
     const feed=$("signalsFeed");
-    const cfg=loadCfg();
     const allSignals=signals||[];
     const liveSignals=allSignals.filter(isLiveSignal);
     const archiveSignals=allSignals.filter(isArchiveSignal);
@@ -620,14 +649,6 @@ async function loadSignals() {
     renderArchiveTable(archiveSignals);
 
     for(const s of liveSignals) {
-      if(!s.approved&&cfg.auto) {
-        const gOk=cfg.allGrades||cfg.grades.includes(s.grade);
-        const eOk=!s.has_parsed_prices?cfg.allowEst:true;
-        if(gOk&&eOk){
-          try{await api(`/api/signals/${s.id}/approve`,{method:"POST"});s.approved=true;toast(`Auto-approved ${s.ticker} ${s.grade}`,"ok")}
-          catch(e){console.warn("auto-approve:",e.message)}
-        }
-      }
       if(!seenIds.has(s.id)&&!s.approved) notifyNew(s);
       seenIds.add(s.id);
     }
@@ -725,7 +746,7 @@ function notifyNew(s) {
 async function approveSignal(id,btn) {
   btn.disabled=true; btn.textContent="…";
   try {
-    await api(`/api/signals/${id}/approve`,{method:"POST"});
+    await api(`/api/signals/${id}/approve`,{method:"POST",body:JSON.stringify({manual:true})});
     btn.textContent="✓ Approved"; btn.className="ab ab-done";
     const row=btn.closest(".sr");
     row.classList.remove("fresh"); row.classList.add("appr");
@@ -1054,6 +1075,7 @@ async function loadReport() {
 }
 
 async function loadAll() {
+  await loadServerCfg();
   await Promise.all([loadDashboard(), loadSignals(), loadReport(), loadExecutedSignals()]);
 }
 
