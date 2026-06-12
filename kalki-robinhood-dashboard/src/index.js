@@ -106,6 +106,10 @@ export default {
         return await handleIngestAlert(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/api/alerts/tradingview") {
+        return await handleTradingViewAlert(request, env);
+      }
+
       if (url.pathname === "/api/agent-config") {
         if (request.method === "POST") {
           const body = await request.json().catch(() => ({}));
@@ -401,6 +405,36 @@ async function handleIngestAlert(request, env) {
   ).run();
 
   return json({ ok: true, ticker, grade, id });
+}
+
+async function handleTradingViewAlert(request, env) {
+  const expected = String(env.TRADINGVIEW_WEBHOOK_SECRET || env.INGEST_SECRET || "").trim();
+  const body = await request.json().catch(() => ({}));
+  if (expected && String(body.secret || "").trim() !== expected) {
+    return json({ ok: false, error: "Unauthorized TradingView webhook" }, 401);
+  }
+  const ticker = sanitizeTicker(body.ticker || body.symbol || body.syminfo?.ticker);
+  const entry = positiveNumber(body.entry_price ?? body.entry ?? body.close ?? body.price);
+  if (!ticker || !entry) return json({ ok: false, error: "ticker and entry_price are required" }, 400);
+
+  const forwarded = new Request(request.url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      source: "tradingview",
+      ticker,
+      grade: body.grade || "A",
+      entry_price: entry,
+      stop_price: positiveNumber(body.stop_price ?? body.stop) || 0,
+      t1: positiveNumber(body.t1 ?? body.target1) || 0,
+      t2: positiveNumber(body.t2 ?? body.target2) || 0,
+      rr: positiveNumber(body.rr) || null,
+      pattern: body.pattern || body.alert_name || "TradingView alert",
+      raw: body.raw || body.message || JSON.stringify(body),
+      received_at: body.received_at || body.time || new Date().toISOString(),
+    }),
+  });
+  return await handleIngestAlert(forwarded, { ...env, INGEST_SECRET: "" });
 }
 
 async function handleLuxAlert(request, env) {
