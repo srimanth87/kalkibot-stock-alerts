@@ -375,7 +375,8 @@ async function handleIngestAlert(request, env) {
 
   await ensureSignalColumns(env);
 
-  const id = `auto-${ticker.toUpperCase()}-${Date.now()}`;
+  const sourcePrefix = alertSourcePrefix(source);
+  const id = `${sourcePrefix}-${ticker.toUpperCase()}-${Date.now()}`;
   const entryMid = Number(entry_price);
   const now = received_at || new Date().toISOString();
 
@@ -689,6 +690,14 @@ function signalSourceKey(signal) {
   if (source.includes("tradingview")) return "tradingview";
   if (source.includes("cloudflare") || source.includes("luxalgo") || source.includes("lux")) return "cloudflarescreener";
   return "telegram";
+}
+
+function alertSourcePrefix(source) {
+  const normalized = String(source || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (normalized.includes("tradingview")) return "tv";
+  if (normalized.includes("cloudflare") || normalized.includes("lux")) return "lux";
+  if (normalized.includes("telegram")) return "tg";
+  return "ingest";
 }
 
 function signalSourceAllowed(signal, cfg) {

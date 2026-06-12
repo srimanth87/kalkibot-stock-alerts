@@ -67,7 +67,7 @@ while true; do
       continue
     fi
 
-    echo "[$(date)] Approved signal detected: ${ticker:-UNKNOWN} ($id)"
+    echo "[$(date)] Approved signal ready: ${ticker:-UNKNOWN} ($id)"
     printf '%s\n' "$id" >> "$SEEN_FILE"
 
     prompt="$(cat "$PROMPT_FILE"; printf '\n'; printf '%s\n' "$signal")"
