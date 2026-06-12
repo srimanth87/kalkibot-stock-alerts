@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kalki AI Trade Agent</title>
+  <style>
+    :root{color-scheme:dark;--bg:#050a0f;--surface:#0a1520;--surface2:#0f1e2e;--border:#1a3040;--accent:#00d4ff;--good:#00ff88;--danger:#ff3b6b;--warn:#ffb347;--text:#d4e6ef;--muted:#6e8798;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--ui:Inter,system-ui,Arial,sans-serif}
+    *{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:linear-gradient(rgba(0,212,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.035) 1px,transparent 1px),var(--bg);background-size:40px 40px;color:var(--text);font:14px/1.45 var(--ui)}
+    .container{max-width:1320px;margin:0 auto;padding:18px 20px 36px}header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:4px 0 16px;border-bottom:1px solid var(--border);margin-bottom:20px}.logo{display:flex;gap:12px;align-items:center}.logo-icon{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--good));display:grid;place-items:center;color:#001018;font-weight:900;box-shadow:0 0 22px rgba(0,212,255,.25)}h1{font-size:22px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);line-height:1}.logo span{display:block;margin-top:5px;font:10px var(--mono);letter-spacing:4px;color:var(--muted);text-transform:uppercase}.mode-badge{font:11px var(--mono);letter-spacing:2px;padding:6px 10px;border:1px solid var(--warn);border-radius:4px;color:var(--warn);background:rgba(255,179,71,.08);text-transform:uppercase}
+    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;overflow:hidden}.stat-card:after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);opacity:.55}.stat-card.green:after{background:var(--good)}.stat-card.warn:after{background:var(--warn)}.stat-label{font:10px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}.stat-value{font:27px var(--mono);font-weight:800;color:var(--text);line-height:1}.green-text{color:var(--good)}.red-text{color:var(--danger)}.accent-text{color:var(--accent)}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-bottom:18px}.panel{background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden}.panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}.panel-title{font:12px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--accent)}.panel-body{min-height:160px;max-height:480px;overflow:auto}.empty{padding:34px 16px;text-align:center;color:var(--muted);font:12px var(--mono);letter-spacing:1px}
+    .alert-item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid rgba(26,48,64,.55)}.badge{width:42px;height:42px;border-radius:6px;display:grid;place-items:center;border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.12);color:var(--accent);font-weight:900}.ticker{font:15px var(--mono);font-weight:900;color:#fff}.meta{font:11px var(--mono);color:var(--muted);margin-top:3px}.reason{margin-top:6px;color:var(--text);font-size:12px}.prices{display:flex;gap:10px;flex-wrap:wrap;font:11px var(--mono);margin-top:4px}.stop{color:var(--danger)}.target{color:var(--good)}.pill{font:10px var(--mono);letter-spacing:1px;padding:4px 8px;border-radius:4px;border:1px solid rgba(0,255,136,.25);color:var(--good);background:rgba(0,255,136,.08);text-transform:uppercase}.pill.watch{border-color:rgba(255,179,71,.25);color:var(--warn);background:rgba(255,179,71,.08)}.pill.skip{border-color:rgba(255,59,107,.25);color:var(--danger);background:rgba(255,59,107,.08)}
+    .manual{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:18px;margin-bottom:18px}.manual-title{font:11px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}.manual-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}textarea,input,select{width:100%;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:6px;padding:10px 12px;font:13px var(--mono);outline:none}textarea{min-height:110px;resize:vertical}button{border:1px solid var(--border);background:var(--surface2);color:var(--accent);border-radius:6px;padding:10px 15px;font-weight:800;cursor:pointer;white-space:nowrap}button.primary{background:linear-gradient(135deg,var(--accent),#0099cc);border-color:transparent;color:#001018}
+    .summary-list{display:grid;gap:10px;padding:14px 16px}.summary-item{padding:12px;border:1px solid rgba(26,48,64,.75);background:rgba(15,30,46,.55);border-radius:8px}.summary-item h3{font:13px var(--mono);color:#fff;margin-bottom:6px}.summary-item p{color:var(--muted);font-size:13px}#toast{position:fixed;right:22px;bottom:22px;display:grid;gap:8px;z-index:30}.toast{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;font:12px var(--mono);max-width:360px}.toast.err{border-left-color:var(--danger)}.toast.ok{border-left-color:var(--good)}
+    @media(max-width:900px){.stats,.grid,.manual-row{grid-template-columns:1fr}.stat-value{font-size:23px}}
+  </style>
+</head>
+<body>
+<main class="container">
+  <header>
+    <div class="logo"><div class="logo-icon">AI</div><div><h1>Kalki AI Trade Agent</h1><span>Shadow Confirmation Engine</span></div></div>
+    <div class="mode-badge" id="mode">Shadow Mode</div>
+  </header>
+
+  <section class="stats">
+    <div class="stat-card"><div class="stat-label">Alerts</div><div class="stat-value" id="alerts">0</div></div>
+    <div class="stat-card green"><div class="stat-label">Take</div><div class="stat-value green-text" id="approved">0</div></div>
+    <div class="stat-card warn"><div class="stat-label">Watch</div><div class="stat-value" id="watched">0</div></div>
+    <div class="stat-card"><div class="stat-label">Best Score</div><div class="stat-value accent-text" id="confidence">--</div></div>
+    <div class="stat-card green"><div class="stat-label">Closed P&L</div><div class="stat-value green-text" id="pnl">$0.00</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Latest AI Decisions</span><button onclick="loadAll()">Refresh</button></div>
+      <div class="panel-body" id="decisions"><div class="empty">Waiting for Telegram alerts...</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">What Is Working</span><button onclick="dailyReview()">Review</button></div>
+      <div class="panel-body"><div class="summary-list" id="summary"><div class="empty">No performance data yet</div></div></div>
+    </div>
+  </section>
+
+  <section class="manual">
+    <div class="manual-title">Test Alert Without Saving</div>
+    <div class="manual-row">
+      <textarea id="alert">⚡ CRDO
+📊 Grade: B | Score: 6/8
+🧩 Structure: 92%
+💰 Price: $181.04
+📈 Entry: $181.04
+🛑 Stop: $176 (-2.8%)
+🎯 T1: $185 (+2.2%)</textarea>
+      <button class="primary" onclick="preview()">Preview AI</button>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+function toast(msg,type){const box=document.getElementById('toast');const el=document.createElement('div');el.className='toast '+(type||'');el.textContent=msg;box.appendChild(el);setTimeout(()=>el.remove(),4300);}
+function fmtMoney(v){const n=Number(v||0);return '$'+n.toFixed(2);}
+function fmtPct(v){if(v===null||v===undefined)return '--';return Math.round(Number(v)*100)+'%';}
+function et(value){if(!value)return '-';return new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(value));}
+async function health(){const r=await fetch('/api/health');const data=await r.json();document.getElementById('mode').textContent=data.ai_enabled?(String(data.ai_provider||'AI').toUpperCase()+' Shadow'):'Rules Shadow';}
+async function loadAll(){await Promise.all([loadSummary(),loadAlerts()]);}
+async function loadSummary(){const r=await fetch('/api/summary');const data=await r.json();if(!data.ok){toast(data.error,'err');return;}const s=data.summary;document.getElementById('alerts').textContent=s.totals?.alerts||0;document.getElementById('approved').textContent=s.totals?.takes||s.totals?.approved||0;document.getElementById('watched').textContent=s.totals?.watched||0;document.getElementById('confidence').textContent=s.totals?.avg_best_trade_score?Math.round(s.totals.avg_best_trade_score):'--';document.getElementById('pnl').textContent=fmtMoney(s.outcomes?.pnl||0);renderWorking(s,data.reviews||[]);}
+function renderWorking(s,reviews){const box=document.getElementById('summary');const grades=(s.by_grade||[]).map(g=>'<div class="summary-item"><h3>Grade '+g.grade+'</h3><p>'+g.alerts+' alerts · '+(g.wins||0)+' wins · '+(g.losses||0)+' losses · avg R '+(g.avg_r?Number(g.avg_r).toFixed(2):'--')+'</p></div>').join('');const review=reviews[0]?'<div class="summary-item"><h3>Latest Review</h3><p>'+reviews[0].summary+'</p></div>':'';box.innerHTML=review+grades||'<div class="empty">No performance data yet</div>';}
+async function loadAlerts(){const r=await fetch('/api/alerts?limit=60');const data=await r.json();if(!data.ok){toast(data.error,'err');return;}const box=document.getElementById('decisions');if(!data.alerts.length){box.innerHTML='<div class="empty">Waiting for Telegram alerts...</div>';return;}box.innerHTML=data.alerts.map(a=>{const decision=(a.decision==='approve'?'take':a.decision)||'pending';const cls=decision==='skip'?'skip':decision==='watch'?'watch':'';const flags=(a.red_flags||[]).slice(0,2).join(' · ');const confirms=(a.confirmations||[]).slice(0,2).join(' · ');const mc=a.alpha_scanner?.market_context||a.alpha_scanner?.marketContext;const live=mc?.ticker;const market=mc?.market;const rs=mc?.relativeStrength;const liveBits=[live?.currentPrice?('Live $'+Number(live.currentPrice).toFixed(2)):'',live?.volumeRatio?('Vol '+Number(live.volumeRatio).toFixed(1)+'x'):'',market?.condition?('Mkt '+market.condition):'',rs?.vsQqqPct!=null?('RS QQQ '+Number(rs.vsQqqPct).toFixed(1)+'%'):''].filter(Boolean).join(' · ');return '<div class="alert-item"><div class="badge">'+(a.trade_quality||a.grade||'--')+'</div><div><div class="ticker">'+a.ticker+' <span class="meta">'+et(a.received_at)+'</span></div><div class="prices"><span>Entry $'+Number(a.entry_price).toFixed(2)+'</span><span class="stop">Stop $'+Number(a.stop_price).toFixed(2)+'</span><span class="target">T1 $'+Number(a.t1).toFixed(2)+'</span><span>Score '+(a.best_trade_score??'--')+'</span><span>C13 '+(a.c13_score??'--')+'</span><span>C1 '+(a.c1_score??'--')+'</span><span>'+(a.entry_timing||'unknown')+'</span></div><div class="meta">'+liveBits+'</div><div class="reason">'+(a.reason||'No decision yet')+'</div><div class="meta">'+(confirms?('✓ '+confirms+' '):'')+(flags?('⚠ '+flags+' '):'')+(a.model||'')+'</div></div><div><span class="pill '+cls+'">'+decision+' '+(a.confidence||'--')+'%</span></div></div>';}).join('');}
+async function preview(){const r=await fetch('/api/test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:document.getElementById('alert').value})});const data=await r.json();toast(data.ok?(data.decision.decision+' '+(data.decision.trade_quality||'')+' score '+(data.decision.best_trade_score??'--')+': '+data.decision.reason):data.error,data.ok?'ok':'err');}
+async function dailyReview(){const r=await fetch('/api/daily-review',{method:'POST'});const data=await r.json();toast(data.ok?'Daily review saved':data.error,data.ok?'ok':'err');await loadSummary();}
+health();loadAll();
+</script>
+</body>
+</html>

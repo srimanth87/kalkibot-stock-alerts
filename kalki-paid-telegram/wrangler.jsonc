@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "kalki-paid-telegram",
+  "account_id": "ec535bfa65beb02ca94ec367571770a8",
   "main": "src/index.js",
   "compatibility_date": "2026-05-24",
   "observability": {
@@ -16,7 +17,7 @@
     "TELEGRAM_BOT_USERNAME": "KalkiAlertsAccessBot",
     "TELEGRAM_INVITE_TTL_SECONDS": "604800",
     "TELEGRAM_INVITE_MEMBER_LIMIT": "2",
-    "TELEGRAM_GROUP_MAP": "{\"charlotte\":\"-1003812424739\",\"cincinnati\":\"-1003563826357\",\"other\":\"-1003923372289\"}"
+    "TELEGRAM_GROUP_MAP": "{\"charlotte\":\"-1003812424739\",\"cincinnati\":\"-1003563826357\",\"other\":\"-1003377752970\"}"
   },
   "d1_databases": [
     {

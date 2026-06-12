@@ -1,0 +1,6 @@
+TELEGRAM_BOT_TOKEN=replace-with-botfather-token
+TELEGRAM_WEBHOOK_SECRET=replace-with-random-secret
+
+# Optional: comma-separated Telegram user ids allowed to press buttons.
+# If omitted, anyone who can see the approval message can approve/reject.
+APPROVER_USER_IDS=

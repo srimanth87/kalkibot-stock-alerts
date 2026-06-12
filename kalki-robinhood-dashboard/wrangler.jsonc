@@ -1,8 +1,12 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "kalki-robinhood-dashboard",
+  "name": "kalkialerts-api",
   "main": "src/index.js",
   "compatibility_date": "2026-05-15",
+  "workers_dev": true,
+  "routes": [
+    "api.kalkianalysis.com/*"
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"

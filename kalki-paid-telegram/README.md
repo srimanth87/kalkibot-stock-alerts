@@ -24,14 +24,24 @@ wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put ADMIN_KEY
 ```
 
+Optional join notifications:
+
+```bash
+wrangler secret put JOIN_NOTIFY_CHAT_ID
+```
+
+Set this to the Telegram chat id where confirmed Telegram join notifications should be posted.
+
 Group routing is configured with `TELEGRAM_GROUP_MAP` in `wrangler.jsonc`. The bot must be an admin with invite-link permission in each group.
+People who join without an access code are routed to the `other` group.
 
 Example:
 
 ```json
 {
   "charlotte": "-1003812424739",
-  "cincinnati": "-1003563826357"
+  "cincinnati": "-1003563826357",
+  "other": "-1003377752970"
 }
 ```
 

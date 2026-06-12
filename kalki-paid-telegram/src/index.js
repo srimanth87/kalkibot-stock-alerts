@@ -1,5 +1,6 @@
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 const RESEND_API_BASE = "https://api.resend.com";
+const DEFAULT_NO_CODE_GROUP_KEY = "other";
 
 export default {
   async fetch(request, env) {
@@ -110,15 +111,22 @@ async function createCheckoutSession(request, env, { firstName, lastName, email,
   params.set("metadata[first_name]", firstName);
   params.set("metadata[last_name]", lastName);
   params.set("metadata[telegram_username]", telegramUsername);
-  params.set("metadata[group_key]", access.groupKey);
+  params.set("metadata[group_key]", DEFAULT_NO_CODE_GROUP_KEY);
   params.set("metadata[source]", "kalki-paid-telegram");
+  params.set("metadata[submitted_discount_code]", access.submittedDiscountCode || "");
   params.set("subscription_data[metadata][first_name]", firstName);
   params.set("subscription_data[metadata][last_name]", lastName);
   params.set("subscription_data[metadata][telegram_username]", telegramUsername);
-  params.set("subscription_data[metadata][group_key]", access.groupKey);
+  params.set("subscription_data[metadata][group_key]", DEFAULT_NO_CODE_GROUP_KEY);
+  params.set("subscription_data[metadata][submitted_discount_code]", access.submittedDiscountCode || "");
   params.set("success_url", checkoutSuccessUrl(env, baseUrl));
   params.set("cancel_url", env.PUBLIC_CANCEL_URL || `${baseUrl}/cancel`);
-  params.set("allow_promotion_codes", "true");
+  const promotionCodeId = await lookupStripePromotionCodeId(env, access.submittedDiscountCode);
+  if (promotionCodeId) {
+    params.set("discounts[0][promotion_code]", promotionCodeId);
+  } else {
+    params.set("allow_promotion_codes", "true");
+  }
 
   const stripeSession = await stripeRequest(env, "POST", "/checkout/sessions", params);
   await recordAccessCodeUse(env, access);
@@ -129,11 +137,16 @@ async function createCheckoutSession(request, env, { firstName, lastName, email,
     last_name: lastName,
     email,
     telegram_username: telegramUsername,
-    group_key: access.groupKey,
-    group_chat_id: access.groupChatId,
+    group_key: DEFAULT_NO_CODE_GROUP_KEY,
+    group_chat_id: "",
     access_source: "stripe",
     status: "checkout_created",
-    raw_event_json: JSON.stringify({ checkout_session: stripeSession, access_code: access.accessCode }),
+    raw_event_json: JSON.stringify({
+      checkout_session: stripeSession,
+      access_code: access.accessCode,
+      submitted_discount_code: access.submittedDiscountCode,
+      stripe_promotion_code_id: promotionCodeId || null,
+    }),
   });
 
   return jsonResponse({ ok: true, url: stripeSession.url, sessionId: stripeSession.id });
@@ -154,12 +167,15 @@ async function createDirectInvite(env, { firstName, lastName, email, telegramUse
     group_key: access.groupKey,
     group_chat_id: access.groupChatId,
     access_source: access.accessSource,
-    status: "active",
+    status: access.accessSource === "trial_code" ? "trial" : "active",
     invite_link: inviteLink,
     invite_link_created_at: new Date().toISOString(),
+    trial_started_at: access.accessSource === "trial_code" ? new Date().toISOString() : "",
+    trial_expires_at: access.trialExpiresAt || "",
     raw_event_json: JSON.stringify({
       source: access.accessSource,
       submitted_access_code: access.submittedAccessCode,
+      trial_days: access.trialDays || null,
     }),
   });
   await sendWelcomeEmailSafely(env, {
@@ -214,10 +230,8 @@ async function handleCheckoutCompleted(session, event, env) {
   const firstName = cleanPersonName(session.metadata?.first_name);
   const lastName = cleanPersonName(session.metadata?.last_name);
   const telegramUsername = cleanTelegramContact(session.metadata?.telegram_username || session.client_reference_id);
-  const groupKey = cleanGroupKey(session.metadata?.group_key);
-  const groupChatId = await groupIdForKey(env, groupKey);
   const email = cleanEmail(session.customer_details?.email || session.customer_email);
-  const inviteLink = await createTelegramInviteLink(env, session.id, groupChatId);
+  const groupKey = DEFAULT_NO_CODE_GROUP_KEY;
   await upsertSubscriber(env, {
     id: crypto.randomUUID(),
     checkout_session_id: session.id,
@@ -228,11 +242,9 @@ async function handleCheckoutCompleted(session, event, env) {
     email,
     telegram_username: telegramUsername,
     group_key: groupKey,
-    group_chat_id: groupChatId,
+    group_chat_id: "",
     access_source: "stripe",
-    status: session.subscription ? "active" : session.payment_status || "paid",
-    invite_link: inviteLink,
-    invite_link_created_at: new Date().toISOString(),
+    status: session.subscription ? "paid_pending_activation" : "paid_pending_activation",
     raw_event_json: JSON.stringify(event),
   });
   const subscriberId = await subscriberIdForSession(env, session.id);
@@ -244,7 +256,7 @@ async function handleCheckoutCompleted(session, event, env) {
     email,
     telegramUsername,
     groupKey,
-    inviteLink,
+    inviteLink: "",
     accessSource: "stripe",
   });
 }
@@ -283,6 +295,7 @@ async function handleTelegramWebhook(request, env) {
     return jsonResponse({ ok: false, error: "Invalid Telegram update" }, 400);
   }
 
+  await handleTelegramCallbackQuery(update, env);
   await handleTelegramPrivateMessage(update, env);
   await recordTelegramJoin(update, env);
   return jsonResponse({ ok: true });
@@ -316,11 +329,12 @@ async function handleTelegramPrivateMessage(update, env) {
   }
 
   const row = await env.DB.prepare(`
-    SELECT id, checkout_session_id, first_name, group_key, status, invite_link
+    SELECT id, checkout_session_id, first_name, last_name, email, telegram_username,
+           group_key, status, invite_link, telegram_started_at
     FROM subscribers
     WHERE id = ?
   `).bind(token).first();
-  if (!row || !isActiveStatus(row.status) || !row.invite_link) {
+  if (!row || !isPaidAccessStatus(row.status)) {
     await sendTelegramMessage(env, message.chat.id, "I could not find active Kalki Alerts access for this activation link. Please use the link shown after checkout or contact support.");
     return;
   }
@@ -348,12 +362,89 @@ async function handleTelegramPrivateMessage(update, env) {
   ).run();
 
   const greeting = cleanPersonName(row.first_name) || firstName || "there";
-  const groupName = labelForGroupKey(row.group_key || "other");
+  if (row.invite_link) {
+    const groupName = labelForGroupKey(row.group_key || "other");
+    await sendTelegramMessage(
+      env,
+      message.chat.id,
+      `Hi ${greeting}. Your Kalki Alerts access is verified for ${groupName}.\n\nJoin here: ${row.invite_link}\n\nThis invite is limited and expires in 7 days.`,
+    );
+    return;
+  }
+
+  await env.DB.prepare(`
+    UPDATE subscribers
+    SET status = 'pending_group_approval', updated_at = ?
+    WHERE id = ? AND invite_link IS NULL
+  `).bind(new Date().toISOString(), row.id).run();
+
   await sendTelegramMessage(
     env,
     message.chat.id,
-    `Hi ${greeting}. Your Kalki Alerts access is verified for ${groupName}.\n\nJoin here: ${row.invite_link}\n\nThis invite is limited and expires in 7 days.`,
+    `Hi ${greeting}. Your payment is verified. Your Telegram access is waiting for group approval.\n\nYou will receive your group invite here shortly.`,
   );
+
+  await notifyGroupApprovalNeededSafely(env, {
+    ...row,
+    status: "pending_group_approval",
+    telegram_user_id: String(user.id),
+    telegram_join_username: username,
+    telegram_join_first_name: firstName,
+    telegram_join_last_name: lastName,
+  });
+}
+
+async function handleTelegramCallbackQuery(update, env) {
+  const callback = update.callback_query;
+  if (!callback) return;
+
+  const data = String(callback.data || "");
+  if (!data.startsWith("approve:")) return;
+
+  const [, subscriberId, rawGroupKey] = data.split(":");
+  const groupKey = cleanGroupKey(rawGroupKey);
+  const groupChatId = await groupIdForKey(env, groupKey);
+  if (!subscriberId || !groupKey || !groupChatId) {
+    await answerCallbackQuery(env, callback.id, "Group is not configured.");
+    return;
+  }
+
+  const row = await env.DB.prepare(`
+    SELECT id, checkout_session_id, first_name, last_name, email, telegram_username,
+           telegram_user_id, status, invite_link
+    FROM subscribers
+    WHERE id = ?
+  `).bind(subscriberId).first();
+  if (!row || !isPaidAccessStatus(row.status)) {
+    await answerCallbackQuery(env, callback.id, "Subscriber is not active.");
+    return;
+  }
+  if (row.invite_link) {
+    await answerCallbackQuery(env, callback.id, "Invite already exists.");
+    return;
+  }
+
+  const inviteLink = await createTelegramInviteLink(env, row.checkout_session_id, groupChatId);
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    UPDATE subscribers
+    SET group_key = ?, group_chat_id = ?, status = 'active',
+        invite_link = ?, invite_link_created_at = ?, updated_at = ?
+    WHERE id = ?
+  `).bind(groupKey, groupChatId, inviteLink, now, now, row.id).run();
+
+  const groupName = labelForGroupKey(groupKey);
+  const customerChatId = stringOrNull(row.telegram_user_id);
+  if (customerChatId) {
+    await sendTelegramMessage(
+      env,
+      customerChatId,
+      `Your Kalki Alerts access is approved for ${groupName}.\n\nJoin here: ${inviteLink}\n\nThis invite is limited and expires in 7 days.`,
+    );
+  }
+
+  await answerCallbackQuery(env, callback.id, `Approved for ${groupName}.`);
+  await editTelegramMessageText(env, callback.message?.chat?.id, callback.message?.message_id, approvalCompleteText(row, groupKey, customerChatId));
 }
 
 async function recordTelegramJoin(update, env) {
@@ -394,11 +485,21 @@ async function recordTelegramJoin(update, env) {
       new Date().toISOString(),
       inviteLink,
     ).run();
-    if (result.meta?.changes) return;
+    if (result.meta?.changes) {
+      const subscriber = await subscriberForJoin(env, { inviteLink, telegramUsername, groupChatId: chatId });
+      await notifyJoinEventSafely(env, "Member Joined", joinNotificationData(subscriber, {
+        firstName,
+        lastName,
+        telegramUsername,
+        groupChatId: chatId,
+        telegramUserId: String(user.id),
+      }));
+      return;
+    }
   }
 
   if (telegramUsername) {
-    await env.DB.prepare(`
+    const result = await env.DB.prepare(`
       UPDATE subscribers
       SET telegram_user_id = ?, telegram_join_username = ?, telegram_join_first_name = ?,
           telegram_join_last_name = ?, telegram_join_chat_id = ?, telegram_joined_at = ?,
@@ -416,6 +517,49 @@ async function recordTelegramJoin(update, env) {
       telegramUsername,
       chatId,
     ).run();
+    if (result.meta?.changes) {
+      const subscriber = await subscriberForJoin(env, { telegramUsername, groupChatId: chatId });
+      await notifyJoinEventSafely(env, "Member Joined", joinNotificationData(subscriber, {
+        firstName,
+        lastName,
+        telegramUsername,
+        groupChatId: chatId,
+        telegramUserId: String(user.id),
+      }));
+      return;
+    }
+  }
+
+  const telegramUserId = stringOrNull(user.id);
+  if (telegramUserId) {
+    const result = await env.DB.prepare(`
+      UPDATE subscribers
+      SET telegram_user_id = ?, telegram_join_username = ?, telegram_join_first_name = ?,
+          telegram_join_last_name = ?, telegram_join_chat_id = ?, telegram_joined_at = ?,
+          telegram_join_raw_json = ?, updated_at = ?
+      WHERE telegram_user_id = ? AND group_chat_id = ? AND telegram_joined_at IS NULL
+    `).bind(
+      telegramUserId,
+      telegramUsername,
+      firstName,
+      lastName,
+      chatId,
+      joinedAt,
+      raw,
+      new Date().toISOString(),
+      telegramUserId,
+      chatId,
+    ).run();
+    if (result.meta?.changes) {
+      const subscriber = await subscriberForJoin(env, { telegramUserId, groupChatId: chatId });
+      await notifyJoinEventSafely(env, "Member Joined", joinNotificationData(subscriber, {
+        firstName,
+        lastName,
+        telegramUsername,
+        groupChatId: chatId,
+        telegramUserId,
+      }));
+    }
   }
 }
 
@@ -426,7 +570,7 @@ async function adminSetupTelegramWebhook(request, url, env) {
   const result = await telegramRequest(env, "setWebhook", {
     url: webhookUrl,
     secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-    allowed_updates: ["message", "chat_member", "chat_join_request"],
+    allowed_updates: ["message", "callback_query", "chat_member", "chat_join_request"],
   });
   return jsonResponse({ ok: true, webhookUrl, result });
 }
@@ -448,7 +592,7 @@ async function getSessionStatus(url, env) {
     email: row.email,
     telegramUsername: row.telegram_username,
     groupKey: row.group_key,
-    botStartUrl: isActiveStatus(row.status) && row.invite_link ? botStartUrl(env, row.id) : "",
+    botStartUrl: isPaidAccessStatus(row.status) ? botStartUrl(env, row.id) : "",
     telegramStarted: Boolean(row.telegram_started_at),
     pending: !row.invite_link,
   });
@@ -459,7 +603,8 @@ async function adminList(url, env) {
     return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
   }
   const result = await env.DB.prepare(`
-    SELECT first_name, last_name, email, telegram_username, group_key, access_source, status, invite_link_created_at, created_at, updated_at
+    SELECT first_name, last_name, email, telegram_username, group_key, access_source, status,
+           invite_link_created_at, trial_started_at, trial_expires_at, created_at, updated_at
     FROM subscribers
     ORDER BY updated_at DESC
     LIMIT 100
@@ -470,14 +615,15 @@ async function adminList(url, env) {
 async function adminCodesPage(url, env) {
   if (!isAdminRequest(url, env)) return adminUnauthorizedPage();
   const result = await env.DB.prepare(`
-    SELECT code, group_key, mode, active, max_uses, uses_count, notes, created_at, updated_at
+    SELECT code, group_key, mode, active, max_uses, uses_count, trial_days, notes, created_at, updated_at
     FROM access_codes
     ORDER BY updated_at DESC
   `).all();
   const rows = result.results || [];
   const membersResult = await env.DB.prepare(`
     SELECT checkout_session_id, first_name, last_name, email, telegram_username, group_key, group_chat_id,
-           access_source, status, invite_link, invite_link_created_at, created_at, updated_at
+           access_source, status, invite_link, invite_link_created_at, trial_started_at, trial_expires_at,
+           created_at, updated_at
     FROM subscribers
     ORDER BY updated_at DESC
     LIMIT 100
@@ -486,7 +632,7 @@ async function adminCodesPage(url, env) {
   const telegramMembersResult = await env.DB.prepare(`
     SELECT checkout_session_id, first_name, last_name, email, telegram_username, telegram_join_username,
            telegram_join_first_name, telegram_join_last_name, telegram_user_id,
-           group_key, access_source, status, telegram_joined_at
+           group_key, access_source, status, trial_expires_at, telegram_joined_at
     FROM subscribers
     WHERE telegram_joined_at IS NOT NULL
     ORDER BY telegram_joined_at DESC
@@ -527,9 +673,10 @@ async function adminCodesPage(url, env) {
     <tr>
       <td><code>${escapeHtml(row.code)}</code></td>
       <td>${escapeHtml(labelForGroupKey(row.group_key))}</td>
-      <td>${row.mode === "manual" ? "Manual/Zelle" : "Stripe"}</td>
+      <td>${escapeHtml(labelForCodeMode(row.mode))}</td>
       <td>${row.active ? "Active" : "Paused"}</td>
       <td>${row.max_uses == null ? "Unlimited" : `${Number(row.uses_count || 0)} / ${Number(row.max_uses)}`}</td>
+      <td>${row.mode === "trial" ? `${Number(row.trial_days || 7)} days` : ""}</td>
       <td>${escapeHtml(row.notes || "")}</td>
       <td>
         <form method="post" action="/admin/codes/delete?key=${key}">
@@ -538,7 +685,7 @@ async function adminCodesPage(url, env) {
         </form>
       </td>
     </tr>
-  `).join("") : `<tr><td colspan="7" class="empty">No codes yet.</td></tr>`;
+  `).join("") : `<tr><td colspan="8" class="empty">No codes yet.</td></tr>`;
   const membersHtml = members.length ? members.map(member => {
     const fullName = [member.first_name, member.last_name].filter(Boolean).join(" ") || "Unknown";
     const groupLabel = groupLabels[member.group_key] || labelForGroupKey(member.group_key);
@@ -550,6 +697,7 @@ async function adminCodesPage(url, env) {
         <td>${escapeHtml(groupLabel)}</td>
         <td>${escapeHtml(labelForSource(member.access_source))}</td>
         <td>${escapeHtml(member.status || "")}</td>
+        <td>${escapeHtml(formatAdminDate(member.trial_expires_at))}</td>
         <td>${escapeHtml(formatAdminDate(member.invite_link_created_at || member.created_at))}</td>
         <td>${escapeHtml(formatAdminDate(member.updated_at))}</td>
         <td>
@@ -562,37 +710,43 @@ async function adminCodesPage(url, env) {
         </td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="9" class="empty">No members yet.</td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="empty">No members yet.</td></tr>`;
   const telegramMembersHtml = telegramMembers.length ? telegramMembers.map(member => {
     const joinedName = [member.telegram_join_first_name, member.telegram_join_last_name].filter(Boolean).join(" ");
     const submittedName = [member.first_name, member.last_name].filter(Boolean).join(" ");
     const fullName = submittedName || joinedName || "Unknown";
     const username = member.telegram_join_username || member.telegram_username || "";
     const groupLabel = groupLabels[member.group_key] || labelForGroupKey(member.group_key);
+    const memberGroupOptions = activeGroups.map(group => {
+      const selected = group.group_key === member.group_key ? " selected" : "";
+      return `<option value="${escapeHtml(group.group_key)}"${selected}>${escapeHtml(group.label)}</option>`;
+    }).join("");
     return `
       <tr>
         <td>${escapeHtml(fullName)}</td>
         <td><code>${escapeHtml(username)}</code></td>
         <td><code>${escapeHtml(member.telegram_user_id || "")}</code></td>
         <td>${escapeHtml(groupLabel)}</td>
+        <td>${escapeHtml(formatAdminDate(member.trial_expires_at))}</td>
         <td>${escapeHtml(formatAdminDate(member.telegram_joined_at))}</td>
         <td>
           <form method="post" action="/admin/members/update?key=${key}">
             <input type="hidden" name="sessionId" value="${escapeHtml(member.checkout_session_id)}">
             <input name="telegramUserId" value="${escapeHtml(member.telegram_user_id || "")}" placeholder="Telegram ID">
+            <select name="groupKey">${memberGroupOptions}</select>
             <button type="submit">Update</button>
           </form>
         </td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="6" class="empty">No Telegram joins captured yet.</td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty">No Telegram joins captured yet.</td></tr>`;
 
   return htmlResponse(pageShell("Access Codes", `
     <main class="wrap admin-wrap">
       <section class="hero">
         <p class="eyebrow">Admin</p>
         <h1>Access Codes</h1>
-        <p class="copy">Create codes that route people to the right Telegram group. Stripe codes send them to checkout. Manual/Zelle codes skip Stripe and generate an invite.</p>
+        <p class="copy">Create codes that route people to the right Telegram group. Stripe codes send them to checkout. Manual/Zelle and trial codes skip Stripe and generate an invite.</p>
       </section>
       ${message ? `<p class="notice">${message}</p>` : ""}
       <form class="panel grid-form" method="post" action="/admin/groups?key=${key}">
@@ -615,8 +769,10 @@ async function adminCodesPage(url, env) {
           <select name="mode" required>
             <option value="stripe">Stripe required</option>
             <option value="manual">Manual/Zelle skip Stripe</option>
+            <option value="trial">Free trial</option>
           </select>
         </label>
+        <label>Trial days<input name="trialDays" type="number" min="1" max="90" value="7"></label>
         <label>Max uses<input name="maxUses" type="number" min="1" placeholder="blank = unlimited"></label>
         <label>Notes<input name="notes" placeholder="who this code is for"></label>
         <label class="check"><input name="active" type="checkbox" value="1" checked> Active</label>
@@ -624,7 +780,7 @@ async function adminCodesPage(url, env) {
       </form>
       <section class="panel table-panel">
         <table>
-          <thead><tr><th>Code</th><th>Group</th><th>Mode</th><th>Status</th><th>Uses</th><th>Notes</th><th></th></tr></thead>
+          <thead><tr><th>Code</th><th>Group</th><th>Mode</th><th>Status</th><th>Uses</th><th>Trial</th><th>Notes</th><th></th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </section>
@@ -646,14 +802,14 @@ async function adminCodesPage(url, env) {
           </details>
         </div>
         <table>
-          <thead><tr><th>Name</th><th>Telegram</th><th>Telegram ID</th><th>Group</th><th>Joined Telegram</th><th>Update ID</th></tr></thead>
+          <thead><tr><th>Name</th><th>Telegram</th><th>Telegram ID</th><th>Group</th><th>Trial Ends</th><th>Joined Telegram</th><th>Update ID</th></tr></thead>
           <tbody>${telegramMembersHtml}</tbody>
         </table>
       </section>
       <section class="panel table-panel">
         <h2>Access Records</h2>
         <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Telegram</th><th>Group</th><th>Source</th><th>Status</th><th>Invite</th><th>Updated</th><th>Link</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Telegram</th><th>Group</th><th>Source</th><th>Status</th><th>Trial Ends</th><th>Invite</th><th>Updated</th><th>Link</th></tr></thead>
           <tbody>${membersHtml}</tbody>
         </table>
       </section>
@@ -666,7 +822,10 @@ async function adminSaveCode(request, url, env) {
   const form = await request.formData();
   const code = cleanAccessCode(form.get("code"));
   const groupKey = cleanGroupKey(form.get("groupKey"));
-  const mode = String(form.get("mode") || "") === "manual" ? "manual" : "stripe";
+  const rawMode = String(form.get("mode") || "").trim().toLowerCase();
+  const mode = ["manual", "trial"].includes(rawMode) ? rawMode : "stripe";
+  const trialDaysValue = String(form.get("trialDays") || "").trim();
+  const trialDays = mode === "trial" ? Math.max(1, Math.min(90, Number(trialDaysValue) || 7)) : null;
   const maxUsesValue = String(form.get("maxUses") || "").trim();
   const maxUses = maxUsesValue ? Math.max(1, Number(maxUsesValue)) : null;
   const active = form.get("active") === "1" ? 1 : 0;
@@ -677,16 +836,17 @@ async function adminSaveCode(request, url, env) {
   }
 
   await env.DB.prepare(`
-    INSERT INTO access_codes (code, group_key, mode, active, max_uses, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO access_codes (code, group_key, mode, active, max_uses, trial_days, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(code) DO UPDATE SET
       group_key = excluded.group_key,
       mode = excluded.mode,
       active = excluded.active,
       max_uses = excluded.max_uses,
+      trial_days = excluded.trial_days,
       notes = excluded.notes,
       updated_at = excluded.updated_at
-  `).bind(code, groupKey, mode, active, maxUses, notes, new Date().toISOString(), new Date().toISOString()).run();
+  `).bind(code, groupKey, mode, active, maxUses, trialDays, notes, new Date().toISOString(), new Date().toISOString()).run();
 
   return redirectToCodes(url, `Saved code ${code}.`);
 }
@@ -757,15 +917,21 @@ async function adminUpdateMember(request, url, env) {
   const form = await request.formData();
   const sessionId = String(form.get("sessionId") || "").trim();
   const telegramUserId = String(form.get("telegramUserId") || "").trim().replace(/[^\d]/g, "");
+  const groupKey = cleanGroupKey(form.get("groupKey"));
+  const groupChatId = groupKey ? await groupIdForKey(env, groupKey) : "";
   if (!sessionId) return redirectToCodes(url, "Missing member row.");
+  if (groupKey && !groupChatId) return redirectToCodes(url, "Invalid group.");
 
   await env.DB.prepare(`
     UPDATE subscribers
-    SET telegram_user_id = ?, updated_at = ?
+    SET telegram_user_id = ?,
+        group_key = COALESCE(NULLIF(?, ''), group_key),
+        group_chat_id = COALESCE(NULLIF(?, ''), group_chat_id),
+        updated_at = ?
     WHERE checkout_session_id = ?
-  `).bind(telegramUserId || null, new Date().toISOString(), sessionId).run();
+  `).bind(telegramUserId || null, groupKey, groupChatId, new Date().toISOString(), sessionId).run();
 
-  return redirectToCodes(url, telegramUserId ? "Updated Telegram ID." : "Cleared Telegram ID.");
+  return redirectToCodes(url, groupKey ? "Updated member ID and group." : telegramUserId ? "Updated Telegram ID." : "Cleared Telegram ID.");
 }
 
 async function adminSaveGroup(request, url, env) {
@@ -837,8 +1003,8 @@ async function upsertSubscriber(env, data) {
     INSERT INTO subscribers (
       id, checkout_session_id, stripe_customer_id, stripe_subscription_id, first_name, last_name, email,
       telegram_username, group_key, group_chat_id, access_source, status, invite_link,
-      invite_link_created_at, created_at, updated_at, raw_event_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      invite_link_created_at, trial_started_at, trial_expires_at, created_at, updated_at, raw_event_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(checkout_session_id) DO UPDATE SET
       stripe_customer_id = COALESCE(excluded.stripe_customer_id, subscribers.stripe_customer_id),
       stripe_subscription_id = COALESCE(excluded.stripe_subscription_id, subscribers.stripe_subscription_id),
@@ -852,6 +1018,8 @@ async function upsertSubscriber(env, data) {
       status = excluded.status,
       invite_link = COALESCE(excluded.invite_link, subscribers.invite_link),
       invite_link_created_at = COALESCE(excluded.invite_link_created_at, subscribers.invite_link_created_at),
+      trial_started_at = COALESCE(excluded.trial_started_at, subscribers.trial_started_at),
+      trial_expires_at = COALESCE(excluded.trial_expires_at, subscribers.trial_expires_at),
       updated_at = excluded.updated_at,
       raw_event_json = COALESCE(excluded.raw_event_json, subscribers.raw_event_json)
   `).bind(
@@ -869,6 +1037,8 @@ async function upsertSubscriber(env, data) {
     data.status || "pending",
     stringOrNull(data.invite_link),
     stringOrNull(data.invite_link_created_at),
+    stringOrNull(data.trial_started_at),
+    stringOrNull(data.trial_expires_at),
     now,
     now,
     stringOrNull(data.raw_event_json),
@@ -905,13 +1075,186 @@ async function telegramRequest(env, methodName, payload) {
   return data.result;
 }
 
-async function sendTelegramMessage(env, chatId, text) {
+async function sendTelegramMessage(env, chatId, text, extra = {}) {
   assertEnv(env, ["TELEGRAM_BOT_TOKEN"]);
   return await telegramRequest(env, "sendMessage", {
     chat_id: chatId,
     text,
     disable_web_page_preview: true,
+    ...extra,
   });
+}
+
+async function answerCallbackQuery(env, callbackQueryId, text) {
+  if (!callbackQueryId) return;
+  await telegramRequest(env, "answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    text: String(text || "").slice(0, 180),
+  });
+}
+
+async function editTelegramMessageText(env, chatId, messageId, text) {
+  if (!chatId || !messageId) return;
+  await telegramRequest(env, "editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    disable_web_page_preview: true,
+  });
+}
+
+async function notifyGroupApprovalNeededSafely(env, subscriber) {
+  try {
+    await notifyGroupApprovalNeeded(env, subscriber);
+  } catch (error) {
+    console.warn("group_approval_notification_failed", error?.message || error);
+  }
+}
+
+async function notifyGroupApprovalNeeded(env, subscriber) {
+  const chatId = joinNotifyChatId(env);
+  if (!chatId) return;
+  const groups = await accessGroups(env);
+  if (!groups.length) return;
+
+  await sendTelegramMessage(env, chatId, approvalNeededText(subscriber), {
+    reply_markup: {
+      inline_keyboard: approvalKeyboard(subscriber.id, groups),
+    },
+  });
+}
+
+function approvalKeyboard(subscriberId, groups) {
+  const buttons = groups.map(group => ({
+    text: group.label || labelForGroupKey(group.group_key),
+    callback_data: `approve:${subscriberId}:${group.group_key}`,
+  }));
+  const rows = [];
+  for (let index = 0; index < buttons.length; index += 2) {
+    rows.push(buttons.slice(index, index + 2));
+  }
+  return rows;
+}
+
+function approvalNeededText(subscriber) {
+  const name = [subscriber.first_name, subscriber.last_name].filter(Boolean).join(" ") || "Unknown";
+  const lines = [
+    "Kalki Group Approval Needed",
+    "",
+    `Name: ${name}`,
+    subscriber.email ? `Email: ${subscriber.email}` : "",
+    subscriber.telegram_username ? `Submitted Telegram: ${subscriber.telegram_username}` : "",
+    subscriber.telegram_join_username ? `Telegram: @${subscriber.telegram_join_username}` : "",
+    subscriber.telegram_user_id ? `Telegram ID: ${subscriber.telegram_user_id}` : "",
+    subscriber.checkout_session_id ? `Session: ${subscriber.checkout_session_id}` : "",
+    "",
+    "Choose the Telegram group:",
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
+function approvalCompleteText(subscriber, groupKey, sentToCustomer) {
+  const name = [subscriber.first_name, subscriber.last_name].filter(Boolean).join(" ") || "Unknown";
+  const lines = [
+    "Kalki Group Approved",
+    "",
+    `Name: ${name}`,
+    subscriber.email ? `Email: ${subscriber.email}` : "",
+    `Group: ${labelForGroupKey(groupKey)}`,
+    sentToCustomer ? "Invite sent to customer in bot chat." : "Invite created, but customer Telegram ID was missing.",
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
+async function subscriberForJoin(env, { inviteLink = "", telegramUsername = "", telegramUserId = "", groupChatId = "" }) {
+  if (inviteLink) {
+    const row = await env.DB.prepare(`
+      SELECT checkout_session_id, first_name, last_name, email, telegram_username, group_key,
+             group_chat_id, access_source, status, invite_link_created_at, trial_started_at,
+             trial_expires_at, telegram_joined_at
+      FROM subscribers
+      WHERE invite_link = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).bind(inviteLink).first();
+    if (row) return row;
+  }
+
+  if (telegramUsername && groupChatId) {
+    return await env.DB.prepare(`
+      SELECT checkout_session_id, first_name, last_name, email, telegram_username, group_key,
+             group_chat_id, access_source, status, invite_link_created_at, trial_started_at,
+             trial_expires_at, telegram_joined_at
+      FROM subscribers
+      WHERE telegram_username = ? AND group_chat_id = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).bind(telegramUsername, groupChatId).first();
+  }
+
+  if (telegramUserId && groupChatId) {
+    return await env.DB.prepare(`
+      SELECT checkout_session_id, first_name, last_name, email, telegram_username, group_key,
+             group_chat_id, access_source, status, invite_link_created_at, trial_started_at,
+             trial_expires_at, telegram_joined_at
+      FROM subscribers
+      WHERE telegram_user_id = ? AND group_chat_id = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).bind(telegramUserId, groupChatId).first();
+  }
+
+  return null;
+}
+
+function joinNotificationData(subscriber, joined) {
+  return {
+    firstName: subscriber?.first_name || joined.firstName,
+    lastName: subscriber?.last_name || joined.lastName,
+    email: subscriber?.email || "",
+    telegramUsername: joined.telegramUsername || subscriber?.telegram_username || "",
+    telegramUserId: joined.telegramUserId || "",
+    groupKey: subscriber?.group_key || "",
+    groupChatId: subscriber?.group_chat_id || joined.groupChatId || "",
+    accessSource: subscriber?.access_source || "",
+    sessionId: subscriber?.checkout_session_id || "",
+    status: subscriber?.status || "",
+    trialStartedAt: subscriber?.trial_started_at || "",
+    trialExpiresAt: subscriber?.trial_expires_at || "",
+    joinedAt: subscriber?.telegram_joined_at || "",
+  };
+}
+
+async function notifyJoinEventSafely(env, title, data) {
+  const chatId = joinNotifyChatId(env);
+  if (!chatId) return;
+
+  const name = [data.firstName, data.lastName].filter(Boolean).join(" ") || "Unknown";
+  const lines = [
+    `Kalki ${title}`,
+    "",
+    `Name: ${name}`,
+    data.email ? `Email: ${data.email}` : "",
+    data.telegramUsername ? `Telegram: ${data.telegramUsername}` : "",
+    data.telegramUserId ? `Telegram ID: ${data.telegramUserId}` : "",
+    data.groupKey ? `Group: ${data.groupKey}` : "",
+    data.groupChatId ? `Group ID: ${data.groupChatId}` : "",
+    data.accessSource ? `Source: ${labelForSource(data.accessSource)}` : "",
+    data.status ? `Status: ${labelForSource(data.status)}` : "",
+    data.trialExpiresAt ? `Trial ends: ${formatAdminDate(data.trialExpiresAt)}` : "",
+    data.sessionId ? `Session: ${data.sessionId}` : "",
+    data.joinedAt ? `Joined: ${formatAdminDate(data.joinedAt)}` : "",
+  ].filter(Boolean);
+
+  try {
+    await sendTelegramMessage(env, chatId, lines.join("\n"));
+  } catch (error) {
+    console.warn("Join notification failed", error?.message || error);
+  }
+}
+
+function joinNotifyChatId(env) {
+  return String(env.JOIN_NOTIFY_CHAT_ID || env.NASDAQ_SCANNER_CHAT_ID || "").trim();
 }
 
 async function sendWelcomeEmailSafely(env, data) {
@@ -923,11 +1266,10 @@ async function sendWelcomeEmailSafely(env, data) {
 }
 
 async function sendWelcomeEmail(env, data) {
-  if (!env.RESEND_API_KEY || !env.WELCOME_EMAIL_FROM || !data.email || !data.inviteLink || !data.subscriberId) return;
+  if (!env.RESEND_API_KEY || !env.WELCOME_EMAIL_FROM || !data.email || !data.subscriberId) return;
 
   const productName = env.PRODUCT_NAME || "Kalki Alerts Telegram Membership";
   const firstName = data.firstName || "there";
-  const groupName = labelForGroupKey(data.groupKey || "other");
   const manageUrl = billingPortalUrl(env);
   const activateUrl = botStartUrl(env, data.subscriberId);
   const supportEmail = stringOrNull(env.SUPPORT_EMAIL);
@@ -935,7 +1277,6 @@ async function sendWelcomeEmail(env, data) {
   const html = welcomeEmailHtml({
     productName,
     firstName,
-    groupName,
     activateUrl,
     manageUrl,
     supportEmail,
@@ -943,7 +1284,6 @@ async function sendWelcomeEmail(env, data) {
   const text = welcomeEmailText({
     productName,
     firstName,
-    groupName,
     activateUrl,
     manageUrl,
     supportEmail,
@@ -972,15 +1312,15 @@ async function sendWelcomeEmail(env, data) {
   }
 }
 
-function welcomeEmailHtml({ productName, firstName, groupName, activateUrl, manageUrl, supportEmail }) {
+function welcomeEmailHtml({ productName, firstName, activateUrl, manageUrl, supportEmail }) {
   return `<!doctype html>
 <html>
 <body style="margin:0;background:#f8fafc;color:#111827;font-family:Arial,sans-serif;line-height:1.55">
   <div style="max-width:620px;margin:0 auto;padding:28px 20px">
     <p style="margin:0 0 8px;color:#f59e0b;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">Kalki Alerts</p>
     <h1 style="margin:0 0 14px;font-size:28px;line-height:1.2">Welcome, ${escapeHtml(firstName)}</h1>
-    <p>Thanks for joining ${escapeHtml(productName)}. Your access is ready for the ${escapeHtml(groupName)} Telegram group.</p>
-    <p>Open the Kalki Alerts bot to verify your Telegram account and receive your group invite.</p>
+    <p>Thanks for joining ${escapeHtml(productName)}. Your payment is confirmed.</p>
+    <p>Open the Kalki Alerts bot to verify your Telegram account. Your group invite will be sent after approval.</p>
     <p><a href="${escapeHtml(activateUrl)}" style="display:inline-block;background:#f59e0b;color:#111827;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:8px">Activate in Telegram</a></p>
     <p>If the button does not work, copy and paste this link into Telegram:<br><a href="${escapeHtml(activateUrl)}">${escapeHtml(activateUrl)}</a></p>
     <p>You can manage or cancel your subscription here:<br><a href="${escapeHtml(manageUrl)}">${escapeHtml(manageUrl)}</a></p>
@@ -991,13 +1331,13 @@ function welcomeEmailHtml({ productName, firstName, groupName, activateUrl, mana
 </html>`;
 }
 
-function welcomeEmailText({ productName, firstName, groupName, activateUrl, manageUrl, supportEmail }) {
+function welcomeEmailText({ productName, firstName, activateUrl, manageUrl, supportEmail }) {
   return [
     `Welcome, ${firstName}`,
     "",
-    `Thanks for joining ${productName}. Your access is ready for the ${groupName} Telegram group.`,
+    `Thanks for joining ${productName}. Your payment is confirmed.`,
     "",
-    "Open the Kalki Alerts bot to verify your Telegram account and receive your group invite.",
+    "Open the Kalki Alerts bot to verify your Telegram account. Your group invite will be sent after approval.",
     "",
     `Activate in Telegram: ${activateUrl}`,
     "",
@@ -1009,14 +1349,16 @@ function welcomeEmailText({ productName, firstName, groupName, activateUrl, mana
 }
 
 async function stripeRequest(env, method, path, body) {
-  const response = await fetch(`${STRIPE_API_BASE}${path}`, {
+  const init = {
     method,
     headers: {
       Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body,
-  });
+  };
+  if (body) init.body = body;
+
+  const response = await fetch(`${STRIPE_API_BASE}${path}`, init);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error?.message || "Stripe request failed");
   return data;
@@ -1070,7 +1412,7 @@ function joinPage(env) {
         <label>Last name<input name="lastName" required placeholder="Last name"></label>
         <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
         <label>Telegram username or phone number<input name="telegramUsername" required placeholder="@yourhandle or +15131234567"></label>
-        <label>Access code<input name="accessCode" placeholder="optional code"></label>
+        <label>Discount code<input name="discountCode" placeholder="optional discount code"></label>
         <button id="submitBtn" type="submit">Continue</button>
         <p id="msg" class="msg"></p>
         <p class="fine">Already subscribed? <a href="https://billing.stripe.com/p/login/bJecN5b74e2t2EEclAbwk00">Manage subscription</a>.</p>
@@ -1210,19 +1552,32 @@ function cleanAccessCode(value) {
   return cleanGroupKey(value);
 }
 
+function cleanDiscountCode(value) {
+  return String(value || "").trim().slice(0, 80);
+}
+
 async function resolveAccess(env, body) {
-  const submittedAccessCode = cleanAccessCode(body.accessCode);
+  const submittedDiscountCode = cleanDiscountCode(body.discountCode || body.accessCode);
+  const submittedAccessCode = cleanAccessCode(body.accessCode || body.discountCode);
 
   const dbCode = submittedAccessCode ? await lookupAccessCode(env, submittedAccessCode) : null;
   if (dbCode) {
-    const mode = dbCode.mode === "manual" ? "manual" : "stripe";
+    const mode = ["manual", "trial"].includes(dbCode.mode) ? dbCode.mode : "stripe";
+    const trialDays = mode === "trial" ? Math.max(1, Number(dbCode.trial_days || 7)) : 0;
+    const now = new Date();
+    const trialExpiresAt = mode === "trial"
+      ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString()
+      : "";
     return {
-      requiresStripe: mode !== "manual",
-      accessSource: mode === "manual" ? "manual_code" : "stripe_code",
+      requiresStripe: mode === "stripe",
+      accessSource: mode === "manual" ? "manual_code" : mode === "trial" ? "trial_code" : "stripe_code",
       groupKey: dbCode.group_key,
       groupChatId: await groupIdForKey(env, dbCode.group_key),
       accessCode: dbCode.code,
       submittedAccessCode,
+      submittedDiscountCode,
+      trialDays,
+      trialExpiresAt,
     };
   }
 
@@ -1235,22 +1590,46 @@ async function resolveAccess(env, body) {
       groupChatId: submittedCodeGroupId,
       accessCode: submittedAccessCode,
       submittedAccessCode,
+      submittedDiscountCode,
     };
   }
 
   return {
     requiresStripe: true,
     accessSource: submittedAccessCode ? "stripe_other_invalid_code" : "stripe_other_no_code",
-    groupKey: "other",
-    groupChatId: await groupIdForKey(env, "other"),
+    groupKey: DEFAULT_NO_CODE_GROUP_KEY,
+    groupChatId: await groupIdForKey(env, DEFAULT_NO_CODE_GROUP_KEY, { preferConfig: true }),
     accessCode: "",
     submittedAccessCode,
+    submittedDiscountCode,
   };
+}
+
+async function lookupStripePromotionCodeId(env, code) {
+  const discountCode = cleanDiscountCode(code);
+  if (!discountCode) return "";
+
+  const params = new URLSearchParams({
+    active: "true",
+    code: discountCode,
+    limit: "1",
+  });
+
+  try {
+    const data = await stripeRequest(env, "GET", `/promotion_codes?${params.toString()}`);
+    const promo = (data.data || []).find(item =>
+      item?.active && String(item.code || "").toLowerCase() === discountCode.toLowerCase()
+    );
+    return stringOrNull(promo?.id);
+  } catch (error) {
+    console.warn("promotion_code_lookup_failed", error?.message || error);
+    return "";
+  }
 }
 
 async function lookupAccessCode(env, code) {
   const row = await env.DB.prepare(`
-    SELECT code, group_key, mode, active, max_uses, uses_count
+    SELECT code, group_key, mode, active, max_uses, uses_count, trial_days
     FROM access_codes
     WHERE code = ?
   `).bind(code).first();
@@ -1330,8 +1709,12 @@ async function accessGroups(env, { includeInactive = false } = {}) {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-async function groupIdForKey(env, key) {
+async function groupIdForKey(env, key, { preferConfig = false } = {}) {
   const cleanKey = cleanGroupKey(key);
+  if (preferConfig) {
+    const configured = stringOrNull(configGroupMap(env)[cleanKey]);
+    if (configured) return configured;
+  }
   const group = (await accessGroups(env)).find(item => item.group_key === cleanKey);
   return stringOrNull(group?.chat_id);
 }
@@ -1343,6 +1726,12 @@ function labelForGroupKey(key) {
 function labelForSource(source) {
   const value = String(source || "").replace(/_/g, " ");
   return value ? value.replace(/\b\w/g, ch => ch.toUpperCase()) : "";
+}
+
+function labelForCodeMode(mode) {
+  if (mode === "manual") return "Manual/Zelle";
+  if (mode === "trial") return "Free trial";
+  return "Stripe";
 }
 
 function formatAdminDate(value) {
@@ -1393,7 +1782,18 @@ function redirectToCodes(url, message) {
 }
 
 function isActiveStatus(status) {
-  return ["active", "trialing", "paid"].includes(String(status || ""));
+  return ["active", "trial", "trialing", "paid"].includes(String(status || ""));
+}
+
+function isPaidAccessStatus(status) {
+  return [
+    "active",
+    "trial",
+    "trialing",
+    "paid",
+    "paid_pending_activation",
+    "pending_group_approval",
+  ].includes(String(status || ""));
 }
 
 function publicBaseUrl(request, env) {

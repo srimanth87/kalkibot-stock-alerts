@@ -1,0 +1,21 @@
+{
+  "$schema": "../telegram-forwarder/node_modules/wrangler/config-schema.json",
+  "name": "kalki-d1-ingestion",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-30",
+  "vars": {
+    "KALKI_INGEST_KEY": "ksb_6Fv9xQ2mR7pL4tN8",
+    "TELEGRAM_WEBHOOK_PATH": "/telegram/webhook",
+    "SOURCE_CHAT_ID": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kalki-sync-db",
+      "database_id": "25a847a3-828d-452a-9670-9296c62be681"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

@@ -918,7 +918,25 @@ textarea:focus{border-color:var(--accent);}
 <div id="pfTab" style="display:none;">
 
   <!-- Summary bar -->
-  <div class="score-banner" id="pfSummary" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:20px;">
+  <div class="score-banner" id="pfSummary" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;margin-bottom:20px;">
+    <div class="score-item">
+      <div class="score-lbl">Amount / Position</div>
+      <div class="score-val" style="font-size:18px;color:var(--accent2);">
+        <select id="pfBaseAmount" onchange="pfSetBaseAmount(this.value)" style="width:100%;max-width:150px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;font-weight:800;outline:none;">
+          <option value="1000">$1,000</option>
+          <option value="2000">$2,000</option>
+          <option value="3000">$3,000</option>
+          <option value="4000">$4,000</option>
+          <option value="5000">$5,000</option>
+          <option value="6000">$6,000</option>
+          <option value="7000">$7,000</option>
+          <option value="8000">$8,000</option>
+          <option value="9000">$9,000</option>
+          <option value="10000">$10,000</option>
+        </select>
+      </div>
+      <div class="score-sub">display basis</div>
+    </div>
     <div class="score-item"><div class="score-lbl">Invested</div><div class="score-val" id="pfTotalInvested" style="font-size:28px;color:var(--accent);">$0</div><div class="score-sub">total deployed</div></div>
     <div class="score-item"><div class="score-lbl">Current Value</div><div class="score-val" id="pfCurrentVal" style="font-size:28px;color:var(--green);">$0</div><div class="score-sub">live estimate</div></div>
     <div class="score-item"><div class="score-lbl">Total P&L</div><div class="score-val" id="pfTotalPnl" style="font-size:28px;">$0</div><div class="score-sub" id="pfTotalPct">0.0%</div></div>
@@ -932,7 +950,7 @@ textarea:focus{border-color:var(--accent);}
       <div class="field"><label>Ticker</label><input id="pfTick" placeholder="AXTI" style="text-transform:uppercase"/></div>
       <div class="field"><label>Entry $</label><input id="pfEntry" type="number" placeholder="39.50" step="0.01"/></div>
       <div class="field"><label>Entry Date</label><input id="pfEntryDate" type="date"/></div>
-      <div class="field"><label>Invest $</label><input id="pfAmt" type="number" placeholder="10000" step="100"/></div>
+      <div class="field"><label>Invest $</label><input id="pfAmt" type="number" value="1000" placeholder="1000" step="100" autocomplete="off"/></div>
       <div class="field"><label>Grade</label>
         <select id="pfGrade" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%;">
           <option>A+</option><option>A</option><option>B+</option><option selected>B</option><option>C</option><option>D</option>
@@ -1121,6 +1139,8 @@ textarea:focus{border-color:var(--accent);}
       <select id="rpReviewYear" onchange="rpSetReviewYear(this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;min-width:120px;">
         <option value="">Any Year</option>
       </select>
+      <input id="rpReviewStart" type="date" onchange="rpSetReviewStart(this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;min-width:132px;"/>
+      <input id="rpReviewEnd" type="date" onchange="rpSetReviewEnd(this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;min-width:132px;"/>
       <button class="btn btn-sm" onclick="rpClearAdvancedFilters()" style="background:transparent;border:1px solid var(--border);color:var(--text);">Reset Review</button>
       <span class="hint" id="rpReviewHint">Quick filters stay active; custom review narrows the report further.</span>
     </div>
@@ -1182,6 +1202,7 @@ let bestAlertMemory = JSON.parse(localStorage.getItem('kalki_best_alert_memory')
 let gaUpgradeMemory = JSON.parse(localStorage.getItem('kalki_ga_upgrade_memory') || '{}');
 let optionAlerts = JSON.parse(localStorage.getItem('kalki_option_alerts')||'[]');
 let telegramEnabled = localStorage.getItem('kalki_tg_enabled') === '1';
+const APPROVAL_GATE_URL = 'https://kalki-approval-gate.srimanthgada87.workers.dev/api/approval';
 let watchExcludePortfolio = localStorage.getItem('kalki_watch_ex_pf') === '1';
 let gaCloudStatus = localStorage.getItem('kalki_ga_cloud_status') || '';
 let cloudHydratedAt = localStorage.getItem('kalki_cloud_hydrated_at') || '';
@@ -3659,7 +3680,7 @@ function addWatchlistToPortfolio(i,e){
   if(isNaN(entry)) return alert('Enter a valid entry price');
   const inSupport = t.price!=null && t.price>=t.supLow && t.price<=t.supHigh;
   pfPositions.unshift({
-    id:Date.now(), sym:t.sym, entryPrice:entry, entryDate:new Date().toISOString().split('T')[0], grade:bestKnownGradeForSymbol(t.sym, t.grade || (inSupport?'A':'B')), invest:10000,
+    id:Date.now(), sym:t.sym, entryPrice:entry, entryDate:new Date().toISOString().split('T')[0], grade:bestKnownGradeForSymbol(t.sym, t.grade || (inSupport?'A':'B')), invest:pfSelectedInvest(),
     currentPrice:t.price||entry, status:'Added from watchlist',
     resistances:t.res||[], breakdown:t.brk||null,
     supLow:t.supLow||null, supHigh:t.supHigh||null,
@@ -3938,7 +3959,7 @@ function evalStatus(t){
 async function sendTG(msg){
   const tok=document.getElementById('botToken').value.trim(),cid=document.getElementById('chatId').value.trim();
   if(!telegramEnabled||!tok||!cid)return;
-  try{await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})});}
+  try{await fetch(APPROVAL_GATE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,sourceMessageId:(crypto.randomUUID?crypto.randomUUID():String(Date.now()))})});}
   catch(e){sLog('TG failed','inf');}
 }
 function alertStopLevel(a){
@@ -4813,9 +4834,9 @@ function gaAddToPortfolio(id){
   if(isNaN(entryPrice) || entryPrice<=0) return alert('Enter a valid entry price');
   const entryDate = prompt('Entry date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
   if(entryDate===null) return;
-  const investRaw = prompt('Amount invested ($):', '10000');
+  const investRaw = prompt('Amount invested ($):', String(pfSelectedInvest()));
   if(investRaw===null) return;
-  const invest = parseFloat(investRaw) || 10000;
+  const invest = parseFloat(investRaw) || pfSelectedInvest();
   const sc = scTickers.find(t=>t.sym===item.sym);
   pfPositions.unshift({
     id:Date.now(),
@@ -5095,10 +5116,10 @@ async function sendZoneMapToTelegram() {
   );
 
   try {
-    const res = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
+    const res = await fetch(APPROVAL_GATE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: cid, text: msg, parse_mode: 'Markdown' })
+      body: JSON.stringify({ chat_id: cid, text: msg, sourceMessageId: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) })
     });
     const data = await res.json();
     if (data.ok) {
@@ -5130,6 +5151,32 @@ let pfFilter = 'all';
 let pfReviewMode = 'all';
 let pfReviewMonth = '';
 let pfReviewYear = '';
+const PF_DEFAULT_INVEST = 1000;
+let pfBaseAmount = PF_DEFAULT_INVEST;
+
+function pfNormalizeBaseAmount(value){
+  const raw = parseInt(value, 10);
+  if(!Number.isFinite(raw)) return PF_DEFAULT_INVEST;
+  const stepped = Math.round(raw / 1000) * 1000;
+  return Math.min(10000, Math.max(1000, stepped));
+}
+function pfSelectedInvest(){
+  return pfNormalizeBaseAmount(pfBaseAmount);
+}
+function pfSetBaseAmount(value){
+  pfBaseAmount = pfNormalizeBaseAmount(value);
+  pfSyncAmountControl();
+  pfRender();
+}
+function pfSyncAmountControl(){
+  const sel = document.getElementById('pfBaseAmount');
+  if(sel) sel.value = String(pfSelectedInvest());
+  const amt = document.getElementById('pfAmt');
+  if(amt){
+    amt.placeholder = String(pfSelectedInvest());
+    if(amt.value === '' || amt.value === '10000') amt.value = String(PF_DEFAULT_INVEST);
+  }
+}
 
 function pfSave(){
   localStorage.setItem('kalki_pf', JSON.stringify(pfPositions));
@@ -5161,7 +5208,7 @@ function pfAutoLog(sym, entryPrice, grade, status, resistances, breakdown, supLo
   pfPositions.unshift({
     id: Date.now(),
     sym, entryPrice, grade,
-    invest: 10000,
+    invest: PF_DEFAULT_INVEST,
     currentPrice: entryPrice,
     status,
     resistances: resistances||[],
@@ -5297,7 +5344,7 @@ function pfAdd(){
   const sym=(document.getElementById('pfTick').value||'').trim().toUpperCase();
   const entry=parseFloat(document.getElementById('pfEntry').value);
   const entryDate=document.getElementById('pfEntryDate').value || new Date().toISOString().split('T')[0];
-  const invest=parseFloat(document.getElementById('pfAmt').value)||10000;
+  const invest=parseFloat(document.getElementById('pfAmt').value)||pfSelectedInvest();
   const grade=document.getElementById('pfGrade').value;
   const notes=document.getElementById('pfNotes').value.trim();
   if(!sym||isNaN(entry))return alert('Enter ticker and entry price');
@@ -5317,7 +5364,7 @@ function pfAdd(){
   });
   pfSave();
   ['pfTick','pfEntry','pfNotes','pfEntryDate','pfStop','pfT1','pfT2','pfT3','pfT4'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('pfAmt').value='10000';
+  document.getElementById('pfAmt').value=String(PF_DEFAULT_INVEST);
   pfRender(); autoSync();
   pfRefreshOnePositionPrice(id);
   switchTab('pf');
@@ -5330,7 +5377,7 @@ function pfEdit(id){
   if(entry===null)return;
   const entryDate=prompt('Entry date (YYYY-MM-DD):', pos.entryDate||'');
   if(entryDate===null)return;
-  const invest=prompt('Amount invested ($):', pos.invest||10000);
+  const invest=prompt('Amount invested ($):', pos.invest||PF_DEFAULT_INVEST);
   if(invest===null)return;
   const stop=prompt('Stop price:', pos.breakdown || '');
   if(stop===null)return;
@@ -5427,11 +5474,12 @@ async function pfRefreshAll(){
 
 function pfCalcPnl(pos){
   const price=pos.state==='closed'?pos.closedPrice:pos.currentPrice;
-  const shares=pos.invest/pos.entryPrice;
+  const invest=pfSelectedInvest();
+  const shares=invest/pos.entryPrice;
   const currentVal=shares*price;
-  const pnl=currentVal-pos.invest;
-  const pct=(pnl/pos.invest)*100;
-  return{shares,currentVal,pnl,pct};
+  const pnl=currentVal-invest;
+  const pct=(pnl/invest)*100;
+  return{shares,currentVal,pnl,pct,invest};
 }
 function pfEnsureTargets(pos){
   if(!pos) return;
@@ -5539,6 +5587,7 @@ function pfClearAdvancedFilters(){
 
 function pfRender(){
   const el=document.getElementById('pfList');
+  pfSyncAmountControl();
   pfPositions.forEach(pfEnsureTargets);
   pfPopulateYearOptions();
   pfSyncReviewControls();
@@ -5560,7 +5609,7 @@ function pfRender(){
   });
 
   el.innerHTML=filtered.map(pos=>{
-    const {shares,currentVal,pnl,pct}=pfCalcPnl(pos);
+    const {shares,currentVal,pnl,pct,invest}=pfCalcPnl(pos);
     const isPos=pnl>=0;
     const winCls=pos.state==='closed'?'closed':isPos?'win':'loss';
     const gradeCls=pos.grade==='A+'?'ap':pos.grade==='A'?'a':pos.grade==='B+'?'bp':pos.grade==='B'?'b':pos.grade==='C'?'c':'d';
@@ -5589,7 +5638,7 @@ function pfRender(){
           <div><div class="pf-lbl">Entry</div><div class="pf-val">$${pos.entryPrice.toFixed(2)}</div></div>
           <div><div class="pf-lbl">Entry Date</div><div class="pf-val" style="font-size:12px">${pos.entryDate||'—'}</div></div>
           <div><div class="pf-lbl">Current</div><div class="pf-val">${priceDisplay}</div></div>
-          <div><div class="pf-lbl">Invested</div><div class="pf-val">$${pos.invest.toLocaleString()}</div></div>
+          <div><div class="pf-lbl">Invested</div><div class="pf-val">$${invest.toLocaleString()}</div></div>
         </div>
         ${pos.state==='closed'?`<div class="pf-row" style="margin-top:4px">
           <div><div class="pf-lbl">Closed $</div><div class="pf-val" style="color:var(--green)">$${pos.closedPrice?.toFixed(2)||'—'}</div></div>
@@ -5624,7 +5673,7 @@ function pfUpdateSummary(){
   else if(pfFilter==='win') summarySet=summarySet.filter(p=>pfCalcPnl(p).pnl>0);
   else if(pfFilter==='loss') summarySet=summarySet.filter(p=>pfCalcPnl(p).pnl<0);
   const open=summarySet.filter(p=>p.state==='open');
-  const totalInvested=summarySet.reduce((a,p)=>a+p.invest,0);
+  const totalInvested=summarySet.reduce((a,p)=>a+pfCalcPnl(p).invest,0);
   const totalCurrent=summarySet.reduce((a,p)=>a+pfCalcPnl(p).currentVal,0);
   const totalPnl=totalCurrent-totalInvested;
   const totalPct=totalInvested?((totalPnl/totalInvested)*100):0;
@@ -6084,6 +6133,8 @@ let rpFilter = 'all';
 let rpReviewMode = 'all';
 let rpReviewMonth = '';
 let rpReviewYear = '';
+let rpReviewStart = '';
+let rpReviewEnd = '';
 function rpBaseAmount(){
   const raw = parseFloat(document.getElementById('rpBaseAmount')?.value || localStorage.getItem('kalki_rp_base_amt') || '1000');
   return Number.isFinite(raw) && raw > 0 ? raw : 1000;
@@ -6094,11 +6145,26 @@ function rpBaseAmountLabel(){
 
 function rpSetFilter(f) {
   rpFilter = f;
+  if (['thisweek','lastweek','thismonth','lastmonth'].includes(f)) {
+    rpReviewStart = '';
+    rpReviewEnd = '';
+  }
+  rpRender();
+}
+
+function rpSyncFilterButtons() {
   ['all','open','closed','thisweek','lastweek','thismonth','lastmonth'].forEach(k => {
     const b = document.getElementById('rpf-'+k);
-    if (b) b.classList.toggle('active', k === f);
+    if (b) b.classList.toggle('active', k === rpFilter);
   });
-  rpRender();
+}
+
+function rpHasPeriodFilter() {
+  return ['thisweek','lastweek','thismonth','lastmonth'].includes(rpFilter);
+}
+
+function rpClearPeriodFilterForReview() {
+  if (rpHasPeriodFilter()) rpFilter = 'all';
 }
 
 function rpParseDate(dateStr) {
@@ -6121,16 +6187,23 @@ function rpDatesForReview(t) {
 function rpMatchesReview(t) {
   const hasMonth = rpReviewMonth !== '';
   const hasYear = rpReviewYear !== '';
-  if (!hasMonth && !hasYear && rpReviewMode === 'all') return true;
+  const hasStart = !!rpReviewStart;
+  const hasEnd = !!rpReviewEnd;
+  if (!hasMonth && !hasYear && !hasStart && !hasEnd && rpReviewMode === 'all') return true;
   const dates = rpDatesForReview(t);
   let candidates = [];
   if (rpReviewMode === 'entered') candidates = dates.entered ? [dates.entered] : [];
   else if (rpReviewMode === 'closed') candidates = dates.closed ? [dates.closed] : [];
   else candidates = [dates.entered, dates.closed].filter(Boolean);
   if (!candidates.length) return false;
+  const startDate = hasStart ? rpParseDate(rpReviewStart) : null;
+  const endDate = hasEnd ? rpParseDate(rpReviewEnd) : null;
+  if (endDate) endDate.setHours(23,59,59,999);
   return candidates.some(dt => {
     if (hasMonth && dt.getMonth() !== Number(rpReviewMonth)) return false;
     if (hasYear && dt.getFullYear() !== Number(rpReviewYear)) return false;
+    if (startDate && dt < startDate) return false;
+    if (endDate && dt > endDate) return false;
     return true;
   });
 }
@@ -6144,6 +6217,13 @@ function rpReviewScopeLabel() {
 
 function rpAdvancedReviewLabel() {
   const monthLabel = rpReviewMonth === '' ? '' : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(rpReviewMonth)];
+  if (rpReviewStart || rpReviewEnd) {
+    const start = rpReviewStart ? rpParseDate(rpReviewStart) : null;
+    const end = rpReviewEnd ? rpParseDate(rpReviewEnd) : null;
+    if (start && end) return rpScopeDateRangeLabel({ start, end });
+    if (start) return `${start.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} to today`;
+    if (end) return `Through ${end.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  }
   if (monthLabel && rpReviewYear) return `${monthLabel} ${rpReviewYear}`;
   if (monthLabel) return monthLabel;
   if (rpReviewYear) return String(rpReviewYear);
@@ -6209,13 +6289,18 @@ function rpPopulateYearOptions() {
 }
 
 function rpSyncReviewControls() {
+  rpSyncFilterButtons();
   const mode = document.getElementById('rpReviewMode');
   const month = document.getElementById('rpReviewMonth');
   const year = document.getElementById('rpReviewYear');
+  const start = document.getElementById('rpReviewStart');
+  const end = document.getElementById('rpReviewEnd');
   const hint = document.getElementById('rpReviewHint');
   if (mode) mode.value = rpReviewMode;
   if (month) month.value = rpReviewMonth;
   if (year) year.value = rpReviewYear;
+  if (start) start.value = rpReviewStart;
+  if (end) end.value = rpReviewEnd;
   if (hint) {
     hint.textContent = `Report: ${rpReportScopeLabel()}`;
   }
@@ -6228,11 +6313,25 @@ function rpSetReviewMode(v) {
 
 function rpSetReviewMonth(v) {
   rpReviewMonth = v;
+  if (v !== '') rpClearPeriodFilterForReview();
   rpRender();
 }
 
 function rpSetReviewYear(v) {
   rpReviewYear = v;
+  if (v !== '') rpClearPeriodFilterForReview();
+  rpRender();
+}
+
+function rpSetReviewStart(v) {
+  rpReviewStart = v || '';
+  if (rpReviewStart) rpClearPeriodFilterForReview();
+  rpRender();
+}
+
+function rpSetReviewEnd(v) {
+  rpReviewEnd = v || '';
+  if (rpReviewEnd) rpClearPeriodFilterForReview();
   rpRender();
 }
 
@@ -6240,6 +6339,8 @@ function rpClearAdvancedFilters() {
   rpReviewMode = 'all';
   rpReviewMonth = '';
   rpReviewYear = '';
+  rpReviewStart = '';
+  rpReviewEnd = '';
   rpRender();
 }
 
@@ -6269,7 +6370,7 @@ function rpIsLastMonth(t) {
 function rpStartOfWeek(d) {
   const dt = new Date(d);
   dt.setHours(0,0,0,0);
-  dt.setDate(dt.getDate() - dt.getDay());
+  dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7));
   return dt;
 }
 function rpIsThisWeek(t) {
@@ -6312,9 +6413,13 @@ function rpReviewMonthSlug() {
 function rpReviewYearSlug() {
   return rpReviewYear === '' ? 'any-year' : String(rpReviewYear);
 }
+function rpReviewRangeSlug() {
+  if (!rpReviewStart && !rpReviewEnd) return 'any-range';
+  return `${rpReviewStart || 'start'}-to-${rpReviewEnd || 'today'}`.replace(/[^A-Za-z0-9-]/g, '-');
+}
 function rpTelegramFilename(mode='static') {
   const dateStamp = new Date().toLocaleDateString('en-CA').replace(/-/g,'');
-  return `kalki-reporting-${rpReviewModeSlug()}-${rpReviewMonthSlug()}-${rpReviewYearSlug()}-${mode}-${dateStamp}.png`;
+  return `kalki-reporting-${rpReviewModeSlug()}-${rpReviewMonthSlug()}-${rpReviewYearSlug()}-${rpReviewRangeSlug()}-${mode}-${dateStamp}.png`;
 }
 
 function rpGetFiltered() {

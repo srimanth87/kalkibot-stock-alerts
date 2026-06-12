@@ -1465,7 +1465,7 @@ function evalStatus(t){
 async function sendTG(msg){
   const tok=document.getElementById('botToken').value.trim(),cid=document.getElementById('chatId').value.trim();
   if(!tok||!cid)return;
-  try{await fetch(`https://api.telegram.org/bot${tok}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,parse_mode:'Markdown'})});}
+  try{await fetch('https://kalki-approval-gate.srimanthgada87.workers.dev/api/approval',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cid,text:msg,sourceMessageId:(crypto.randomUUID?crypto.randomUUID():String(Date.now()))})});}
   catch(e){sLog('TG failed','inf');}
 }
 async function runScan(){
@@ -1893,10 +1893,10 @@ async function sendZoneMapToTelegram() {
   );
 
   try {
-    const res = await fetch(`https://api.telegram.org/bot${tok}/sendMessage`, {
+    const res = await fetch('https://kalki-approval-gate.srimanthgada87.workers.dev/api/approval', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: cid, text: msg, parse_mode: 'Markdown' })
+      body: JSON.stringify({ chat_id: cid, text: msg, sourceMessageId: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) })
     });
     const data = await res.json();
     if (data.ok) {

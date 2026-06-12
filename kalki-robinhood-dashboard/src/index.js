@@ -8,6 +8,7 @@ const DEFAULT_TIME_IN_FORCE = "gfd";
 const DEFAULT_MARKET_HOURS = "regular_hours";
 const TOKEN_KEY = "robinhood:tokens";
 const CLIENT_KEY = "robinhood:client";
+const SNAPSHOT_KEY = "robinhood:snapshot";
 
 export default {
   async fetch(request, env) {
@@ -49,6 +50,11 @@ export default {
         return await handleDashboard(env);
       }
 
+      if (url.pathname === "/api/robinhood/snapshot") {
+        if (request.method === "GET") return await handleGetRobinhoodSnapshot(env);
+        if (request.method === "POST") return await handlePutRobinhoodSnapshot(request, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/api/review-order") {
         const body = await request.json().catch(() => ({}));
         return await handleReviewOrder(env, body);
@@ -61,6 +67,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/api/alerts/scorer") {
         return await handleScorerAlert(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/alerts/lux") {
+        return await handleLuxAlert(request, env);
       }
 
       // ── Telegram / D1 signal routes ──────────────────────────────────────
@@ -79,12 +89,17 @@ export default {
 
       if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/dismiss")) {
         const id = url.pathname.split("/")[3];
-        return await handleDismissSignal(env, id);
+        return await handleDismissSignal(request, env, id);
       }
 
       if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/executed")) {
         const id = url.pathname.split("/")[3];
         return await handleMarkExecuted(env, id);
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/signals/close") {
+        const body = await request.json().catch(() => ({}));
+        return await handleCloseSignal(env, body);
       }
 
       if (request.method === "POST" && url.pathname === "/api/alerts/ingest") {
@@ -94,12 +109,11 @@ export default {
       if (url.pathname === "/api/agent-config") {
         if (request.method === "POST") {
           const body = await request.json().catch(() => ({}));
-          await env.ROBINHOOD_STATE?.put("agent:config", JSON.stringify(body));
+          const cfg = normalizeAgentConfig(body);
+          await env.ROBINHOOD_STATE?.put("agent:config", JSON.stringify(cfg));
           return json({ ok: true });
         }
-        const raw = await env.ROBINHOOD_STATE?.get("agent:config") || "{}";
-        const cfg = JSON.parse(raw);
-        return json({ ok: true, config: cfg });
+        return json({ ok: true, config: await getAgentConfig(env) });
       }
 
       // ── MCP server (for Claude Code to connect to) ───────────────────────
@@ -116,6 +130,9 @@ export default {
 
 async function handleDashboard(env) {
   if (!(await robinhoodConfigured(env))) {
+    const snapshot = await getStoredSnapshot(env);
+    if (snapshot) return json(snapshot);
+
     return json({
       ok: false,
       connected: false,
@@ -124,41 +141,63 @@ async function handleDashboard(env) {
     }, 503);
   }
 
-  const accounts = await callRobinhood(env, "get_accounts", {});
-  const account = selectAccount(accounts?.data?.accounts || [], env);
-  if (!account) {
+  try {
+    const accounts = await callRobinhood(env, "get_accounts", {});
+    const account = selectAccount(accounts?.data?.accounts || [], env);
+    if (!account) {
+      return json({
+        ok: false,
+        connected: true,
+        setup: await setupChecklist(env),
+        accounts: accounts?.data?.accounts || [],
+        error: "No Robinhood account selected. Set ROBINHOOD_ACCOUNT_NUMBER, or use an agentic_allowed account for trading.",
+      }, 409);
+    }
+
+    const [portfolio, positions, orders] = await Promise.all([
+      callRobinhood(env, "get_portfolio", { account_number: account.account_number }),
+      callRobinhood(env, "get_equity_positions", { account_number: account.account_number }),
+      callRobinhood(env, "get_equity_orders", { account_number: account.account_number }),
+    ]);
+
+    const longPositions = (positions?.data?.positions || []).filter((position) => Number(position.quantity || 0) > 0);
+    const quoteSymbols = longPositions.map((position) => position.symbol).filter(Boolean).slice(0, 20);
+    const quotes = quoteSymbols.length
+      ? await callRobinhood(env, "get_equity_quotes", { symbols: quoteSymbols })
+      : { data: { results: [] } };
+
     return json({
-      ok: false,
+      ok: true,
       connected: true,
+      source: "worker-robinhood-oauth",
+      config: await publicConfig(env),
+      account: publicAccount(account),
+      accounts: (accounts?.data?.accounts || []).map(publicAccount),
+      portfolio: normalizePortfolio(portfolio?.data),
+      positions: normalizePositions(longPositions, quotes?.data?.results || []),
+      orders: normalizeOrders(orders?.data?.orders || []),
       setup: await setupChecklist(env),
-      accounts: accounts?.data?.accounts || [],
-      error: "No Robinhood account selected. Set ROBINHOOD_ACCOUNT_NUMBER, or use an agentic_allowed account for trading.",
-    }, 409);
+    });
+  } catch (error) {
+    const snapshot = await getStoredSnapshot(env);
+    if (snapshot) return json({ ...snapshot, warning: errorMessage(error) });
+    throw error;
   }
+}
 
-  const [portfolio, positions, orders] = await Promise.all([
-    callRobinhood(env, "get_portfolio", { account_number: account.account_number }),
-    callRobinhood(env, "get_equity_positions", { account_number: account.account_number }),
-    callRobinhood(env, "get_equity_orders", { account_number: account.account_number }),
-  ]);
+async function handleGetRobinhoodSnapshot(env) {
+  const snapshot = await getStoredSnapshot(env);
+  if (!snapshot) return json({ ok: false, connected: false, error: "No Robinhood snapshot has been synced yet." }, 404);
+  return json(snapshot);
+}
 
-  const longPositions = (positions?.data?.positions || []).filter((position) => Number(position.quantity || 0) > 0);
-  const quoteSymbols = longPositions.map((position) => position.symbol).filter(Boolean).slice(0, 20);
-  const quotes = quoteSymbols.length
-    ? await callRobinhood(env, "get_equity_quotes", { symbols: quoteSymbols })
-    : { data: { results: [] } };
-
-  return json({
-    ok: true,
-    connected: true,
-    config: await publicConfig(env),
-    account: publicAccount(account),
-    accounts: (accounts?.data?.accounts || []).map(publicAccount),
-    portfolio: normalizePortfolio(portfolio?.data),
-    positions: normalizePositions(longPositions, quotes?.data?.results || []),
-    orders: normalizeOrders(orders?.data?.orders || []),
-    setup: await setupChecklist(env),
-  });
+async function handlePutRobinhoodSnapshot(request, env) {
+  requireSnapshotAuth(request, env);
+  requireStateStore(env);
+  const body = await request.json().catch(() => ({}));
+  const snapshot = sanitizeSnapshot(body);
+  await env.ROBINHOOD_STATE.put(SNAPSHOT_KEY, JSON.stringify(snapshot));
+  return json({ ok: true, synced_at: snapshot.synced_at, source: snapshot.source });
 }
 
 async function handleRobinhoodConnect(request, env) {
@@ -323,33 +362,107 @@ async function handleIngestAlert(request, env) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { ticker, grade, entry_price, stop_price, t1, raw, source, received_at } = body;
+  const { ticker, grade, entry_price, stop_price, t1, t2, rr, raw, pattern, source, received_at } = body;
   if (!ticker || !grade || !entry_price) {
     return json({ ok: false, error: "ticker, grade, entry_price are required" }, 400);
   }
 
-  if (!env.KALKI_DB) return json({ ok: false, error: "KALKI_DB not bound" }, 503);
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound" }, 503);
 
-  // Upsert into kalki-db alerts table (the one with full schema)
-  const id = `auto-${ticker}-${Date.now()}`;
+  await ensureSignalColumns(env);
+
+  const id = `auto-${ticker.toUpperCase()}-${Date.now()}`;
   const entryMid = Number(entry_price);
-  await env.KALKI_DB.prepare(
-    `INSERT OR REPLACE INTO alerts
-      (ticker, grade, entry_low, entry_high, stop, t1, raw_message, source, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  const now = received_at || new Date().toISOString();
+
+  // Build raw_json with all price data so parseSignalFromRow extracts correctly
+  const rawJson = JSON.stringify({
+    entryMid, entryLow: entryMid, entryHigh: entryMid,
+    supLow: Number(stop_price) || null,
+    resistances: [Number(t1)||null, Number(t2)||null].filter(Boolean),
+    rr: Number(rr) || null,
+    pattern: pattern || null,
+    aiWhy: raw || null,
+    source: source || "autotrader",
+  });
+
+  await env.KALKI_SYNC_DB.prepare(
+    `INSERT OR REPLACE INTO group_alerts
+      (id, sym, grade, note, raw_json, status, added_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`
   ).bind(
+    id,
     ticker.toUpperCase(),
     grade,
-    entryMid,
-    entryMid,
-    Number(stop_price) || null,
-    Number(t1) || null,
-    raw || null,
-    source || "autotrader",
-    received_at || new Date().toISOString(),
+    pattern || null,
+    rawJson,
+    now,
+    now,
   ).run();
 
   return json({ ok: true, ticker, grade, id });
+}
+
+async function handleLuxAlert(request, env) {
+  requireLuxAuth(request, env);
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound" }, 503);
+
+  const body = await request.json().catch(() => ({}));
+  const alert = normalizeLuxAlert(body);
+  if (!alert) return json({ ok: false, error: "No tradeable Lux alert found in payload." }, 400);
+
+  await ensureSignalColumns(env);
+
+  const now = alert.receivedAt || new Date().toISOString();
+  const id = alert.id || `lux-${alert.ticker}-${stableSignalKey(alert)}`;
+  const rawJson = JSON.stringify({
+    source: "lux-algo-screener",
+    sourceAlertId: alert.id || null,
+    score: alert.score,
+    scoreMax: alert.scoreMax,
+    timeframe: alert.timeframe,
+    entryMid: alert.entryMid,
+    entryLow: alert.entryLow,
+    entryHigh: alert.entryHigh,
+    supLow: alert.stop,
+    stop: alert.stop,
+    resistances: alert.targets,
+    rr: alert.rr,
+    price: alert.price,
+    changePct: alert.changePct,
+    vwapLabel: alert.vwapLabel,
+    vwapDev: alert.vwapDev,
+    signal: alert.signal,
+    pattern: alert.pattern,
+    aiWhy: alert.note,
+    rawAlert: alert.raw || null,
+    receivedAt: now,
+  });
+
+  await env.KALKI_SYNC_DB.prepare(
+    `INSERT OR REPLACE INTO group_alerts
+      (id, sym, grade, note, raw_json, status, added_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'open', ?, ?)`
+  ).bind(
+    id,
+    alert.ticker,
+    alert.grade,
+    alert.note,
+    rawJson,
+    now,
+    now,
+  ).run();
+
+  return json({
+    ok: true,
+    id,
+    ticker: alert.ticker,
+    grade: alert.grade,
+    entry_mid: alert.entryMid,
+    stop: alert.stop,
+    targets: alert.targets,
+    app_queue: "/api/signals/pending",
+  });
 }
 
 async function ensureSignalColumns(env) {
@@ -359,6 +472,8 @@ async function ensureSignalColumns(env) {
   await db.prepare(`ALTER TABLE group_alerts ADD COLUMN approved INTEGER DEFAULT 0`).run().catch(() => {});
   await db.prepare(`ALTER TABLE group_alerts ADD COLUMN approved_at TEXT`).run().catch(() => {});
   await db.prepare(`ALTER TABLE group_alerts ADD COLUMN dismissed INTEGER DEFAULT 0`).run().catch(() => {});
+  await db.prepare(`ALTER TABLE group_alerts ADD COLUMN dismissed_at TEXT`).run().catch(() => {});
+  await db.prepare(`ALTER TABLE group_alerts ADD COLUMN dismissed_reason TEXT`).run().catch(() => {});
 }
 
 // keep alias for backward compat
@@ -404,26 +519,83 @@ function parseSignalFromRow(row) {
   };
 }
 
+function normalizeAgentConfig(value = {}) {
+  const cfg = value && typeof value === "object" ? value : {};
+  const grades = Array.isArray(cfg.grades)
+    ? cfg.grades.map((grade) => String(grade || "").trim()).filter(Boolean)
+    : ["A+", "A"];
+
+  return {
+    auto: cfg.auto === true,
+    allGrades: cfg.allGrades === true,
+    grades: grades.length ? grades : ["A+", "A"],
+    size: Number.isFinite(Number(cfg.size)) ? Number(cfg.size) : 500,
+    maxSize: Number.isFinite(Number(cfg.maxSize)) ? Number(cfg.maxSize) : 1000,
+    slip: Number.isFinite(Number(cfg.slip)) ? Number(cfg.slip) : 3,
+    drop: Number.isFinite(Number(cfg.drop)) ? Number(cfg.drop) : 5,
+    orderType: cfg.orderType || DEFAULT_ORDER_TYPE,
+    tif: cfg.tif || DEFAULT_TIME_IN_FORCE,
+    minBP: Number.isFinite(Number(cfg.minBP)) ? Number(cfg.minBP) : 200,
+    allowEst: cfg.allowEst === true,
+  };
+}
+
+async function getAgentConfig(env) {
+  const raw = await env.ROBINHOOD_STATE?.get("agent:config");
+  if (!raw) return normalizeAgentConfig();
+  try {
+    return normalizeAgentConfig(JSON.parse(raw));
+  } catch {
+    return normalizeAgentConfig();
+  }
+}
+
+function autoApproveSignalAllowed(signal, cfg) {
+  if (!cfg.auto) return false;
+  const gradeOk = cfg.allGrades || cfg.grades.includes(signal.grade);
+  const priceOk = signal.has_parsed_prices || cfg.allowEst;
+  return gradeOk && priceOk;
+}
+
 async function handlePendingSignals(env) {
   if (!env.KALKI_SYNC_DB) {
     return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   }
   await ensureSignalColumns(env);
+  const cfg = await getAgentConfig(env);
   const { results } = await env.KALKI_SYNC_DB.prepare(
     `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
-            approved, approved_at, executed, dismissed
+            approved, approved_at, executed, executed_at, dismissed, dismissed_at, dismissed_reason
      FROM group_alerts
-     WHERE (executed IS NULL OR executed = 0)
-       AND (dismissed IS NULL OR dismissed = 0)
-       AND grade IN ('A+','A','B+')
+     WHERE grade IN ('A+','A','B+')
        AND (status IS NULL OR status != 'closed')
      ORDER BY added_at DESC LIMIT 30`
   ).all();
-  const signals = (results || []).map(r => ({
-    ...parseSignalFromRow(r),
-    approved: Boolean(r.approved),
-    approved_at: r.approved_at || null,
-  }));
+
+  const signals = [];
+  for (const row of results || []) {
+    const signal = {
+      ...parseSignalFromRow(row),
+      approved: Boolean(row.approved),
+      approved_at: row.approved_at || null,
+      executed: Boolean(row.executed),
+      executed_at: row.executed_at || null,
+      dismissed: Boolean(row.dismissed),
+      dismissed_at: row.dismissed_at || null,
+      dismissed_reason: row.dismissed_reason || null,
+    };
+
+    if (!signal.executed && !signal.dismissed && !signal.approved && autoApproveSignalAllowed(signal, cfg)) {
+      signal.approved = true;
+      signal.approved_at = new Date().toISOString();
+      await env.KALKI_SYNC_DB.prepare(
+        `UPDATE group_alerts SET approved = 1, approved_at = ? WHERE id = ?`
+      ).bind(signal.approved_at, signal.id).run();
+    }
+
+    signals.push(signal);
+  }
+
   return json({ ok: true, signals });
 }
 
@@ -434,7 +606,7 @@ async function handleApprovedSignals(env) {
   await ensureSignalColumns(env);
   const { results } = await env.KALKI_SYNC_DB.prepare(
     `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
-            approved, approved_at, executed, dismissed
+            approved, approved_at, executed, executed_at, dismissed, dismissed_at, dismissed_reason
      FROM group_alerts
      WHERE approved = 1
        AND (executed IS NULL OR executed = 0)
@@ -446,8 +618,32 @@ async function handleApprovedSignals(env) {
     ...parseSignalFromRow(r),
     approved: true,
     approved_at: r.approved_at,
+    executed: Boolean(r.executed),
+    executed_at: r.executed_at || null,
+    dismissed: Boolean(r.dismissed),
+    dismissed_at: r.dismissed_at || null,
+    dismissed_reason: r.dismissed_reason || null,
   }));
   return json({ ok: true, signals });
+}
+
+async function handleCloseSignal(env, body) {
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
+  const symbol = String(body.symbol || "").trim().toUpperCase();
+  const quantity = body.quantity != null ? String(body.quantity) : null;
+  if (!symbol) return json({ ok: false, error: "symbol is required" }, 400);
+
+  await ensureSignalColumns(env);
+  const id = `close-${symbol.toLowerCase()}-${Date.now()}`;
+  const now = new Date().toISOString();
+  const raw = JSON.stringify({ side: "sell", quantity, aiWhy: `Dashboard close: sell all ${symbol}` });
+
+  await env.KALKI_SYNC_DB.prepare(
+    `INSERT OR REPLACE INTO group_alerts (id, sym, grade, note, raw_json, status, added_at, updated_at, approved, approved_at)
+     VALUES (?, ?, 'A+', ?, ?, 'close', ?, ?, 1, ?)`
+  ).bind(id, symbol, `Close position: ${symbol}`, raw, now, now, now).run();
+
+  return json({ ok: true, id, symbol, message: `Close signal queued — Claude will sell ${symbol} shortly` });
 }
 
 async function handleApproveSignal(env, id) {
@@ -460,14 +656,21 @@ async function handleApproveSignal(env, id) {
   return json({ ok: true, id, approved: true });
 }
 
-async function handleDismissSignal(env, id) {
+async function handleDismissSignal(request, env, id) {
   if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   if (!id) return json({ ok: false, error: "Signal id required." }, 400);
+  const body = await request.json().catch(() => ({}));
+  const reason = sanitizeDismissReason(body.reason || body.message || "Dismissed from dashboard.");
+  const dismissedAt = new Date().toISOString();
   await ensureSignalColumns(env);
   await env.KALKI_SYNC_DB.prepare(
-    `UPDATE group_alerts SET dismissed = 1 WHERE id = ?`
-  ).bind(id).run();
-  return json({ ok: true, id, dismissed: true });
+    `UPDATE group_alerts SET dismissed = 1, dismissed_at = ?, dismissed_reason = ? WHERE id = ?`
+  ).bind(dismissedAt, reason, id).run();
+  return json({ ok: true, id, dismissed: true, dismissed_at: dismissedAt, dismissed_reason: reason });
+}
+
+function sanitizeDismissReason(value) {
+  return String(value || "Dismissed.").replace(/\s+/g, " ").trim().slice(0, 500);
 }
 
 async function handleMarkExecuted(env, id) {
@@ -481,7 +684,7 @@ async function handleMarkExecuted(env, id) {
 }
 
 // ── MCP server — lets Claude Code connect via:
-//    claude mcp add kalki-signals --transport http https://kalki-robinhood-dashboard.srimanthgada87.workers.dev/mcp
+//    claude mcp add kalki-signals --transport http https://api.kalkianalysis.com/mcp
 async function handleMcp(request, env) {
   if (request.method === "GET") {
     // SSE handshake for streamable-http transport
@@ -534,10 +737,13 @@ async function handleMcp(request, env) {
         },
         {
           name: "dismiss_signal",
-          description: "Dismiss a signal without trading it",
+          description: "Dismiss a signal without trading it. Include a concise reason so the dashboard can show the user why it was skipped.",
           inputSchema: {
             type: "object",
-            properties: { id: { type: "string", description: "Signal ID" } },
+            properties: {
+              id: { type: "string", description: "Signal ID" },
+              reason: { type: "string", description: "Human-readable reason for dismissal" },
+            },
             required: ["id"],
           },
         },
@@ -602,11 +808,13 @@ async function handleMcp(request, env) {
       if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
       if (!args.id) return mcpError(id, "id is required");
       await ensureSignalColumns(env);
+      const reason = sanitizeDismissReason(args.reason || "Dismissed by Claude.");
+      const dismissedAt = new Date().toISOString();
       await env.KALKI_SYNC_DB.prepare(
-        `UPDATE group_alerts SET dismissed = 1 WHERE id = ?`
-      ).bind(args.id).run();
+        `UPDATE group_alerts SET dismissed = 1, dismissed_at = ?, dismissed_reason = ? WHERE id = ?`
+      ).bind(dismissedAt, reason, args.id).run();
       return mcpResponse(id, {
-        content: [{ type: "text", text: JSON.stringify({ ok: true, id: args.id, dismissed: true }) }],
+        content: [{ type: "text", text: JSON.stringify({ ok: true, id: args.id, dismissed: true, dismissed_at: dismissedAt, dismissed_reason: reason }) }],
       });
     }
 
@@ -834,6 +1042,126 @@ function normalizeOrders(orders) {
   }));
 }
 
+async function getStoredSnapshot(env) {
+  const raw = await env.ROBINHOOD_STATE?.get(SNAPSHOT_KEY);
+  if (!raw) return null;
+  const snapshot = JSON.parse(raw);
+  return {
+    ok: true,
+    connected: true,
+    source: snapshot.source || "agent-pushed-snapshot",
+    synced_at: snapshot.synced_at || null,
+    stale: isSnapshotStale(snapshot.synced_at),
+    config: await publicConfig(env),
+    account: sanitizeAccount(snapshot.account || {}),
+    accounts: Array.isArray(snapshot.accounts) ? snapshot.accounts.map(sanitizeAccount) : [],
+    portfolio: sanitizePortfolio(snapshot.portfolio || {}),
+    positions: Array.isArray(snapshot.positions) ? snapshot.positions.map(sanitizePosition).slice(0, 100) : [],
+    orders: Array.isArray(snapshot.orders) ? snapshot.orders.map(sanitizeOrder).slice(0, 100) : [],
+    option_positions: Array.isArray(snapshot.option_positions) ? snapshot.option_positions.map(sanitizeOptionPosition).slice(0, 100) : [],
+    option_orders: Array.isArray(snapshot.option_orders) ? snapshot.option_orders.map(sanitizeOrder).slice(0, 100) : [],
+    setup: await setupChecklist(env),
+  };
+}
+
+function sanitizeSnapshot(body) {
+  return {
+    ok: true,
+    connected: true,
+    source: String(body.source || "robinhood-mcp-agent").slice(0, 80),
+    synced_at: body.synced_at || new Date().toISOString(),
+    account: sanitizeAccount(body.account || {}),
+    accounts: Array.isArray(body.accounts) ? body.accounts.map(sanitizeAccount) : [],
+    portfolio: sanitizePortfolio(body.portfolio || {}),
+    positions: Array.isArray(body.positions) ? body.positions.map(sanitizePosition).slice(0, 100) : [],
+    orders: Array.isArray(body.orders) ? body.orders.map(sanitizeOrder).slice(0, 100) : [],
+    option_positions: Array.isArray(body.option_positions) ? body.option_positions.map(sanitizeOptionPosition).slice(0, 100) : [],
+    option_orders: Array.isArray(body.option_orders) ? body.option_orders.map(sanitizeOrder).slice(0, 100) : [],
+  };
+}
+
+function sanitizeAccount(account) {
+  const raw = account.account_number || account.accountNumber || "";
+  return {
+    account_number: String(raw).startsWith("••••") ? String(raw) : maskAccount(raw),
+    brokerage_account_type: account.brokerage_account_type || account.type || null,
+    nickname: account.nickname || null,
+    is_default: Boolean(account.is_default),
+    agentic_allowed: Boolean(account.agentic_allowed),
+    management_type: account.management_type || null,
+    state: account.state || null,
+  };
+}
+
+function sanitizePortfolio(portfolio) {
+  return {
+    total_value: numberOrNull(portfolio.total_value),
+    equity_value: numberOrNull(portfolio.equity_value),
+    options_value: numberOrNull(portfolio.options_value),
+    crypto_value: numberOrNull(portfolio.crypto_value),
+    cash: numberOrNull(portfolio.cash),
+    buying_power: numberOrNull(portfolio.buying_power),
+    currency: portfolio.currency || "USD",
+  };
+}
+
+function sanitizePosition(position) {
+  const unrealized = numberOrNull(position.unrealized);
+  const quantity = numberOrNull(position.quantity) || 0;
+  const currentPrice = numberOrNull(position.current_price);
+  const marketValue = numberOrNull(position.market_value ?? position.equity)
+    ?? (currentPrice == null ? null : roundMoney(quantity * currentPrice));
+  return {
+    symbol: String(position.symbol || "").toUpperCase().slice(0, 16),
+    quantity,
+    average_buy_price: numberOrNull(position.average_buy_price),
+    current_price: currentPrice,
+    market_value: marketValue,
+    equity: marketValue,
+    unrealized,
+    unrealized_pct: numberOrNull(position.unrealized_pct),
+    is_green: position.is_green == null && unrealized != null ? unrealized > 0 : Boolean(position.is_green),
+  };
+}
+
+function sanitizeOptionPosition(position) {
+  const unrealized = numberOrNull(position.unrealized);
+  return {
+    chain_symbol: String(position.chain_symbol || position.symbol || "").toUpperCase().slice(0, 16),
+    option_type: position.option_type || position.type || null,
+    expiration_date: position.expiration_date || null,
+    strike_price: numberOrNull(position.strike_price),
+    quantity: numberOrNull(position.quantity),
+    average_price: numberOrNull(position.average_price || position.average_buy_price),
+    market_value: numberOrNull(position.market_value),
+    unrealized,
+    is_green: position.is_green == null && unrealized != null ? unrealized > 0 : Boolean(position.is_green),
+  };
+}
+
+function sanitizeOrder(order) {
+  return {
+    id: order.id ? String(order.id).slice(0, 80) : null,
+    symbol: String(order.symbol || order.chain_symbol || "-").toUpperCase().slice(0, 16),
+    side: order.side || null,
+    type: order.type || null,
+    state: order.state || null,
+    quantity: numberOrNull(order.quantity),
+    cumulative_quantity: numberOrNull(order.cumulative_quantity),
+    price: numberOrNull(order.price),
+    average_price: numberOrNull(order.average_price),
+    created_at: order.created_at || null,
+    last_transaction_at: order.last_transaction_at || order.updated_at || null,
+    placed_agent: order.placed_agent || null,
+  };
+}
+
+function isSnapshotStale(syncedAt) {
+  const time = Date.parse(syncedAt || "");
+  if (!Number.isFinite(time)) return true;
+  return Date.now() - time > 15 * 60 * 1000;
+}
+
 function parseKalkiAlert(text) {
   const raw = String(text || "");
   const tickerMatch = raw.match(/(?:^|\n)\s*(?:[^\w\s]|\u26a1)?\s*\*?([A-Z][A-Z0-9.]{0,9})\*?(?:\s|$)/) ||
@@ -852,6 +1180,98 @@ function parseKalkiAlert(text) {
     t1: Number(t1Match[1]),
     raw,
   };
+}
+
+function normalizeLuxAlert(body) {
+  const value = body && typeof body === "object" ? body : {};
+  const rawText = String(value.raw || value.text || value.alert || "").trim();
+  const ticker = sanitizeTicker(value.ticker || value.symbol || extractTextMatch(rawText, /(?:ALERT|ANALYSIS)\s*[—-]\s*([A-Z][A-Z0-9.-]{0,9})/i));
+  const entryMid = positiveNumber(value.entry ?? value.entry_price ?? value.entryMid ?? value.price);
+  const price = positiveNumber(value.price) ?? entryMid;
+  const stop = positiveNumber(value.stop ?? value.stop_price ?? value.stopLoss);
+  const t1 = positiveNumber(value.t1 ?? value.target1 ?? value.tp1);
+  const t2 = positiveNumber(value.t2 ?? value.target2 ?? value.tp2);
+  const score = positiveNumber(value.score ?? value.confluenceScore) ?? parseScore(rawText);
+  const scoreMax = positiveNumber(value.scoreMax ?? value.score_max) ?? 8;
+
+  if (!ticker || !entryMid || !stop || !t1) return null;
+
+  const targets = [t1, t2].filter(Number.isFinite).map(roundMoney);
+  const grade = normalizeLuxGrade(value.grade, score, scoreMax);
+  const timeframe = String(value.timeframe || value.tf || "").trim().slice(0, 12) || null;
+  const pattern = String(value.pattern || value.setup || "Lux confluence alert").trim().slice(0, 160);
+  const rr = entryMid > stop ? roundMoney((t1 - entryMid) / (entryMid - stop)) : null;
+  const note = [
+    pattern,
+    Number.isFinite(score) ? `Score ${score}/${scoreMax}` : "",
+    timeframe ? `TF ${timeframe}` : "",
+    value.vwapLabel ? `VWAP ${String(value.vwapLabel).slice(0, 40)}` : "",
+  ].filter(Boolean).join(" · ");
+
+  return {
+    id: sanitizeSignalId(value.id || value.signalId || value.signal_id),
+    ticker,
+    grade,
+    score,
+    scoreMax,
+    timeframe,
+    pattern,
+    note,
+    price: roundMoney(price),
+    entryLow: roundMoney(positiveNumber(value.entryLow ?? value.entry_low) ?? entryMid),
+    entryHigh: roundMoney(positiveNumber(value.entryHigh ?? value.entry_high) ?? entryMid),
+    entryMid: roundMoney(entryMid),
+    stop: roundMoney(stop),
+    targets,
+    rr,
+    changePct: numberOrNull(value.changePct ?? value.change_pct),
+    vwapLabel: value.vwapLabel || null,
+    vwapDev: numberOrNull(value.vwapDev ?? value.vwap_dev),
+    signal: value.signal || null,
+    raw: rawText || JSON.stringify(value),
+    receivedAt: normalizeIso(value.receivedAt || value.received_at),
+  };
+}
+
+function sanitizeTicker(value) {
+  const ticker = String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+  return /^[A-Z][A-Z0-9.-]{0,9}$/.test(ticker) ? ticker : "";
+}
+
+function sanitizeSignalId(value) {
+  const id = String(value || "").trim().replace(/[^A-Za-z0-9_.:-]/g, "-").slice(0, 120);
+  return id || null;
+}
+
+function normalizeLuxGrade(value, score, scoreMax) {
+  const raw = String(value || "").trim().toUpperCase();
+  if (["A+", "A", "B+"].includes(raw)) return raw;
+  const scaledScore = Number.isFinite(score) && Number.isFinite(scoreMax) && scoreMax > 0
+    ? Math.round((score / scoreMax) * 8)
+    : null;
+  if (scaledScore >= 8) return "A+";
+  if (scaledScore >= 7) return "A";
+  return "B+";
+}
+
+function parseScore(value) {
+  const match = String(value || "").match(/\b(?:Score|Confluence)\s*:\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function extractTextMatch(value, regex) {
+  return String(value || "").match(regex)?.[1] || "";
+}
+
+function stableSignalKey(alert) {
+  const minute = (alert.receivedAt || new Date().toISOString()).slice(0, 16).replace(/[^0-9T]/g, "");
+  return `${roundMoney(alert.entryMid)}-${roundMoney(alert.stop)}-${alert.targets[0] || "na"}-${minute}`.replace(/[^A-Za-z0-9_.:-]/g, "-");
+}
+
+function normalizeIso(value) {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 }
 
 function parseMoneyRange(text, labelPattern) {
@@ -874,10 +1294,13 @@ async function publicConfig(env) {
   return {
     ok: true,
     connected: await robinhoodConfigured(env),
+    snapshot_bridge_configured: Boolean(env.DASHBOARD_SNAPSHOT_TOKEN),
     account_configured: Boolean(accountNumber(env)),
     scorer_webhook_configured: Boolean(env.SCORER_WEBHOOK_SECRET),
+    lux_webhook_configured: Boolean(env.LUX_WEBHOOK_SECRET || env.SCORER_WEBHOOK_SECRET),
     auto_trade_enabled: autoTradeEnabled(env),
     webhook_url: "/api/alerts/scorer",
+    lux_webhook_url: "/api/alerts/lux",
     connect_url: "/api/robinhood/connect",
     logout_url: "/api/robinhood/logout",
     setup: await setupChecklist(env),
@@ -937,8 +1360,10 @@ function escapeHtml(value) {
 async function setupChecklist(env) {
   return [
     { key: "Robinhood OAuth", done: await robinhoodConfigured(env), label: "Connect Robinhood through OAuth from this dashboard" },
+    { key: "DASHBOARD_SNAPSHOT_TOKEN", done: Boolean(env.DASHBOARD_SNAPSHOT_TOKEN), label: "Allow Claude/Codex to push Robinhood MCP snapshots into the dashboard" },
     { key: "ROBINHOOD_ACCOUNT_NUMBER", done: Boolean(accountNumber(env)), label: "Optional: pin a specific account number; otherwise the Worker selects an agentic/default account" },
     { key: "SCORER_WEBHOOK_SECRET", done: Boolean(env.SCORER_WEBHOOK_SECRET), label: "Set scorer webhook secret for authenticated alert intake" },
+    { key: "LUX_WEBHOOK_SECRET", done: Boolean(env.LUX_WEBHOOK_SECRET || env.SCORER_WEBHOOK_SECRET), label: "Set Lux screener webhook secret, or reuse SCORER_WEBHOOK_SECRET" },
     { key: "ROBINHOOD_AUTO_TRADE", done: autoTradeEnabled(env), label: "Optional: enable automatic placement after review passes" },
   ];
 }
@@ -948,6 +1373,21 @@ function requireScorerAuth(request, env) {
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : request.headers.get("x-scorer-secret");
   if (token !== env.SCORER_WEBHOOK_SECRET) throw new Error("Unauthorized scorer webhook request");
+}
+
+function requireLuxAuth(request, env) {
+  const expected = env.LUX_WEBHOOK_SECRET || env.SCORER_WEBHOOK_SECRET;
+  if (!expected) throw new Error("LUX_WEBHOOK_SECRET or SCORER_WEBHOOK_SECRET is not configured");
+  const header = request.headers.get("authorization") || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : request.headers.get("x-lux-secret") || request.headers.get("x-scorer-secret");
+  if (token !== expected) throw new Error("Unauthorized Lux webhook request");
+}
+
+function requireSnapshotAuth(request, env) {
+  if (!env.DASHBOARD_SNAPSHOT_TOKEN) throw new Error("DASHBOARD_SNAPSHOT_TOKEN is not configured");
+  const header = request.headers.get("authorization") || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : request.headers.get("x-dashboard-snapshot-token");
+  if (token !== env.DASHBOARD_SNAPSHOT_TOKEN) throw new Error("Unauthorized dashboard snapshot request");
 }
 
 function requireRobinhood(env) {
@@ -977,6 +1417,11 @@ function numberOrNull(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function positiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
 function roundMoney(value) {
   return Math.round(Number(value) * 100) / 100;
 }
@@ -994,6 +1439,7 @@ function errorMessage(error) {
 function json(data, status = 200) {
   return cors(JSON.stringify(data), status, {
     "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
   });
 }
 
@@ -1003,7 +1449,7 @@ function cors(body, status = 200, headers = {}) {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Scorer-Secret",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Scorer-Secret,X-Lux-Secret,X-Dashboard-Snapshot-Token",
       ...headers,
     },
   });

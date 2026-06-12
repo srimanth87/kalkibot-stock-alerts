@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kalkibot-ai-trade-agent",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-10",
+  "vars": {
+    "SECRET_PATH": "kalki2026",
+    "SOURCE_CHAT_ID": "-1003941879620",
+    "AI_PROVIDER": "nvidia",
+    "AI_API_BASE_URL": "https://integrate.api.nvidia.com",
+    "AI_MODEL": "meta/llama-4-maverick-17b-128e-instruct",
+    "YAHOO_PROXY_BASE_URL": "https://yahoo-proxy.srimanthgada87.workers.dev",
+    "MIN_GRADE": "B"
+  },
+  "d1_databases": [
+    {
+      "binding": "AI_DB",
+      "database_name": "kalkibot-ai-trade-agent-db",
+      "database_id": "c6405aaa-3803-4b05-96e3-d066d582bdff"
+    }
+  ],
+  "services": [
+    {
+      "binding": "YAHOO_PROXY",
+      "service": "yahoo-proxy"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 21 * * 1-5"]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

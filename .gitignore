@@ -1,8 +1,16 @@
 .DS_Store
+**/.DS_Store
+.tmp-backups/
 .tmp-kalki-*.json
+.tmp-*-wrangler.jsonc
 .wrangler/
+**/.wrangler/
+**/node_modules/
+**/.git/
 telegram-forwarder/.dev.vars
 telegram-forwarder/node_modules/
 telegram-forwarder/.DS_Store
 
 kalki-paid-telegram/.wrangler/
+kalki-robinhood-dashboard/.claude/
+kalki-robinhood-dashboard/.kalki-agent-state/

@@ -17,8 +17,9 @@ export default {
         source_chat_ids: getSourceChatIds(env),
         target_count: parseChatList(env.TARGET_CHANNEL_IDS).length,
         forward_mode: normalizeForwardMode(env.FORWARD_MODE),
-        report_sync_enabled: isReportSyncEnabled(env),
-        report_sync_url: getReportSyncUrl(env) || null,
+        d1_ingestion: "separate-worker",
+        ingest_enabled: isIngestEnabled(env),
+        ingest_url: getIngestUrl(env) || null,
         dedupe_enabled: hasForwardState,
         reply_threading_enabled: hasForwardState,
         warnings: hasForwardState
@@ -73,6 +74,10 @@ async function handleTelegramWebhook(request, env) {
 
   const post = getSupportedUpdatePost(update, env);
 
+  if (update.callback_query) {
+    return handleApprovalCallback(update.callback_query, env);
+  }
+
   if (!post) {
     return jsonResponse({
       ok: true,
@@ -110,8 +115,8 @@ async function handleTelegramWebhook(request, env) {
     return jsonResponse({ ok: false, error: "TELEGRAM_BOT_TOKEN is required" }, 500);
   }
 
+  const ingestResult = await ingestPost(env, post, sourceChatId);
   const forwardMode = normalizeForwardMode(env.FORWARD_MODE);
-  const reportSync = await syncReportFromPost(env, post, sourceChatId);
   const basePayload = {
     from_chat_id: sourceChatId,
     message_id: post.message_id,
@@ -169,7 +174,7 @@ async function handleTelegramWebhook(request, env) {
       ok: true,
       forwarded_count: successes.length,
       failed_count: 0,
-      report_sync: reportSync,
+      ingest: ingestResult,
       results: successes,
     });
   }
@@ -181,7 +186,7 @@ async function handleTelegramWebhook(request, env) {
         error: "Some target channel deliveries failed and will be retried by Telegram",
         forwarded_count: successes.length,
         failed_count: failures.length,
-        report_sync: reportSync,
+        ingest: ingestResult,
         results: successes,
         failures,
       },
@@ -195,9 +200,31 @@ async function handleTelegramWebhook(request, env) {
       "Some target deliveries failed. Configure a KV binding named FORWARD_STATE if you want safe per-target retries.",
     forwarded_count: successes.length,
     failed_count: failures.length,
-    report_sync: reportSync,
+    ingest: ingestResult,
     results: successes,
     failures,
+  });
+}
+
+async function handleApprovalCallback(callbackQuery, env) {
+  const data = String(callbackQuery?.data || "");
+  if (!data.startsWith("kg:")) {
+    return jsonResponse({ ok: true, ignored: true, reason: "Unknown callback data" });
+  }
+
+  if (!env.APPROVAL_GATE?.fetch) {
+    return jsonResponse({ ok: false, error: "APPROVAL_GATE service binding is required for approval callbacks" }, 500);
+  }
+
+  const response = await env.APPROVAL_GATE.fetch(new Request("https://approval-gate.internal/api/callback", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ callback_query: callbackQuery }),
+  }));
+  const body = await response.text();
+  return new Response(body, {
+    status: response.status,
+    headers: { "content-type": response.headers.get("content-type") || "application/json; charset=utf-8" },
   });
 }
 
@@ -236,457 +263,70 @@ function parseBoolean(value) {
   return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
 }
 
-function getReportSyncUrl(env) {
-  return String(env.REPORT_SYNC_URL || "").trim().replace(/\/+$/, "");
+function getIngestUrl(env) {
+  return String(env.INGEST_URL || env.D1_INGEST_URL || "").trim().replace(/\/+$/, "");
 }
 
-function getReportSyncKey(env) {
-  return String(env.REPORT_SYNC_KEY || env.KALKI_SYNC_KEY || "").trim();
+function getIngestKey(env) {
+  return String(env.INGEST_KEY || env.KALKI_INGEST_KEY || env.REPORT_SYNC_KEY || "").trim();
 }
 
-function isReportSyncEnabled(env) {
-  if (String(env.REPORT_SYNC_ENABLED || "").trim()) {
-    return parseBoolean(env.REPORT_SYNC_ENABLED);
+function isIngestEnabled(env) {
+  if (String(env.INGEST_ENABLED || "").trim()) {
+    return parseBoolean(env.INGEST_ENABLED);
   }
-  return Boolean(getReportSyncUrl(env) && getReportSyncKey(env));
-}
-
-async function syncReportFromPost(env, post, sourceChatId) {
-  if (!isReportSyncEnabled(env)) {
-    return { ok: true, skipped: true, reason: "Report sync is not configured" };
-  }
-
-  const text = getPostText(post);
-  const alert = parseScoredAlert(text);
-  if (alert) {
-    try {
-      await upsertAlertToReportCloud(env, alert, post, sourceChatId);
-      return { ok: true, ticker: alert.sym, type: "alert" };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown report sync error";
-      console.error("Report sync failed", {
-        source_chat_id: sourceChatId,
-        message_id: post.message_id,
-        error: message,
-      });
-      return { ok: false, ticker: alert.sym, type: "alert", error: message };
-    }
-  }
-
-  const command = parseTradeCommand(text, getReplyText(post));
-  if (!command) {
-    return { ok: true, skipped: true, reason: "No scored stock alert or trade command found" };
-  }
-  try {
-    await upsertCommandToReportCloud(env, command, post, sourceChatId);
-    return { ok: true, ticker: command.ticker, type: "command", action: command.action };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown report sync error";
-    console.error("Report sync failed", {
-      source_chat_id: sourceChatId,
-      message_id: post.message_id,
-      error: message,
-    });
-    return { ok: false, ticker: command.ticker, type: "command", action: command.action, error: message };
-  }
+  return Boolean(getIngestUrl(env) && getIngestKey(env));
 }
 
 function getPostText(post) {
   return String(post?.text || post?.caption || "").trim();
 }
 
-function getReplyText(post) {
-  return String(post?.reply_to_message?.text || post?.reply_to_message?.caption || "").trim();
+function messageDateToIso(value) {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : null;
 }
 
-function parseScoredAlert(text) {
-  const raw = String(text || "").trim();
-  if (!raw) return null;
-
-  const ticker = raw.match(/(?:^|\n)\s*⚡\s*\*?([A-Z][A-Z0-9.]{0,9})\*?/i)
-    || raw.match(/\b([A-Z]{1,6})\b/);
-  const entry = extractFirstMoneyAfter(raw, /Entry\s*:/i);
-  const stop = extractFirstMoneyAfter(raw, /Stop\s*:/i);
-  const targets = [...raw.matchAll(/T\d+\s*:\s*\$?\s*(\d+(?:\.\d+)?)/gi)]
-    .map((match) => Number.parseFloat(match[1]))
-    .filter(Number.isFinite);
-
-  if (!ticker || !entry || !stop || targets.length === 0) {
-    return null;
+async function ingestPost(env, post, sourceChatId) {
+  if (!isIngestEnabled(env)) {
+    return { ok: true, skipped: true, reason: "Ingestion is not configured" };
   }
 
-  const sym = ticker[1].toUpperCase().replace(/[^A-Z0-9.]/g, "");
-  const grade = (raw.match(/Grade\s*:\s*([A-D][+-]?)/i)?.[1] || "").toUpperCase();
-  const score = Number.parseFloat(raw.match(/Score\s*:\s*(\d+(?:\.\d+)?)/i)?.[1] || "");
-  const pattern = raw.match(/Pattern\s*:\s*([^\n]+)/i)?.[1]?.trim() || "";
-  const volumeContext = parseVolumeContext(raw);
-  const entryDate = parseAlertEntryDate(raw);
-  const entryMid = (entry.low + entry.high) / 2;
-  const supportLow = Math.min(stop.low, stop.high);
-  const supportHigh = Math.min(entryMid, Math.max(stop.low, stop.high));
-  const resistances = [...new Set(targets.filter((target) => target > entryMid).map((target) => roundPrice(target)))];
-
-  return {
-    sym,
-    grade,
-    score: Number.isFinite(score) ? score : null,
-    pattern,
-    entryLow: roundPrice(entry.low),
-    entryHigh: roundPrice(entry.high),
-    entryMid: roundPrice(entryMid),
-    entryDate,
-    stop: roundPrice(supportLow),
-    supLow: roundPrice(supportLow),
-    supHigh: roundPrice(supportHigh),
-    brk: roundPrice(supportLow),
-    res: resistances,
-    volume: volumeContext.volume,
-    volumeRatio: volumeContext.volumeRatio,
-    avgVolume20: volumeContext.avgVolume20,
-    raw,
-  };
-}
-
-function parseAlertEntryDate(text) {
-  const raw = String(text || "");
-  const match = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (match) {
-    const month = match[1].padStart(2, "0");
-    const day = match[2].padStart(2, "0");
-    return `${match[3]}-${month}-${day}`;
+  const text = getPostText(post);
+  if (!text) {
+    return { ok: true, skipped: true, reason: "Telegram post has no text or caption" };
   }
-  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
 
-function parseVolumeContext(text) {
-  const raw = String(text || "");
-  const line = raw.match(/Volume\s*:\s*([0-9.,]+)\s*([KMB])?(?:\s*shares?)?(?:\s*[·|,-]\s*([0-9.]+)\s*x\s*avg)?/i);
-  if (!line) return { volume: null, volumeRatio: null, avgVolume20: null };
-  const volume = parseHumanVolume(line[1], line[2]);
-  const volumeRatio = Number.parseFloat(line[3] || "");
-  return {
-    volume,
-    volumeRatio: Number.isFinite(volumeRatio) ? volumeRatio : null,
-    avgVolume20: volume && Number.isFinite(volumeRatio) && volumeRatio > 0 ? Math.round(volume / volumeRatio) : null,
-  };
-}
-
-function parseHumanVolume(numberText, suffix) {
-  const value = Number.parseFloat(String(numberText || "").replace(/,/g, ""));
-  if (!Number.isFinite(value)) return null;
-  const mult = String(suffix || "").toUpperCase() === "B" ? 1e9
-    : String(suffix || "").toUpperCase() === "M" ? 1e6
-      : String(suffix || "").toUpperCase() === "K" ? 1e3
-        : 1;
-  return Math.round(value * mult);
-}
-
-function formatCompactNumber(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "";
-  if (Math.abs(number) >= 1e9) return `${roundPrice(number / 1e9)}B`;
-  if (Math.abs(number) >= 1e6) return `${roundPrice(number / 1e6)}M`;
-  if (Math.abs(number) >= 1e3) return `${roundPrice(number / 1e3)}K`;
-  return String(Math.round(number));
-}
-
-function extractFirstMoneyAfter(text, labelPattern) {
-  const label = text.match(labelPattern);
-  if (!label) return null;
-  const tail = text.slice(label.index + label[0].length, label.index + label[0].length + 80);
-  const range = tail.match(/\$?\s*(\d+(?:\.\d+)?)\s*(?:-|–|—|to)\s*\$?\s*(\d+(?:\.\d+)?)/i);
-  if (range) {
-    const a = Number.parseFloat(range[1]);
-    const b = Number.parseFloat(range[2]);
-    if (Number.isFinite(a) && Number.isFinite(b)) {
-      return { low: Math.min(a, b), high: Math.max(a, b) };
+  const baseUrl = getIngestUrl(env);
+  const key = getIngestKey(env);
+  try {
+    const response = await fetch(`${baseUrl}/ingest`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Kalki-Key": key,
+      },
+      body: JSON.stringify({
+        text,
+        sourceChatId,
+        sourceMessageId: String(post.message_id || ""),
+        receivedAt: messageDateToIso(post.date),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      throw new Error(data.error || data.message || `Ingest failed with HTTP ${response.status}`);
     }
+    return data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown ingestion error";
+    console.error("D1 ingestion call failed", {
+      source_chat_id: sourceChatId,
+      message_id: post.message_id,
+      error: message,
+    });
+    return { ok: false, error: message };
   }
-  const single = tail.match(/\$?\s*(\d+(?:\.\d+)?)/);
-  if (!single) return null;
-  const value = Number.parseFloat(single[1]);
-  return Number.isFinite(value) ? { low: value, high: value } : null;
-}
-
-function roundPrice(value) {
-  return Math.round(Number(value) * 100) / 100;
-}
-
-function parseTradeCommand(text, replyText = "") {
-  const raw = String(text || "").trim();
-  if (!raw) return null;
-  const ticker = extractTickerFromText(replyText) || extractTickerFromCommand(raw);
-  if (!ticker) return null;
-
-  if (/\b(move|raise|update)\s+stop\b|\bstop\s+(to\s+)?(breakeven|break even|be)\b/i.test(raw)) {
-    return { action: "move_stop", ticker, percent: null, label: "Move stop", raw, replyText };
-  }
-  if (/\bcancel\b|\bcancel\s+orders?\b/i.test(raw)) {
-    return { action: "cancel_orders", ticker, percent: null, label: "Cancel orders", raw, replyText };
-  }
-  if (/\b(close|exit|sell\s+all|full\s+exit)\b/i.test(raw)) {
-    return { action: "close", ticker, percent: 100, label: "Close position", raw, replyText };
-  }
-  if (/\b(take\s+profits?|take\s+profit|trim|scale\s+out|sell\s+(half|partial|some))\b/i.test(raw)) {
-    const percent = extractCommandPercent(raw) || 50;
-    const clamped = clampNumber(percent, 1, 100);
-    return { action: "trim", ticker, percent: clamped, label: `Trim ${clamped}%`, raw, replyText };
-  }
-  return null;
-}
-
-function extractTickerFromText(text) {
-  const raw = String(text || "");
-  const match = raw.match(/(?:^|\n)\s*⚡\s*\*?([A-Z][A-Z0-9.]{0,9})\*?/i)
-    || raw.match(/\bTicker:\s*([A-Z]{1,10})\b/i);
-  return match ? match[1].toUpperCase().replace(/[^A-Z0-9.]/g, "") : "";
-}
-
-function extractTickerFromCommand(text) {
-  const raw = String(text || "").toUpperCase();
-  const explicit = raw.match(/\b(?:FOR|ON|TICKER)\s+([A-Z][A-Z0-9.]{0,9})\b/)
-    || raw.match(/\b(?:TRIM|CLOSE|EXIT|CANCEL)\s+([A-Z][A-Z0-9.]{0,9})\b/);
-  if (explicit) return explicit[1].replace(/[^A-Z0-9.]/g, "");
-  const leading = raw.match(/^([A-Z][A-Z0-9.]{0,9})\b/);
-  if (leading && !["TAKE", "TRIM", "CLOSE", "EXIT", "SELL", "CANCEL", "MOVE", "STOP", "TARGET", "PROFIT", "PROFITS", "REACHED"].includes(leading[1])) {
-    return leading[1].replace(/[^A-Z0-9.]/g, "");
-  }
-  return "";
-}
-
-function extractCommandPercent(text) {
-  const raw = String(text || "");
-  const pct = raw.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (pct) return Number.parseFloat(pct[1]);
-  if (/\bhalf\b/i.test(raw)) return 50;
-  if (/\bquarter\b/i.test(raw)) return 25;
-  return null;
-}
-
-function clampNumber(value, min, max) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return min;
-  return Math.max(min, Math.min(max, number));
-}
-
-async function upsertAlertToReportCloud(env, alert, post, sourceChatId) {
-  const baseUrl = getReportSyncUrl(env);
-  const key = getReportSyncKey(env);
-  const updatedAt = new Date().toISOString();
-  const messageId = String(post.message_id || Date.now());
-  const reportId = `tg-${sourceChatId}-${messageId}`;
-
-  const watchItem = {
-    sym: alert.sym,
-    supLow: alert.supLow,
-    supHigh: alert.supHigh,
-    brk: alert.brk,
-    res: alert.res,
-    price: null,
-    status: "neutral",
-    monitorTrend: false,
-    grade: alert.grade || "",
-    volume: alert.volume,
-    volumeRatio: alert.volumeRatio,
-    avgVolume20: alert.avgVolume20,
-    source: "telegram-forwarder",
-    sourceChatId,
-    sourceMessageId: messageId,
-    syncedAt: updatedAt,
-  };
-
-  const trackerItem = {
-    id: reportId,
-    sym: alert.sym,
-    note: alert.pattern || "Telegram scored alert",
-    addedIso: updatedAt,
-    addedLabel: new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" }),
-    addedPrice: alert.entryMid,
-    currentPrice: null,
-    pctSinceAdd: null,
-    catalystScore: alert.score,
-    grade: alert.grade,
-    volume: alert.volume,
-    volumeRatio: alert.volumeRatio,
-    avgVolume20: alert.avgVolume20,
-    updatedAt,
-    source: "telegram-forwarder",
-    sourceChatId,
-    sourceMessageId: messageId,
-    rawAlert: alert.raw,
-  };
-
-  const portfolioItem = buildPortfolioItemFromAlert(alert, trackerItem, updatedAt);
-  await upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, portfolioItem, updatedAt);
-}
-
-function buildPortfolioItemFromAlert(alert, trackerItem, updatedAt) {
-  const targets = Array.isArray(alert.res) ? alert.res.filter((value) => Number.isFinite(value)) : [];
-  const nextTP = targets.find((value) => value > alert.entryMid) || targets[0] || null;
-  return {
-    id: trackerItem.id,
-    sym: alert.sym,
-    entryPrice: alert.entryMid,
-    entryDate: alert.entryDate,
-    grade: alert.grade || "",
-    invest: 10000,
-    currentPrice: alert.entryMid,
-    status: "Watching TP1",
-    resistances: targets,
-    breakdown: alert.stop,
-    supLow: alert.stop,
-    supHigh: alert.stop,
-    notes: [
-      alert.pattern ? `Pattern: ${alert.pattern}` : "",
-      Number.isFinite(alert.score) ? `Score ${alert.score}/10` : "",
-      alert.volume ? `Volume ${formatCompactNumber(alert.volume)}${Number.isFinite(alert.volumeRatio) ? ` · ${alert.volumeRatio}x avg` : ""}` : "",
-    ].filter(Boolean).join(" · "),
-    state: "open",
-    closedPrice: null,
-    closeDate: null,
-    addedAt: new Date(updatedAt).toLocaleString("en-US", {
-      timeZone: "America/New_York",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    tpsHit: 0,
-    nextTP,
-    pnlPct: null,
-    source: "telegram-forwarder",
-    sourceChatId: trackerItem.sourceChatId,
-    sourceMessageId: trackerItem.sourceMessageId,
-    rawAlert: alert.raw,
-    syncedAt: updatedAt,
-    volume: alert.volume,
-    volumeRatio: alert.volumeRatio,
-    avgVolume20: alert.avgVolume20,
-  };
-}
-
-async function upsertNormalizedAlertTables(baseUrl, key, alert, watchItem, trackerItem, portfolioItem, updatedAt) {
-  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO watchlist_items
-    (sym, grade, status, support_low, support_high, breakdown, resistances_json, updated_at, raw_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-    alert.sym,
-    alert.grade || "",
-    "neutral",
-    alert.supLow,
-    alert.supHigh,
-    alert.brk,
-    JSON.stringify(alert.res || []),
-    updatedAt,
-    JSON.stringify(watchItem),
-  ]);
-
-  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO group_alerts
-    (id, sym, note, entry_date, grade, linked_portfolio_id, status, pct_since_add, updated_at, added_at, raw_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-    trackerItem.id,
-    alert.sym,
-    alert.pattern || "Telegram scored alert",
-    null,
-    alert.grade || "",
-    null,
-    null,
-    null,
-    updatedAt,
-    updatedAt,
-    JSON.stringify(trackerItem),
-  ]);
-
-  const existingPositionResult = await d1Query(baseUrl, key,
-    `SELECT state, closed_price, raw_json FROM portfolio_positions WHERE id = ? LIMIT 1`,
-    [portfolioItem.id],
-  );
-  const existingPosition = existingPositionResult?.results?.[0] || null;
-  let savedPortfolioItem = portfolioItem;
-  if (existingPosition?.state === "closed") {
-    let raw = {};
-    try {
-      raw = existingPosition.raw_json ? JSON.parse(existingPosition.raw_json) : {};
-    } catch {
-      raw = {};
-    }
-    savedPortfolioItem = {
-      ...raw,
-      ...portfolioItem,
-      state: "closed",
-      closedPrice: Number.isFinite(Number(existingPosition.closed_price))
-        ? Number(existingPosition.closed_price)
-        : raw.closedPrice ?? portfolioItem.closedPrice,
-      closeDate: raw.closeDate ?? portfolioItem.closeDate,
-    };
-  }
-
-  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO portfolio_positions
-    (id, sym, grade, state, entry_date, entry_price, current_price, closed_price, pnl_pct, updated_at, raw_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-    savedPortfolioItem.id,
-    alert.sym,
-    alert.grade || "",
-    savedPortfolioItem.state,
-    savedPortfolioItem.entryDate,
-    savedPortfolioItem.entryPrice,
-    savedPortfolioItem.currentPrice,
-    savedPortfolioItem.state === "closed" ? savedPortfolioItem.closedPrice : null,
-    null,
-    updatedAt,
-    JSON.stringify(savedPortfolioItem),
-  ]);
-}
-
-async function d1Query(baseUrl, key, sql, params = []) {
-  const response = await fetch(`${baseUrl}/d1/query`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "X-Kalki-Key": key,
-    },
-    body: JSON.stringify({ sql, params }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.ok === false) {
-    throw new Error(data.error || data.message || `D1 query failed with ${response.status}`);
-  }
-  return data.result;
-}
-
-async function upsertCommandToReportCloud(env, command, post, sourceChatId) {
-  const baseUrl = getReportSyncUrl(env);
-  const key = getReportSyncKey(env);
-  const updatedAt = new Date().toISOString();
-  const messageId = String(post.message_id || Date.now());
-  const commandEvent = {
-    id: `cmd-${sourceChatId}-${messageId}`,
-    sym: command.ticker,
-    action: command.action,
-    label: command.label,
-    percent: command.percent,
-    text: command.raw,
-    source: "telegram-forwarder",
-    sourceChatId,
-    sourceMessageId: messageId,
-    replyToMessageId: post.reply_to_message?.message_id || null,
-    createdAt: updatedAt,
-  };
-
-  await d1Query(baseUrl, key, `INSERT OR REPLACE INTO group_alerts
-    (id, sym, note, entry_date, grade, linked_portfolio_id, status, pct_since_add, updated_at, added_at, raw_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-    commandEvent.id,
-    command.ticker,
-    command.label || "Telegram command",
-    null,
-    "",
-    null,
-    command.action,
-    null,
-    updatedAt,
-    updatedAt,
-    JSON.stringify(commandEvent),
-  ]);
 }
 
 function normalizeForwardMode(value) {
@@ -738,7 +378,7 @@ async function setTelegramWebhook(url, env) {
   const webhookUrl = `${url.origin}${webhookPath}`;
   const body = {
     url: webhookUrl,
-    allowed_updates: ["message", "edited_message", "channel_post", "edited_channel_post"],
+    allowed_updates: ["message", "edited_message", "channel_post", "edited_channel_post", "callback_query"],
   };
 
   if (env.TELEGRAM_WEBHOOK_SECRET) {

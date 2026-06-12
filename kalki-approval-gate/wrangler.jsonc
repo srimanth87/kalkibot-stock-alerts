@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kalki-approval-gate",
+  "main": "src/index.js",
+  "compatibility_date": "2026-06-07",
+  "kv_namespaces": [
+    {
+      "binding": "APPROVAL_STATE",
+      "id": "eb001ab61912408e8301ec07b05921fd"
+    }
+  ],
+  "vars": {
+    "WATCH_CHAT_IDS": "1026720092",
+    "DESTINATION_CHAT_ID": "-1003967721534",
+    "TELEGRAM_WEBHOOK_PATH": "/telegram/webhook",
+    "APPROVAL_TTL_SECONDS": "604800",
+    "DISABLE_NOTIFICATION": "false"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kalki Auto-Trader</title>
+  <style>
+    :root{color-scheme:dark;--bg:#050a0f;--surface:#0a1520;--surface2:#0f1e2e;--border:#1a3040;--accent:#00d4ff;--accent2:#00ff88;--danger:#ff3b6b;--warn:#ffb347;--text:#c8dde8;--muted:#5f788a;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--ui:Inter,system-ui,Arial,sans-serif}
+    *{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:linear-gradient(rgba(0,212,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.035) 1px,transparent 1px),var(--bg);background-size:40px 40px;color:var(--text);font:14px/1.45 var(--ui)}
+    .container{max-width:1320px;margin:0 auto;padding:18px 20px 36px}header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:4px 0 16px;border-bottom:1px solid var(--border);margin-bottom:20px}
+    .logo{display:flex;gap:12px;align-items:center}.logo-icon{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:#001018;font-weight:900;box-shadow:0 0 22px rgba(0,212,255,.25)}h1{font-size:22px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);line-height:1}.logo span{display:block;margin-top:5px;font:10px var(--mono);letter-spacing:4px;color:var(--muted);text-transform:uppercase}
+    .header-actions{display:flex;align-items:center;gap:12px}.account-select{width:210px;height:38px;padding:8px 10px;font-size:11px;text-transform:uppercase}.account-action{height:38px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--accent);font:11px var(--mono);font-weight:900;letter-spacing:1px;text-transform:uppercase;cursor:pointer}.account-action.add{border-color:rgba(0,212,255,.45);background:rgba(0,212,255,.1)}.mode-badge{font:11px var(--mono);letter-spacing:2px;padding:5px 10px;border:1px solid var(--warn);border-radius:4px;color:var(--warn);background:rgba(255,179,71,.08);text-transform:uppercase}.mode-badge.live{border-color:var(--danger);color:#fff;background:rgba(255,59,107,.22)}.icon-btn{width:38px;height:38px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--accent);cursor:pointer;font-size:17px}.bot-toggle{position:relative;display:flex;align-items:center;gap:10px;padding:8px 16px;border-radius:6px;border:1px solid var(--accent2);background:rgba(0,255,136,.05);color:var(--accent2);font:12px var(--mono);font-weight:900;letter-spacing:1px;text-transform:uppercase;cursor:pointer}.bot-toggle:disabled{opacity:.55;cursor:not-allowed}.bot-toggle.off{border-color:var(--danger);color:var(--danger);background:rgba(255,59,107,.06)}.bot-switch{width:42px;height:22px;border-radius:999px;background:rgba(0,255,136,.16);border:1px solid var(--border);position:relative}.bot-switch:after{content:'';position:absolute;top:3px;left:23px;width:14px;height:14px;border-radius:50%;background:var(--accent2);transition:left .2s,background .2s}.bot-toggle.off .bot-switch{background:rgba(255,59,107,.12)}.bot-toggle.off .bot-switch:after{left:3px;background:var(--danger)}
+    .market-strip{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:rgba(10,21,32,.72);font:12px var(--mono);color:var(--muted)}.market-strip span{display:flex;align-items:center;gap:6px}.market-strip strong{color:var(--text)}.market-strip em{font-style:normal;color:var(--muted)}.market-strip .up em{color:var(--accent2)}.market-strip .down em{color:var(--danger)}
+    .stats{display:grid;grid-template-columns:repeat(5,minmax(145px,1fr));gap:12px;margin-bottom:18px}.hidden-stats{display:none}.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;overflow:hidden}.stat-card:after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);opacity:.55}.stat-card.green:after{background:var(--accent2)}.stat-card.warn:after{background:var(--warn)}.stat-label{font:10px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}.stat-value{font:24px var(--mono);font-weight:800;color:var(--text);line-height:1}.stat-value.accent{color:var(--accent)}.stat-value.green{color:var(--accent2)}.stat-value.red{color:var(--danger)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}.panel{background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden}.panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}.panel-title{font:12px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--accent)}.panel-body{min-height:160px;max-height:310px;overflow:auto}.empty{padding:34px 16px;text-align:center;color:var(--muted);font:12px var(--mono);letter-spacing:1px}
+    .alert-item,.pos-item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid rgba(26,48,64,.55)}.badge-grade{width:38px;height:38px;border-radius:6px;display:grid;place-items:center;border:1px solid rgba(0,212,255,.35);background:rgba(0,212,255,.12);color:var(--accent);font-weight:900}.ticker{font:15px var(--mono);font-weight:900;color:#fff}.meta{font:11px var(--mono);color:var(--muted);margin-top:3px}.prices{display:flex;gap:10px;flex-wrap:wrap;font:11px var(--mono);margin-top:4px}.entry{color:var(--text)}.stop{color:var(--danger)}.target{color:var(--accent2)}.pill{font:10px var(--mono);letter-spacing:1px;padding:4px 8px;border-radius:4px;border:1px solid rgba(0,255,136,.25);color:var(--accent2);background:rgba(0,255,136,.08);text-transform:uppercase}.pill.skip{border-color:rgba(255,179,71,.25);color:var(--warn);background:rgba(255,179,71,.08)}.pill.err{border-color:rgba(255,59,107,.25);color:var(--danger);background:rgba(255,59,107,.08)}.approval-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:7px}.approval-actions button{padding:6px 8px;font:10px var(--mono);letter-spacing:.6px;text-transform:uppercase}
+    .manual{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:18px;margin-bottom:18px}.manual-title{font:11px var(--mono);letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}.manual-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:start}textarea,input,select{width:100%;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:6px;padding:10px 12px;font:13px var(--mono);outline:none}textarea{min-height:92px;resize:vertical}textarea:focus,input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,212,255,.08)}button{border:1px solid var(--border);background:var(--surface2);color:var(--accent);border-radius:6px;padding:10px 15px;font-weight:800;cursor:pointer;white-space:nowrap}button.primary{background:linear-gradient(135deg,var(--accent),#0099cc);border-color:transparent;color:#001018}button.good{color:var(--accent2);border-color:rgba(0,255,136,.35)}button.danger{color:var(--danger);border-color:rgba(255,59,107,.35)}button.muted{color:var(--muted)}
+    .log-table{width:100%;border-collapse:collapse;font:12px var(--mono)}.log-table th{position:sticky;top:0;background:var(--surface2);color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;text-align:left;padding:10px 16px}.log-table td{padding:10px 16px;border-top:1px solid rgba(26,48,64,.5)}.log-open{color:var(--accent)}.log-ok{color:var(--accent2)}.log-skip{color:var(--warn)}.log-err{color:var(--danger)}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:20;padding:18px}.modal-backdrop.open{display:flex}.modal{width:min(760px,100%);max-height:92vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 24px 90px rgba(0,0,0,.55)}.modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}.modal-title{font:12px var(--mono);letter-spacing:2px;color:var(--accent);text-transform:uppercase}.modal-body{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px}.field.full{grid-column:1/-1}.restore-row{display:grid;grid-template-columns:1fr auto auto;gap:10px}.access-code{display:none;border:1px solid rgba(0,255,136,.3);background:rgba(0,255,136,.06);color:var(--accent2);border-radius:8px;padding:12px;font:16px var(--mono);font-weight:900;letter-spacing:1px}.access-code.show{display:block}.live-warning{display:none;border:1px solid rgba(255,59,107,.45);background:rgba(255,59,107,.1);color:#ffd9e2;border-radius:8px;padding:11px 12px;font:12px var(--mono);line-height:1.45}.live-warning.show{display:block}.ack-card{border:1px solid rgba(255,179,71,.42);background:rgba(255,179,71,.08);border-radius:8px;padding:12px;color:#ffe8c7}.ack-card label{display:flex;align-items:flex-start;gap:10px;font-weight:800;line-height:1.4}.ack-card input{width:18px;height:18px;min-width:18px;margin-top:2px;accent-color:var(--warn)}.ack-card p{margin-top:9px;font:11px var(--mono);line-height:1.5;color:#d8b98e}.modal-actions{display:flex;gap:10px;justify-content:flex-end;padding:14px 16px;border-top:1px solid var(--border);background:rgba(15,30,46,.55)}.hint{font:11px var(--mono);line-height:1.5;color:var(--muted)}#toast{position:fixed;right:22px;bottom:22px;display:grid;gap:8px;z-index:30}.toast{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;font:12px var(--mono);max-width:360px}.toast.err{border-left-color:var(--danger)}.toast.ok{border-left-color:var(--accent2)}.toast.warn{border-left-color:var(--warn)}
+    @media(max-width:860px){.stats,.grid{grid-template-columns:1fr}.manual-row,.modal-body{grid-template-columns:1fr}.header-actions{flex-wrap:wrap;justify-content:flex-end}.stat-value{font-size:23px}}
+  </style>
+</head>
+<body>
+<main class="container">
+  <header>
+    <div class="logo"><div class="logo-icon">⚡</div><div><h1>Kalki Auto-Trader</h1><span>Algorithmic Execution Engine</span></div></div>
+    <div class="header-actions"><select class="account-select" id="accountSwitcher" onchange="switchAccount()" title="Account"></select><button class="account-action add" onclick="beginAddAccount()" title="Add broker account">+ Account</button><button class="account-action" onclick="editCurrentAccount()" title="Edit selected account">Edit</button><div class="mode-badge" id="mode">Cloudflare</div><button class="bot-toggle off" id="botToggle" onclick="toggleBot()" disabled><span class="bot-switch"></span><span id="botToggleLabel">Not Connected</span></button></div>
+  </header>
+
+  <section class="market-strip" id="marketStrip" aria-label="Market snapshot">
+    <span id="mktSPX">SPX <strong>--</strong><em></em></span>
+    <span id="mktQQQ">QQQ <strong>--</strong><em></em></span>
+    <span id="mktVIX">VIX <strong>--</strong><em></em></span>
+  </section>
+
+  <section class="stats">
+    <div class="stat-card green"><div class="stat-label">Portfolio Value</div><div class="stat-value green" id="portfolioValue">$0.00</div></div>
+    <div class="stat-card green"><div class="stat-label">Day P/L</div><div class="stat-value green" id="accountDayPnl">--</div></div>
+    <div class="stat-card green"><div class="stat-label">Open P/L</div><div class="stat-value green" id="openPnl">$0.00</div></div>
+    <div class="stat-card green"><div class="stat-label">Realized Today</div><div class="stat-value green" id="realizedPnl">$0.00</div></div>
+    <div class="stat-card"><div class="stat-label">Buying Power</div><div class="stat-value accent" id="buyingPower">$0.00</div></div>
+  </section>
+  <div class="hidden-stats" aria-hidden="true"><span id="clientName">--</span><span id="enabled">--</span><span id="dayTrades">0</span><span id="dayNotional">$0.00</span><span id="totalPnl">$0.00</span><span id="gradeStat">B</span></div>
+
+  <section class="grid">
+    <div class="panel span2">
+      <div class="panel-header"><span class="panel-title">⚡ Alert Feed</span><span class="pill" id="feedState">Listening</span></div>
+      <div class="panel-body" id="alertFeed"><div class="empty">Waiting for Telegram alerts...</div></div>
+    </div>
+    <div class="panel span2">
+      <div class="panel-header"><span class="panel-title">📊 Recent Orders</span><span class="meta" id="orderCount">0 logs</span></div>
+      <div class="panel-body" id="orders"><div class="empty">No orders yet</div></div>
+    </div>
+  </section>
+
+  <section class="manual">
+    <div class="manual-title">🧪 Test Alert (Paste Kalki Message)</div>
+    <div class="manual-row">
+      <textarea id="alert">⚡ OKLO
+📊 Grade: B | Score: 6/8
+📈 Entry: $75.27
+🛑 Stop: $70
+🎯 T1: $77</textarea>
+      <button onclick="previewAlert()">Preview</button>
+      <button class="primary" id="manualTradeButton" onclick="manualTrade()">Place Paper Order</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header"><span class="panel-title">📈 Alert P/L Tracker</span><span class="meta" id="pnlTrackerCount">0 alerts</span></div>
+    <table class="log-table"><thead><tr><th>Opened</th><th>Ticker</th><th>Grade</th><th>Shares</th><th>Entry</th><th>Close / Current</th><th>Status</th><th>P/L</th></tr></thead><tbody id="pnlTracker"><tr><td colspan="8" class="empty">No filled or submitted alerts yet</td></tr></tbody></table>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header"><span class="panel-title">📋 Trade Log</span><div><button onclick="refreshPnl()">Refresh P/L</button><button onclick="loadLogs()">Refresh</button></div></div>
+    <table class="log-table"><thead><tr><th>Time (ET)</th><th>Ticker</th><th>Source</th><th>Status</th><th>Detail</th></tr></thead><tbody id="tradeLog"><tr><td colspan="5" class="empty">No trades yet</td></tr></tbody></table>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="settingsModal" onclick="closeSettings(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head"><div class="modal-title" id="settingsTitle">Settings</div><button onclick="closeSettings()">×</button></div>
+    <div class="modal-body">
+      <div class="field full"><label>Client Access Code</label><div class="restore-row"><input id="accessCodeInput" placeholder="KALKI-XXXX-XXXX-XXXX" autocomplete="off"><button onclick="restoreClient()">Restore</button><button onclick="generateAccessCode()">New Code</button></div></div>
+      <div class="field full access-code" id="newAccessCode"></div>
+      <div><label>Broker</label><select id="broker" onchange="brokerChanged(true)"><option value="alpaca" selected>Alpaca</option><option value="tradier">Tradier</option></select></div>
+      <div><label>Environment</label><select id="environment" onchange="environmentChanged(true)"><option value="paper" selected>Paper</option><option value="live">Live</option></select></div>
+      <div><label>Name</label><input id="name" placeholder="Client name"></div>
+      <div><label>Endpoint Base URL</label><input id="endpoint" value="https://paper-api.alpaca.markets"></div>
+      <div><label id="keyLabel">API Key ID</label><input id="key" autocomplete="off" placeholder="saved - leave blank to keep"></div>
+      <div><label id="secretLabel">API Secret Key</label><input id="secret" type="password" autocomplete="off" placeholder="saved - leave blank to keep"></div>
+      <div class="field full hint" id="credentialStatus">Broker credentials are saved after connect. Leave API key and secret blank unless you are replacing them.</div>
+      <div><label>Min Grade</label><select id="minGrade"><option>A+</option><option>A</option><option>B+</option><option selected>B</option><option>C</option></select></div>
+      <div><label>Entry Order Type</label><select id="orderType"><option value="limit" selected>Limit at Entry</option><option value="market">Market</option></select></div>
+      <div><label>Exit Strategy</label><select id="exitStrategy" onchange="syncExitStrategyOptions()"><option value="bracket" selected>Bracket (Recommended)</option><option value="take_profit">Take Profit Only</option><option value="stop_loss">Stop Loss Only</option><option value="none">None - Buy Only</option></select></div>
+      <div><label>Order Duration</label><select id="timeInForce"><option value="gtc" selected>GTC - Keep Open</option><option value="day">Day Only</option></select></div>
+      <div><label>Sizing Mode</label><select id="sizingMode" onchange="syncSizingMode()"><option value="fixed" selected>Fixed Dollars (Recommended)</option><option value="risk">Risk % of Portfolio</option></select></div>
+      <div><label>Position Size ($)</label><input id="positionSize" type="number" value="1000"></div>
+      <div><label>Portfolio Size ($)</label><input id="portfolioSize" type="number" placeholder="required for risk sizing"></div>
+      <div><label>Risk Per Trade (%)</label><input id="riskPercent" type="number" step="0.1" placeholder="example: 1"></div>
+      <div class="field full hint" id="sizingHint">Fixed Dollars buys the same dollar amount each trade. Risk % of Portfolio sizes shares from entry-to-stop risk. Portfolio Size and Risk Per Trade are used only with Risk % of Portfolio.</div>
+      <div><label>Max Trades Per Day</label><input id="maxTradesPerDay" type="number" placeholder="blank = unlimited"></div>
+      <div><label>Max Dollars Per Day</label><input id="maxDollarsPerDay" type="number" placeholder="blank = unlimited"></div>
+      <div class="field full live-warning" id="liveWarning">LIVE mode uses real buying power. Daily trade and dollar limits are required, and newly connected live accounts start paused.</div>
+      <div class="field full ack-card">
+        <label><input id="customerAcknowledgement" type="checkbox">I understand and accept the educational-use and self-directed trading terms.</label>
+        <p>Kalki Auto-Trader provides educational market information and user-configured execution tools only. Kalki, its owner, and its operators are not my financial adviser, investment adviser, broker-dealer, fiduciary, tax adviser, or legal adviser. Alerts, grades, entries, stops, targets, scores, and dashboards are not personalized financial advice or a recommendation that any security is suitable for me. I am responsible for reviewing every alert, broker connection, order type, position size, risk setting, and live/paper environment before any order is submitted. If I enable Bot Active or place an order, I authorize the platform to submit orders using my own settings and broker credentials. Trading involves risk, losses can exceed my expectations, results are not guaranteed, and I should consult a licensed professional before making investment decisions.</p>
+      </div>
+      <div class="field full row"><button onclick="pauseToday()">Pause Today</button><button onclick="clearPause()">Clear Pause</button></div>
+      <div class="field full hint">Use Client Access Code to restore this profile from another browser. If a code is lost or says not found, use New Code from an already connected browser and save the fresh code somewhere safe. Broker credentials are encrypted in Cloudflare KV and are not shown again after saving.</div>
+    </div>
+    <div class="modal-actions"><button class="danger" onclick="deleteProfile()">Delete Profile</button><button class="danger" onclick="forgetClient()">Forget Browser</button><button onclick="testBroker()">Test Broker</button><button onclick="saveSettings()">Save Controls</button><button class="primary" onclick="registerClient()">Save / Connect</button></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const API_BASE = 'https://kalki-alpaca-autotrader.srimanthgada87.workers.dev';
+const state = {
+  clientId: localStorage.getItem('kalkiClientId') || '',
+  clientToken: localStorage.getItem('kalkiClientToken') || '',
+  addingAccount: false,
+  pnl: null,
+};
+function apiFetch(path, options){
+  return fetch(API_BASE + path, options);
+}
+function headers(){return {'content-type':'application/json','x-client-id':state.clientId,'x-client-token':state.clientToken};}
+function toast(msg,type){const box=document.getElementById('toast');const el=document.createElement('div');el.className='toast '+(type||'');el.textContent=msg;box.appendChild(el);setTimeout(()=>el.remove(),4200);}
+function show(data){toast(typeof data==='string'?data:(data.error||data.skipped||data.result?.reason||'Done'),data.ok===false?'err':'ok');}
+function money(value){const number=Number(value)||0;return (number>=0?'+':'-')+'$'+Math.abs(number).toFixed(2);}
+function dollars(value){if(value==null||value==='')return '--';const number=Number(value);return Number.isFinite(number)?'$'+number.toFixed(2):'--';}
+function setMoneyStat(id,value){const el=document.getElementById(id);const number=Number(value)||0;el.textContent=money(number);el.className='stat-value '+(number>=0?'green':'red');}
+function setOptionalMoneyStat(id,value){const el=document.getElementById(id);if(!el)return;if(value==null||value===''){el.textContent='--';el.className='stat-value';return;}setMoneyStat(id,value);}
+function setDollarStat(id,value,cls='accent'){const el=document.getElementById(id);if(!el)return;el.textContent=dollars(value);el.className='stat-value '+cls;}
+function renderMarket(quotes){
+  const bySymbol=new Map((quotes||[]).map(q=>[String(q.symbol||'').toUpperCase(),q]));
+  ['SPX','QQQ','VIX'].forEach(symbol=>{
+    const q=bySymbol.get(symbol)||{};const el=document.getElementById('mkt'+symbol);if(!el)return;
+    const price=Number(q.price);const pct=Number(q.changePercent);const value=Number.isFinite(price)?price.toFixed(symbol==='VIX'?2:2):'--';
+    el.className=Number.isFinite(pct)?(pct>=0?'up':'down'):'';
+    el.innerHTML=symbol+' <strong>'+value+'</strong><em>'+(Number.isFinite(pct)?(pct>=0?'+':'')+pct.toFixed(2)+'%':'')+'</em>';
+  });
+}
+async function loadMarket(){
+  try{const r=await apiFetch('/api/market',{method:'GET'});const data=await r.json();if(data.ok)renderMarket(data.quotes||[]);}
+  catch{}
+}
+function readSessions(){try{return JSON.parse(localStorage.getItem('kalkiClientSessions')||'[]').filter(s=>s&&s.clientId&&s.clientToken);}catch{return [];}}
+function writeSessions(sessions){localStorage.setItem('kalkiClientSessions',JSON.stringify(sessions.slice(0,20)));}
+function sessionLabel(client){return [(client.name||'Client'),client.brokerLabel||client.broker||'',client.accountId?('...'+String(client.accountId).slice(-4)):''].filter(Boolean).join(' · ');}
+function renderAccountSwitcher(){
+  const el=document.getElementById('accountSwitcher');if(!el)return;
+  const sessions=readSessions();
+  el.innerHTML=sessions.length?sessions.map(s=>'<option value="'+s.clientId+'">'+(s.label||s.clientId)+'</option>').join(''):'<option value="">No saved accounts</option>';
+  el.value=state.clientId||'';
+}
+function switchAccount(){
+  const id=document.getElementById('accountSwitcher').value;
+  const session=readSessions().find(s=>s.clientId===id);
+  if(!session)return;
+  state.addingAccount=false;
+  state.clientId=session.clientId;state.clientToken=session.clientToken;
+  localStorage.setItem('kalkiClientId',state.clientId);localStorage.setItem('kalkiClientToken',state.clientToken);
+  loadMe().then(loadLogs);
+}
+function saveBrowserSession(data){
+  state.clientId=data.client.id;state.clientToken=data.token;
+  localStorage.setItem('kalkiClientId',state.clientId);localStorage.setItem('kalkiClientToken',state.clientToken);
+  const sessions=readSessions().filter(s=>s.clientId!==state.clientId);
+  sessions.unshift({clientId:state.clientId,clientToken:state.clientToken,label:sessionLabel(data.client),client:data.client,updatedAt:new Date().toISOString()});
+  writeSessions(sessions);renderAccountSwitcher();
+}
+function showAccessCode(code){
+  const el=document.getElementById('newAccessCode');
+  if(!code){el.className='field full access-code';el.textContent='';return;}
+  el.className='field full access-code show';
+  el.textContent='Save this access code: '+code;
+}
+function brokerDefaults(broker, environment){
+  const live=environment==='live';
+  if(broker==='tradier')return {endpoint:live?'https://api.tradier.com':'https://sandbox.tradier.com',keyLabel:'Tradier Account ID',secretLabel:'Tradier Access Token'};
+  return {endpoint:live?'https://api.alpaca.markets':'https://paper-api.alpaca.markets',keyLabel:'API Key ID',secretLabel:'API Secret Key'};
+}
+function currentEnvironment(){return document.getElementById('environment').value||'paper';}
+function isLiveMode(){return currentEnvironment()==='live';}
+function brokerChanged(resetEndpoint=false){syncBrokerFields(resetEndpoint);}
+function environmentChanged(resetEndpoint=false){syncBrokerFields(resetEndpoint);}
+function syncBrokerFields(resetEndpoint=false){
+  const broker=document.getElementById('broker').value;
+  const defaults=brokerDefaults(broker,currentEnvironment());
+  document.getElementById('keyLabel').textContent=defaults.keyLabel;
+  document.getElementById('secretLabel').textContent=defaults.secretLabel;
+  if(resetEndpoint||!document.getElementById('endpoint').value)document.getElementById('endpoint').value=defaults.endpoint;
+  document.getElementById('manualTradeButton').textContent=isLiveMode()?'Place Live Order':'Place Paper Order';
+  document.getElementById('liveWarning').className='field full live-warning '+(isLiveMode()?'show':'');
+  syncExitStrategyOptions();
+}
+function syncOrderTypeOptions(){
+  const broker=document.getElementById('broker').value;
+  const orderType=document.getElementById('orderType');
+  const marketOption=orderType.querySelector('option[value="market"]');
+  const exitStrategy=document.getElementById('exitStrategy').value;
+  marketOption.disabled=broker==='tradier'&&exitStrategy!=='none';
+  if(marketOption.disabled&&orderType.value==='market')orderType.value='limit';
+}
+function syncExitStrategyOptions(){
+  const broker=document.getElementById('broker').value;
+  const exit=document.getElementById('exitStrategy');
+  const tp=exit.querySelector('option[value="take_profit"]');
+  const sl=exit.querySelector('option[value="stop_loss"]');
+  tp.disabled=broker==='tradier';
+  sl.disabled=broker==='tradier';
+  if(broker==='tradier'&&(exit.value==='take_profit'||exit.value==='stop_loss'))exit.value='bracket';
+  syncOrderTypeOptions();
+}
+function syncSizingMode(){
+  const risk=document.getElementById('sizingMode').value==='risk';
+  document.getElementById('positionSize').disabled=risk;
+  document.getElementById('portfolioSize').disabled=!risk;
+  document.getElementById('riskPercent').disabled=!risk;
+}
+function resetAccountForm(){
+  document.getElementById('broker').value='alpaca';
+  document.getElementById('environment').value='paper';
+  document.getElementById('name').value='';
+  document.getElementById('endpoint').value=brokerDefaults('alpaca','paper').endpoint;
+  document.getElementById('key').value='';
+  document.getElementById('secret').value='';
+  document.getElementById('minGrade').value='B';
+  document.getElementById('orderType').value='limit';
+  document.getElementById('exitStrategy').value='bracket';
+  document.getElementById('timeInForce').value='gtc';
+  document.getElementById('sizingMode').value='fixed';
+  document.getElementById('positionSize').value='1000';
+  document.getElementById('portfolioSize').value='';
+  document.getElementById('riskPercent').value='';
+  document.getElementById('maxTradesPerDay').value='';
+  document.getElementById('maxDollarsPerDay').value='';
+  document.getElementById('customerAcknowledgement').checked=false;
+  document.getElementById('credentialStatus').textContent='Enter broker credentials for the new account. Live accounts start paused after connect.';
+  showAccessCode('');
+  brokerChanged(false);syncSizingMode();
+}
+function beginAddAccount(){
+  state.addingAccount=true;
+  document.getElementById('settingsTitle').textContent='Add Account';
+  resetAccountForm();
+  openSettings();
+  toast('Add a new broker account. Existing accounts stay saved in the account switcher.','warn');
+}
+function editCurrentAccount(){
+  state.addingAccount=false;
+  document.getElementById('settingsTitle').textContent=state.clientId?'Edit Account':'Connect Account';
+  if(state.clientId)loadMe();
+  openSettings();
+}
+function formSettings(){return {
+  broker: document.getElementById('broker').value,
+  environment: document.getElementById('environment').value,
+  name: document.getElementById('name').value,
+  endpoint: document.getElementById('endpoint').value,
+  key: document.getElementById('key').value,
+  secret: document.getElementById('secret').value,
+  minGrade: document.getElementById('minGrade').value,
+  orderType: document.getElementById('orderType').value,
+  exitStrategy: document.getElementById('exitStrategy').value,
+  timeInForce: document.getElementById('timeInForce').value,
+  sizingMode: document.getElementById('sizingMode').value,
+  positionSize: document.getElementById('positionSize').value,
+  portfolioSize: document.getElementById('portfolioSize').value,
+  riskPercent: document.getElementById('riskPercent').value,
+  maxTradesPerDay: document.getElementById('maxTradesPerDay').value,
+  maxDollarsPerDay: document.getElementById('maxDollarsPerDay').value,
+  customerAcknowledgement: document.getElementById('customerAcknowledgement').checked,
+  createNewAccount: state.addingAccount,
+};}
+function applyClient(data){
+  const c=data.client;if(!c)return;
+  if(data.pnl)state.pnl=data.pnl;
+  state.addingAccount=false;
+  document.getElementById('settingsTitle').textContent='Edit Account';
+  document.getElementById('clientName').textContent=c.name||'Connected';
+  document.getElementById('enabled').textContent=c.enabled?'ON':'OFF';
+  document.getElementById('enabled').className='stat-value '+(c.enabled?'green':'red');
+  document.getElementById('botToggle').disabled=false;
+  document.getElementById('botToggle').className='bot-toggle '+(c.enabled?'':'off');
+  document.getElementById('botToggleLabel').textContent=c.enabled?'Bot Active':'Bot Paused';
+  document.getElementById('dayTrades').textContent=data.day?.tradeCount ?? '--';
+  document.getElementById('dayNotional').textContent='$'+Number(data.day?.notional||0).toFixed(2);
+  setDollarStat('portfolioValue',data.pnl?.portfolioValue,'green');
+  setOptionalMoneyStat('accountDayPnl',data.pnl?.accountDayPnl);
+  setDollarStat('buyingPower',data.pnl?.buyingPower,'accent');
+  const realized=Number(data.pnl?.realizedPnl ?? data.day?.realizedPnl ?? 0);
+  const open=Number(data.pnl?.openPnl ?? data.pnl?.unrealizedPnl ?? 0);
+  const total=Number(data.pnl?.totalPnl ?? (realized+open));
+  setMoneyStat('realizedPnl',realized);setMoneyStat('openPnl',open);setMoneyStat('totalPnl',total);
+  document.getElementById('gradeStat').textContent=c.minGrade||'B';
+  document.getElementById('broker').value=c.broker||'alpaca';
+  document.getElementById('environment').value=c.environment||'paper';
+  brokerChanged(false);
+  const mode=document.getElementById('mode');
+  mode.textContent=c.brokerLabel||((c.broker||'Alpaca')+' '+(c.environment||'paper'));
+  mode.className='mode-badge '+((c.environment==='live')?'live':'');
+  document.getElementById('name').value=c.name||'';
+  document.getElementById('endpoint').value=c.endpoint||brokerDefaults(c.broker||'alpaca',c.environment||'paper').endpoint;
+  document.getElementById('minGrade').value=c.minGrade||'B';
+  document.getElementById('orderType').value=c.orderType||'limit';
+  document.getElementById('exitStrategy').value=c.exitStrategy||'bracket';
+  document.getElementById('timeInForce').value=c.timeInForce||'gtc';
+  syncExitStrategyOptions();
+  syncOrderTypeOptions();
+  document.getElementById('sizingMode').value=c.sizingMode||'fixed';
+  document.getElementById('positionSize').value=c.positionSize||1000;
+  document.getElementById('portfolioSize').value=c.portfolioSize||'';
+  document.getElementById('riskPercent').value=c.riskPercent||'';
+  document.getElementById('maxTradesPerDay').value=c.maxTradesPerDay||'';
+  document.getElementById('maxDollarsPerDay').value=c.maxDollarsPerDay||'';
+  document.getElementById('customerAcknowledgement').checked=Boolean(c.disclosureAcceptedAt);
+  document.getElementById('key').value='';document.getElementById('secret').value='';
+  document.getElementById('credentialStatus').textContent=c.hasCredentials?'Broker credentials are already saved for this restored profile. Leave API key and secret blank unless replacing them.':'Enter broker credentials to connect this profile.';
+  syncSizingMode();
+  if(state.clientToken){
+    const sessions=readSessions();
+    const idx=sessions.findIndex(s=>s.clientId===c.id);
+    if(idx>=0){sessions[idx]={...sessions[idx],label:sessionLabel(c),client:c,updatedAt:new Date().toISOString()};writeSessions(sessions);renderAccountSwitcher();}
+  }
+}
+async function health(){
+  const r=await apiFetch('/api/health');const data=await r.json();
+  document.getElementById('mode').textContent=data.kv_bound?'Broker Ready':'KV Missing';
+}
+async function registerClient(){
+  if(isLiveMode()&&!liveLimitsPresent())return show({ok:false,error:'Live accounts require daily trade and dollar limits.'});
+  const body=formSettings();
+  if(state.clientId&&state.clientToken&&!state.addingAccount&&!body.key&&!body.secret)return saveSettings();
+  if(state.addingAccount&&(!body.key||!body.secret))return show({ok:false,error:'New broker accounts require API key and secret/token.'});
+  if(!body.customerAcknowledgement)return show({ok:false,error:'Please accept the educational-use and self-directed trading acknowledgement before connecting.'});
+  if(body.sizingMode==='risk'&&(!Number(body.portfolioSize)||!Number(body.riskPercent)))return show({ok:false,error:'Risk sizing requires portfolio size and risk percent.'});
+  const r=await apiFetch('/api/client/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  const data=await r.json();show(data);
+  if(data.ok){saveBrowserSession(data);applyClient(data);showAccessCode(data.accessCode);loadLogs();toast('Connected. Save the displayed access code for other browsers.','ok');}
+}
+async function restoreClient(){
+  const accessCode=document.getElementById('accessCodeInput').value;
+  const r=await apiFetch('/api/client/restore',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({accessCode})});
+  const data=await r.json();show(data);
+  if(data.ok){saveBrowserSession(data);applyClient(data);showAccessCode('');closeSettings();loadLogs();}
+}
+async function generateAccessCode(){
+  if(!requireConnected())return;
+  const r=await apiFetch('/api/client/access-code',{method:'POST',headers:headers(),body:'{}'});
+  const data=await r.json();show(data);
+  if(data.ok){applyClient(data);showAccessCode(data.accessCode);toast('Use this new code on the other laptop. Older restore codes for this profile will no longer work.','warn');}
+}
+async function loadMe(){
+  if(!state.clientId||!state.clientToken){document.getElementById('clientName').textContent='Setup';document.getElementById('enabled').textContent='OFF';document.getElementById('botToggle').disabled=true;document.getElementById('botToggle').className='bot-toggle off';document.getElementById('botToggleLabel').textContent='Not Connected';return;}
+  const r=await apiFetch('/api/client/me',{method:'POST',headers:headers(),body:'{}'});const data=await r.json();show(data);if(data.ok)applyClient(data);
+}
+async function saveSettings(extra={}){
+  if(state.addingAccount)return show({ok:false,error:'Use Save / Connect to create the new account first.'});
+  const body={...formSettings(),...extra};
+  if(!body.customerAcknowledgement)return show({ok:false,error:'Please accept the educational-use and self-directed trading acknowledgement before saving.'});
+  if(body.environment==='live'&&!liveLimitsPresent())return show({ok:false,error:'Live accounts require daily trade and dollar limits.'});
+  if(body.sizingMode==='risk'&&(!Number(body.portfolioSize)||!Number(body.riskPercent)))return show({ok:false,error:'Risk sizing requires portfolio size and risk percent.'});
+  if(!body.key)delete body.key;if(!body.secret)delete body.secret;
+  const r=await apiFetch('/api/client/settings',{method:'POST',headers:headers(),body:JSON.stringify(body)});const data=await r.json();show(data);if(data.ok)applyClient(data);
+}
+async function setEnabled(enabled){
+  const extra={enabled};
+  if(enabled&&isLiveMode()){
+    const typed=prompt('Type LIVE to enable real-money auto-trading for this account:');
+    if(String(typed||'').trim().toUpperCase()!=='LIVE')return show({ok:false,error:'Live auto-trading was not enabled.'});
+    extra.liveConfirmation='LIVE';
+  }
+  await saveSettings(extra);
+}
+async function toggleBot(){if(!requireConnected())return;const isOn=!document.getElementById('botToggle').classList.contains('off');await setEnabled(!isOn);}
+async function pauseToday(){await saveSettings({pauseToday:true});}
+async function clearPause(){await saveSettings({clearPause:true});}
+async function testBroker(){const r=await apiFetch('/api/client/test-broker',{method:'POST',headers:headers(),body:'{}'});show(await r.json());}
+async function previewAlert(){const r=await apiFetch('/api/test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:document.getElementById('alert').value})});const data=await r.json();show(data);if(data.ok)addAlert(data.alert,'preview',data.decision?.reason||'Preview');}
+async function manualTrade(){const confirmation=confirmManualTrade();if(!confirmation)return;const r=await apiFetch('/api/client/manual-trade',{method:'POST',headers:headers(),body:JSON.stringify({text:document.getElementById('alert').value,liveConfirmation:confirmation===true?'':confirmation})});const data=await r.json();show(data);if(data.result?.alert)addAlert(data.result.alert,data.result.status,data.result.reason||'Manual');await loadLogs();await loadMe();}
+async function loadLogs(){const r=await apiFetch('/api/client/logs',{method:'POST',headers:headers(),body:'{}'});const data=await r.json();if(!data.ok){show(data);return;}renderLogs(data.logs||[]);}
+async function refreshPnl(){const r=await apiFetch('/api/client/refresh-pnl',{method:'POST',headers:headers(),body:'{}'});const data=await r.json();show(data.ok?('P/L refreshed: '+(data.closed||0)+' closed, '+(data.open||0)+' pending, open P/L '+money(data.pnl?.openPnl||0)):data);if(data.day)applyClient({client:{id:state.clientId,name:document.getElementById('clientName').textContent,enabled:!document.getElementById('botToggle').classList.contains('off'),broker:document.getElementById('broker').value,environment:document.getElementById('environment').value,minGrade:document.getElementById('minGrade').value,endpoint:document.getElementById('endpoint').value,orderType:document.getElementById('orderType').value,exitStrategy:document.getElementById('exitStrategy').value,timeInForce:document.getElementById('timeInForce').value,sizingMode:document.getElementById('sizingMode').value,positionSize:document.getElementById('positionSize').value,portfolioSize:document.getElementById('portfolioSize').value,riskPercent:document.getElementById('riskPercent').value,maxTradesPerDay:document.getElementById('maxTradesPerDay').value,maxDollarsPerDay:document.getElementById('maxDollarsPerDay').value,hasCredentials:true},day:data.day,pnl:data.pnl});await loadLogs();}
+async function decideApproval(approvalId,action){
+  if(!requireConnected())return;
+  if(action==='approve'&&!confirm('Approve this pending live order and send it to the broker?'))return;
+  const r=await apiFetch('/api/client/approval',{method:'POST',headers:headers(),body:JSON.stringify({approvalId,action})});
+  const data=await r.json();
+  show(data);
+  await loadLogs();
+  await loadMe();
+}
+function forgetClient(){
+  const sessions=readSessions().filter(s=>s.clientId!==state.clientId);
+  writeSessions(sessions);
+  const next=sessions[0];
+  if(next){state.clientId=next.clientId;state.clientToken=next.clientToken;localStorage.setItem('kalkiClientId',state.clientId);localStorage.setItem('kalkiClientToken',state.clientToken);}
+  else{localStorage.removeItem('kalkiClientId');localStorage.removeItem('kalkiClientToken');}
+  location.reload();
+}
+async function deleteProfile(){if(!requireConnected())return;if(!confirm('Delete this client profile from auto-trading?'))return;const r=await apiFetch('/api/client/delete',{method:'POST',headers:headers(),body:'{}'});const data=await r.json();show(data);if(data.ok)forgetClient();}
+function openSettings(){document.getElementById('settingsModal').classList.add('open');}
+function closeSettings(event){if(event&&event.target.id!=='settingsModal')return;document.getElementById('settingsModal').classList.remove('open');if(state.addingAccount){state.addingAccount=false;document.getElementById('settingsTitle').textContent='Settings';if(state.clientId)loadMe();}}
+function addAlert(alert,status,detail){const feed=document.getElementById('alertFeed');feed.innerHTML='<div class="alert-item"><div class="badge-grade">'+(alert.grade||'?')+'</div><div><div class="ticker">'+alert.ticker+'</div><div class="prices"><span class="entry">Entry $'+Number(alert.entryPrice).toFixed(2)+'</span><span class="stop">Stop $'+Number(alert.stopPrice).toFixed(2)+'</span><span class="target">T1 $'+Number(alert.t1).toFixed(2)+'</span></div></div><div><span class="pill '+(status==='skipped'?'skip':status==='error'?'err':'')+'">'+status+'</span><div class="meta">'+(detail||'')+'</div></div></div>'+feed.innerHTML.replace('<div class="empty">Waiting for Telegram alerts...</div>','');}
+function formatEtTime(value){if(!value)return '-';const date=new Date(value);if(Number.isNaN(date.getTime()))return '-';return new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true,timeZoneName:'short'}).format(date);}
+function logClass(l){return l.status==='profit'?'log-ok':l.status==='loss'?'log-err':l.status==='submitted'?'log-open':l.status==='skipped'?'log-skip':l.status==='error'?'log-err':'log-open';}
+function orderFilled(l){const status=String(l.broker_order?.status||l.order_status||'').toLowerCase();const filledQty=Number(l.broker_order?.filled_qty||l.filled_qty||0);return filledQty>0||status==='filled'||status==='partially_filled';}
+function orderBrokerStatus(l){return String(l.broker_order?.status||l.order_status||'').replace(/_/g,' ');}
+function logDetail(l){if(l.type==='realized_pnl')return (l.exit_reason||'Exit')+' '+(Number(l.realized_pnl)>=0?'+':'')+'$'+Number(l.realized_pnl||0).toFixed(2)+' · '+Number(l.filled_qty||0)+' sh · $'+Number(l.entry_fill_price||0).toFixed(2)+' → $'+Number(l.exit_fill_price||0).toFixed(2);if(l.status==='submitted'&&l.alert){const status=orderBrokerStatus(l);return orderFilled(l)?'Entry filled - exit order working':'Submitted to broker - waiting for fill'+(status?' ('+status+')':'');}if(l.message)return l.message;return l.reason||l.broker_order_id||l.alpaca_order_id||'';}
+function renderLogs(logs){document.getElementById('orderCount').textContent=logs.length+' logs';const body=document.getElementById('tradeLog');const orders=document.getElementById('orders');if(!logs.length){body.innerHTML='<tr><td colspan="5" class="empty">No trades yet</td></tr>';orders.innerHTML='<div class="empty">No orders yet</div>';renderPnlTracker([]);return;}body.innerHTML=logs.map(l=>{const detail=logDetail(l);return '<tr><td>'+formatEtTime(l.logged_at||l.created_at)+'</td><td>'+(l.ticker||l.alert?.ticker||'-')+'</td><td>'+(l.broker||l.source||l.type||'-')+'</td><td class="'+logClass(l)+'">'+(l.status||'-')+'</td><td>'+detail+'</td></tr>';}).join('');const resolved=new Set(logs.filter(l=>l.approval_id&&(l.type==='approval_approved'||l.type==='approval_declined')).map(l=>l.approval_id));const visibleOrders=logs.filter(l=>!(l.type==='pending_approval'&&resolved.has(l.approval_id))).slice(0,6);orders.innerHTML=visibleOrders.map(l=>{const detail=logDetail(l);const isPending=l.type==='pending_approval'&&l.approval_id;const actions=isPending?'<div class="approval-actions"><button class="good" onclick="decideApproval(&quot;'+l.approval_id+'&quot;,&quot;approve&quot;)">Approve</button><button class="danger" onclick="decideApproval(&quot;'+l.approval_id+'&quot;,&quot;decline&quot;)">Decline</button></div>':'';return '<div class="pos-item"><div class="badge-grade">'+((l.alert?.grade)||'--')+'</div><div><div class="ticker">'+(l.ticker||l.alert?.ticker||l.type||'-')+'</div><div class="meta">'+detail+'</div>'+actions+'</div><span class="pill '+(l.status==='skipped'?'skip':l.status==='error'||l.status==='loss'?'err':'')+'">'+(l.status||'log')+'</span></div>';}).join('');renderPnlTracker(logs);}
+function renderPnlTracker(logs){
+  const body=document.getElementById('pnlTracker');const count=document.getElementById('pnlTrackerCount');if(!body||!count)return;
+  const byOrder=new Map();
+  const positions=new Map((state.pnl?.positions||[]).map(p=>[String(p.symbol||'').toUpperCase(),p]));
+  logs.slice().reverse().forEach(l=>{
+    const id=l.parent_order_id||l.broker_order_id||l.alpaca_order_id;
+    if(!id)return;
+    if(l.status==='submitted'&&l.alert){const ticker=String(l.alert.ticker||l.ticker||'').toUpperCase();const pos=positions.get(ticker);const filled=orderFilled(l);byOrder.set(id,{id,openedAt:l.logged_at||l.created_at,ticker,grade:l.alert.grade||'',shares:Number(l.decision?.shares||l.broker_order?.qty||0),entry:Number((filled&&l.broker_order?.filled_avg_price)||l.alert.entryPrice||l.broker_order?.limit_price||0),current:filled?pos?.currentPrice:null,status:filled?'Open - not closed':'Submitted - waiting fill',close:filled?'Not closed yet':'Entry not filled yet',pnl:null});}
+    if(l.type==='realized_pnl'){const row=byOrder.get(id)||{id,openedAt:l.logged_at||l.created_at,ticker:l.ticker||l.alert?.ticker,grade:l.alert?.grade||'',shares:Number(l.filled_qty||0),entry:Number(l.entry_fill_price||0)};row.status='Closed';row.close='$'+Number(l.exit_fill_price||0).toFixed(2)+' '+(l.exit_reason||'Exit');row.pnl=Number(l.realized_pnl||0);row.shares=Number(l.filled_qty||row.shares||0);row.entry=Number(l.entry_fill_price||row.entry||0);byOrder.set(id,row);}
+  });
+  const rows=[...byOrder.values()].sort((a,b)=>String(b.openedAt||'').localeCompare(String(a.openedAt||''))).slice(0,25);
+  count.textContent=rows.length+' alerts';
+  if(!rows.length){body.innerHTML='<tr><td colspan="8" class="empty">No filled or submitted alerts yet</td></tr>';return;}
+  body.innerHTML=rows.map(row=>{const pnl=row.pnl==null?'-':money(row.pnl);const pnlClass=row.pnl==null?'':row.pnl>=0?'log-ok':'log-err';const close=row.status==='Closed'?row.close:(row.current?'Current $'+Number(row.current).toFixed(2):row.close);return '<tr><td>'+formatEtTime(row.openedAt)+'</td><td>'+escapeText(row.ticker||'-')+'</td><td>'+escapeText(row.grade||'-')+'</td><td>'+Number(row.shares||0)+'</td><td>$'+Number(row.entry||0).toFixed(2)+'</td><td>'+escapeText(close||'Not closed yet')+'</td><td class="'+(row.status==='Closed'?'log-ok':'log-open')+'">'+row.status+'</td><td class="'+pnlClass+'">'+pnl+'</td></tr>';}).join('');
+}
+function escapeText(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function requireConnected(){
+  if(state.clientId&&state.clientToken)return true;
+  show('Open settings and connect a broker first.','warn');openSettings();
+  return false;
+}
+function liveLimitsPresent(){return Number(document.getElementById('maxTradesPerDay').value)>0&&Number(document.getElementById('maxDollarsPerDay').value)>0;}
+function confirmManualTrade(){
+  if(!isLiveMode())return confirm('Place this paper order?');
+  const typed=prompt('This will place a real-money order. Type LIVE to continue:');
+  return String(typed||'').trim().toUpperCase()==='LIVE'?'LIVE':false;
+}
+const originalSaveSettings=saveSettings;
+saveSettings=async function(extra={}){if(!requireConnected())return;return originalSaveSettings(extra);}
+const originalTestBroker=testBroker;
+testBroker=async function(){if(!requireConnected())return;return originalTestBroker();}
+const originalManualTrade=manualTrade;
+manualTrade=async function(){if(!requireConnected())return;return originalManualTrade();}
+const originalLoadLogs=loadLogs;
+loadLogs=async function(){if(!requireConnected())return;return originalLoadLogs();}
+const originalRefreshPnl=refreshPnl;
+refreshPnl=async function(){if(!requireConnected())return;return originalRefreshPnl();}
+Object.assign(window,{switchAccount,beginAddAccount,editCurrentAccount,toggleBot,previewAlert,manualTrade,openSettings,closeSettings,restoreClient,generateAccessCode,brokerChanged,environmentChanged,syncExitStrategyOptions,syncSizingMode,pauseToday,clearPause,testBroker,registerClient,saveSettings,forgetClient,deleteProfile,loadLogs,refreshPnl,decideApproval});
+renderAccountSwitcher();
+brokerChanged();
+syncExitStrategyOptions();
+syncSizingMode();
+loadMarket();setInterval(loadMarket,60000);
+health();loadMe().then(()=>{if(state.clientId)loadLogs();}).catch(()=>show('Open settings and connect a broker first.'));
+</script>
+</body>
+</html>

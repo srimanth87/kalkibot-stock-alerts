@@ -1,0 +1,40 @@
+{
+  "$schema": "../telegram-forwarder/node_modules/wrangler/config-schema.json",
+  "name": "kalki-position-tracker",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-31",
+  "vars": {
+    "YAHOO_PROXY_BASE_URL": "https://yahoo-proxy.srimanthgada87.workers.dev",
+    "ALPACA_BASE_URL": "https://data.alpaca.markets",
+    "TRADIER_BASE_URL": "https://api.tradier.com",
+    "NASDAQ_SCANNER_CHAT_ID": "1026720092",
+    "KALKI_STOCKS_CHAT_ID": "-1003967721534",
+    "CHECK_LIMIT": "100"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kalki-sync-db",
+      "database_id": "25a847a3-828d-452a-9670-9296c62be681"
+    }
+  ],
+  "services": [
+    {
+      "binding": "YAHOO_PROXY",
+      "service": "yahoo-proxy"
+    },
+    {
+      "binding": "APPROVAL_GATE",
+      "service": "kalki-approval-gate"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
