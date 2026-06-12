@@ -805,14 +805,14 @@ async function handleCloseSignal(env, body) {
   if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
   const symbol = String(body.symbol || "").trim().toUpperCase();
   const quantity = body.quantity != null ? String(body.quantity) : null;
-  const triggerType = String(body.triggerType || body.trigger_type || "manual").toLowerCase();
+  const rawTriggerType = String(body.triggerType || body.trigger_type || "manual").toLowerCase();
+  const triggerType = rawTriggerType === "sl" || rawTriggerType === "stoploss" ? "stop" : rawTriggerType;
   const livePrice = Number(body.livePrice ?? body.live_price);
   const level = Number(body.level);
   const pnlPct = Number(body.pnlPct ?? body.pnl_pct);
   if (!symbol) return json({ ok: false, error: "symbol is required" }, 400);
 
   await ensureSignalColumns(env);
-  const id = `close-${symbol.toLowerCase()}-${Date.now()}`;
   const now = new Date().toISOString();
   const priceText = Number.isFinite(livePrice) ? ` @ $${livePrice.toFixed(2)}` : "";
   const pnlText = Number.isFinite(pnlPct) ? ` (${pnlPct > 0 ? "+" : ""}${pnlPct.toFixed(2)}%)` : "";
@@ -838,7 +838,32 @@ async function handleCloseSignal(env, body) {
     aiWhy: note,
     note,
   });
+  const cutoff = new Date(Date.now() - EXECUTION_FRESHNESS_MS).toISOString();
+  const existing = await env.KALKI_SYNC_DB.prepare(
+    `SELECT id FROM group_alerts
+     WHERE sym = ?
+       AND status = 'close'
+       AND approved = 1
+       AND (executed IS NULL OR executed = 0)
+       AND (dismissed IS NULL OR dismissed = 0)
+       AND added_at >= ?
+     ORDER BY added_at DESC LIMIT 1`
+  ).bind(symbol, cutoff).first();
 
+  if (existing?.id) {
+    await env.KALKI_SYNC_DB.prepare(
+      `UPDATE group_alerts SET note = ?, raw_json = ?, updated_at = ? WHERE id = ?`
+    ).bind(note, raw, now, existing.id).run();
+    return json({
+      ok: true,
+      id: existing.id,
+      symbol,
+      duplicate: true,
+      message: `Close signal already queued for ${symbol}`,
+    });
+  }
+
+  const id = `close-${symbol.toLowerCase()}-${Date.now()}`;
   await env.KALKI_SYNC_DB.prepare(
     `INSERT OR REPLACE INTO group_alerts (id, sym, grade, note, raw_json, status, added_at, updated_at, approved, approved_at)
      VALUES (?, ?, 'A+', ?, ?, 'close', ?, ?, 1, ?)`

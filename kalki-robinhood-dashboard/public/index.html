@@ -869,6 +869,27 @@ async function dismissSignal(id,btn) {
 let _livePositions = [];
 let _executedSignals = {};   // symbol → {t1, stop}
 let _firedAlerts = new Set(); // "SOXS:t1" | "SOXS:sl" — don't re-fire
+const EXIT_QUEUE_TTL_MS = 2*60*60*1000;
+
+function loadQueuedExits() {
+  try { return JSON.parse(localStorage.getItem("kalki_exit_queue")||"{}") || {}; }
+  catch { return {}; }
+}
+
+function exitQueuedRecently(key) {
+  const queued=loadQueuedExits();
+  const ts=Number(queued[key]||0);
+  return ts && Date.now()-ts < EXIT_QUEUE_TTL_MS;
+}
+
+function markExitQueued(key) {
+  const queued=loadQueuedExits();
+  queued[key]=Date.now();
+  for (const [k,ts] of Object.entries(queued)) {
+    if (Date.now()-Number(ts||0) > EXIT_QUEUE_TTL_MS) delete queued[k];
+  }
+  localStorage.setItem("kalki_exit_queue", JSON.stringify(queued));
+}
 
 async function loadExecutedSignals() {
   try {
@@ -883,12 +904,16 @@ async function loadExecutedSignals() {
 }
 
 function fireExitAlert(symbol, type, livePrice, level, pnlPct) {
+  type = type === "sl" ? "stop" : type;
   const key = `${symbol}:${type}`;
   if (_firedAlerts.has(key)) return;
-  _firedAlerts.add(key);
 
   const isTP = type === "t1";
   const isProfit = type === "profit";
+  const cfg = loadCfg();
+  const autoClose = isProfit ? cfg.autoProfit : isTP ? cfg.autoT1 : cfg.autoStop;
+  if (autoClose && exitQueuedRecently(key)) return;
+  _firedAlerts.add(key);
   const title = isProfit ? `${symbol} hit profit target` : isTP ? `${symbol} hit T1 — take profit` : `${symbol} hit stop loss`;
   const sub = isProfit
     ? `Live ${money(livePrice)} reached ${pnlPct>0?"+":""}${pnlPct}% gain · target ${level}%`
@@ -902,8 +927,6 @@ function fireExitAlert(symbol, type, livePrice, level, pnlPct) {
   }
 
   // in-app banner
-  const cfg = loadCfg();
-  const autoClose = isProfit ? cfg.autoProfit : isTP ? cfg.autoT1 : cfg.autoStop;
   const alertsEl = $("exitAlerts");
   if (!alertsEl) return;
 
@@ -952,7 +975,8 @@ async function closePositionSilent(symbol, key, meta={}) {
       pnlPct: meta.pnlPct
     })});
     dismissAlert(key);
-    const label = meta.type==="stop" ? "stop-loss" : meta.type==="t1" ? "T1" : meta.type==="profit" ? "profit target" : "position";
+    markExitQueued(key);
+    const label = meta.type==="stop" || meta.type==="sl" ? "stop-loss" : meta.type==="t1" ? "T1" : meta.type==="profit" ? "profit target" : "position";
     toast(`${symbol} ${label} close queued automatically`, "ok");
     setTimeout(loadDashboard, 2000);
   } catch(e) {
@@ -1022,7 +1046,7 @@ async function refreshLivePrices() {
       if (cfg.autoProfit && pct >= (+cfg.profitPct || 1)) fireExitAlert(p.symbol, "profit", livePrice, +cfg.profitPct || 1, pct);
       if (levels) {
         if (levels.t1 && livePrice >= levels.t1) fireExitAlert(p.symbol, "t1", livePrice, levels.t1, pct);
-        if (levels.stop && livePrice <= levels.stop) fireExitAlert(p.symbol, "sl", livePrice, levels.stop, pct);
+        if (levels.stop && livePrice <= levels.stop) fireExitAlert(p.symbol, "stop", livePrice, levels.stop, pct);
       }
     }
   } catch(e) { /* silent — stale prices remain */ }
