@@ -908,9 +908,9 @@ async function closePositionSilent(symbol, key) {
     const pos = _livePositions.find(p=>p.symbol===symbol);
     const qty = pos?.quantity;
     if(!qty || qty<=0) throw new Error(`No open ${symbol} quantity found for auto-close`);
-    await api("/api/place-order", {method:"POST", body:JSON.stringify({symbol, side:"sell", type:"market", quantity:String(qty), confirm:true})});
+    await api("/api/signals/close", {method:"POST", body:JSON.stringify({symbol, quantity:String(qty)})});
     dismissAlert(key);
-    toast(`${symbol} closed automatically`, "ok");
+    toast(`${symbol} close queued automatically`, "ok");
     setTimeout(loadDashboard, 2000);
   } catch(e) {
     toast(`Auto-close failed: ${e.message}`, "err");

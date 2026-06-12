@@ -536,6 +536,9 @@ function parseSignalFromRow(row) {
     id: row.id,
     ticker: row.sym,
     grade: row.grade,
+    note: row.note || null,
+    status: row.status || null,
+    raw_json: raw,
     score: raw.catalystScore ?? raw.aiScore ?? raw.score ?? null,
     pattern: row.note || raw.pattern || raw.aiSetup || null,
     entry_low: entryLow,
@@ -641,7 +644,7 @@ async function currentBuyingPower(env) {
 async function approvedOpenSignalReserve(env, cfg, excludeId = "") {
   if (!env.KALKI_SYNC_DB) return 0;
   const { results } = await env.KALKI_SYNC_DB.prepare(
-    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+    `SELECT id, sym, grade, note, status, added_at, updated_at, raw_json,
             approved, approved_at, executed, dismissed
      FROM group_alerts
      WHERE approved = 1
@@ -712,7 +715,7 @@ async function handlePendingSignals(env) {
   await ensureSignalColumns(env);
   const cfg = await getAgentConfig(env);
   const { results } = await env.KALKI_SYNC_DB.prepare(
-    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+    `SELECT id, sym, grade, note, status, added_at, updated_at, raw_json,
             approved, approved_at, executed, executed_at, dismissed, dismissed_at, dismissed_reason
      FROM group_alerts
      WHERE grade IN ('A+','A','B+')
@@ -762,7 +765,7 @@ async function handleApprovedSignals(env) {
   await ensureSignalColumns(env);
   const cfg = await getAgentConfig(env);
   const { results } = await env.KALKI_SYNC_DB.prepare(
-    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+    `SELECT id, sym, grade, note, status, added_at, updated_at, raw_json,
             approved, approved_at, executed, executed_at, dismissed, dismissed_at, dismissed_reason
      FROM group_alerts
      WHERE approved = 1
@@ -812,7 +815,7 @@ async function handleApproveSignal(request, env, id) {
   }
   await ensureSignalColumns(env);
   const row = await env.KALKI_SYNC_DB.prepare(
-    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+    `SELECT id, sym, grade, note, status, added_at, updated_at, raw_json,
             approved, approved_at, executed, dismissed
      FROM group_alerts WHERE id = ?`
   ).bind(id).first();
@@ -930,7 +933,7 @@ async function handleMcp(request, env) {
       if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
       await ensureSignalColumns(env);
       const { results } = await env.KALKI_SYNC_DB.prepare(
-        `SELECT id, sym, grade, note, added_at, updated_at, raw_json, approved, approved_at, executed, dismissed
+        `SELECT id, sym, grade, note, status, added_at, updated_at, raw_json, approved, approved_at, executed, dismissed
          FROM group_alerts
          WHERE (executed IS NULL OR executed = 0)
            AND (dismissed IS NULL OR dismissed = 0)
@@ -948,7 +951,7 @@ async function handleMcp(request, env) {
       if (!env.KALKI_SYNC_DB) return mcpError(id, "KALKI_SYNC_DB not bound.");
       await ensureSignalColumns(env);
       const { results } = await env.KALKI_SYNC_DB.prepare(
-        `SELECT id, sym, grade, note, added_at, updated_at, raw_json, approved, approved_at
+        `SELECT id, sym, grade, note, status, added_at, updated_at, raw_json, approved, approved_at
          FROM group_alerts
          WHERE approved = 1
            AND (executed IS NULL OR executed = 0)
