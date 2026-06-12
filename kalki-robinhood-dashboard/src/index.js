@@ -411,8 +411,6 @@ async function handleLuxAlert(request, env) {
   const alert = normalizeLuxAlert(body);
   if (!alert) return json({ ok: false, error: "No tradeable Lux alert found in payload." }, 400);
 
-  await ensureSignalColumns(env);
-
   const now = alert.receivedAt || new Date().toISOString();
   const id = alert.id || `lux-${alert.ticker}-${stableSignalKey(alert)}`;
   const rawJson = JSON.stringify({
