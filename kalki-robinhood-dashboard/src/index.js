@@ -9,6 +9,7 @@ const DEFAULT_MARKET_HOURS = "regular_hours";
 const TOKEN_KEY = "robinhood:tokens";
 const CLIENT_KEY = "robinhood:client";
 const SNAPSHOT_KEY = "robinhood:snapshot";
+const EXECUTION_FRESHNESS_MS = 24 * 60 * 60 * 1000;
 
 export default {
   async fetch(request, env) {
@@ -552,7 +553,19 @@ function parseSignalFromRow(row) {
     ai_why: raw.aiWhy || null,
     source: raw.source || "telegram",
     added_at: row.added_at || row.updated_at,
+    updated_at: row.updated_at || null,
   };
+}
+
+function signalTimeMs(signal) {
+  const raw = signal?.approved_at || signal?.added_at || signal?.updated_at || signal?.dismissed_at || signal?.executed_at;
+  const ms = Date.parse(raw || "");
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function signalFreshForExecution(signal) {
+  const ms = signalTimeMs(signal);
+  return ms > 0 && Date.now() - ms < EXECUTION_FRESHNESS_MS;
 }
 
 function normalizeAgentConfig(value = {}) {
@@ -721,7 +734,7 @@ async function handlePendingSignals(env) {
      FROM group_alerts
      WHERE grade IN ('A+','A','B+')
        AND (status IS NULL OR status != 'closed')
-     ORDER BY added_at DESC LIMIT 30`
+     ORDER BY added_at DESC LIMIT 200`
   ).all();
 
   const signals = [];
@@ -739,7 +752,7 @@ async function handlePendingSignals(env) {
 
     if (!signalSourceAllowed(signal, cfg)) continue;
 
-    if (!signal.executed && !signal.dismissed && !signal.approved && autoApproveSignalAllowed(signal, cfg)) {
+    if (!signal.executed && !signal.dismissed && !signal.approved && signalFreshForExecution(signal) && autoApproveSignalAllowed(signal, cfg)) {
       const capacity = await portfolioCapacityCheck(env, signal, cfg, signal.id);
       if (!capacity.ok) {
         signal.capacity = capacity;
@@ -784,7 +797,7 @@ async function handleApprovedSignals(env) {
     dismissed: Boolean(r.dismissed),
     dismissed_at: r.dismissed_at || null,
     dismissed_reason: r.dismissed_reason || null,
-  })).filter(signal => signalSourceAllowed(signal, cfg));
+  })).filter(signal => signalFreshForExecution(signal) && signalSourceAllowed(signal, cfg));
   return json({ ok: true, signals });
 }
 
@@ -969,7 +982,9 @@ async function handleMcp(request, env) {
            AND (status IS NULL OR status != 'closed')
          ORDER BY added_at DESC LIMIT 20`
       ).all();
-      const signals = results.map(r => ({ ...parseSignalFromRow(r), approved: Boolean(r.approved), approved_at: r.approved_at }));
+      const signals = results
+        .map(r => ({ ...parseSignalFromRow(r), approved: Boolean(r.approved), approved_at: r.approved_at }))
+        .filter(signalFreshForExecution);
       return mcpResponse(id, {
         content: [{ type: "text", text: JSON.stringify({ ok: true, count: signals.length, signals }) }],
       });
@@ -987,7 +1002,9 @@ async function handleMcp(request, env) {
            AND grade IN ('A+','A','B+')
          ORDER BY approved_at DESC LIMIT 20`
       ).all();
-      const signals = results.map(r => ({ ...parseSignalFromRow(r), approved: true, approved_at: r.approved_at }));
+      const signals = results
+        .map(r => ({ ...parseSignalFromRow(r), approved: true, approved_at: r.approved_at }))
+        .filter(signalFreshForExecution);
       return mcpResponse(id, {
         content: [{ type: "text", text: JSON.stringify({ ok: true, count: signals.length, signals }) }],
       });
