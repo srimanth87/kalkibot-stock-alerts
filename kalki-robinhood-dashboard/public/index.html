@@ -87,6 +87,7 @@ button{cursor:pointer;font:inherit}
 .af{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,213,79,.1);color:#ffd54f;font-size:10px;font-weight:800;border:1px solid rgba(255,213,79,.25)}
 .df{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,82,82,.1);color:#ff5252;font-size:10px;font-weight:800;border:1px solid rgba(255,82,82,.25)}
 .cap-warn{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,213,79,.1);color:#ffd54f;font-size:10px;font-weight:800;border:1px solid rgba(255,213,79,.25)}
+.cap-warn.bad{background:rgba(255,82,82,.1);color:#ff8a80;border-color:rgba(255,82,82,.25)}
 
 .s-prices{display:flex;align-items:center;flex:1;min-width:0}
 .pc{display:flex;flex-direction:column;justify-content:center;padding:0 14px;border-right:1px solid rgba(255,255,255,.07);flex:1;min-width:72px}
@@ -693,6 +694,12 @@ function signalRequiredNotional(s, cfg=loadCfg()) {
   return shares>0 ? shares*entry : positionSize;
 }
 
+function signalShareCount(s, cfg=loadCfg()) {
+  const positionSize=Math.max(0, Math.min(+cfg.size||500, +cfg.maxSize||1000));
+  const entry=+(s.entry_mid||s.entry_high||s.entry_low||0);
+  return entry>0 ? Math.floor(positionSize/entry) : 0;
+}
+
 function applyCapacityWarnings(signals) {
   const cfg=loadCfg();
   if(currentBuyingPower==null) return signals;
@@ -702,11 +709,14 @@ function applyCapacityWarnings(signals) {
   let available=Math.max(0,currentBuyingPower-approvedReserve);
   return signals.map(s=>{
     const required=signalRequiredNotional(s,cfg);
+    const shares=signalShareCount(s,cfg);
     if(!s.approved&&!s.dismissed) {
-      if(available<required) {
+      if(shares<1) {
+        s.capacity={ok:false,type:"size",available,required,reason:`Position size too small: ${money(+cfg.size||500)} cannot buy 1 share at ${money(s.entry_mid)}.`};
+      } else if(available<required) {
         s.capacity={ok:false,available,required,reason:`Portfolio full: ${money(available)} buying power available after approved queue; ${money(required)} required.`};
       } else {
-        s.capacity={ok:true,available,required};
+        s.capacity={ok:true,available,required,shares};
         available-=required;
       }
     }
@@ -726,7 +736,7 @@ function buildSignalRowHtml(s) {
         <div class="s-meta">
           <span class="grade ${gradeClass(s.grade)}">${esc(s.grade)}</span>
           ${s.score?`<span class="score-tag">${s.score}</span>`:""}
-          ${blocked?`<span class="cap-warn">Portfolio full</span>`:""}
+          ${blocked?`<span class="cap-warn ${s.capacity.type==="size"?"bad":""}">${s.capacity.type==="size"?"Size too small":"Portfolio full"}</span>`:""}
           ${s.dismissed?`<span class="df">Dismissed</span>`:s.approved?`<span class="af">✓ Approved</span>`:""}
         </div>
       </div>
@@ -741,7 +751,7 @@ function buildSignalRowHtml(s) {
       <div class="s-time">${timeAgo(s.dismissed_at||s.added_at)}</div>
       <div class="s-actions">
         <button class="ab ${s.approved?"ab-done approve-btn":blocked?"ab-manual approve-btn":"ab-approve approve-btn"}" onclick='approveSignal("${esc(s.id)}",this)' ${s.approved||s.dismissed||blocked?"disabled":""}>
-          ${s.dismissed?"Dismissed":s.approved?"✓ Approved":blocked?"No BP":"Approve"}
+          ${s.dismissed?"Dismissed":s.approved?"✓ Approved":blocked?(s.capacity.type==="size"?"Too small":"No BP"):"Approve"}
         </button>
         <button class="ab ab-manual" onclick='openManual(${JSON.stringify(s)})' ${s.dismissed?"disabled":""}>Manual</button>
         <button class="ab ab-x" onclick='dismissSignal("${esc(s.id)}",this)' ${s.dismissed?"disabled":""}>✕</button>

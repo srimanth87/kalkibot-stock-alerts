@@ -581,6 +581,13 @@ function signalNotional(signal, cfg) {
   return roundMoney(shares * entry);
 }
 
+function signalShares(signal, cfg) {
+  const entry = Number(signal.entry_mid || signal.entry_high || signal.entry_low || 0);
+  const positionSize = configuredPositionSize(cfg);
+  if (!Number.isFinite(entry) || entry <= 0 || positionSize <= 0) return 0;
+  return Math.floor(positionSize / entry);
+}
+
 async function currentBuyingPower(env) {
   try {
     if (await robinhoodConfigured(env)) {
@@ -616,6 +623,15 @@ async function approvedOpenSignalReserve(env, cfg, excludeId = "") {
 
 async function portfolioCapacityCheck(env, signal, cfg, excludeId = "") {
   const buyingPower = await currentBuyingPower(env);
+  const shares = signalShares(signal, cfg);
+  if (shares < 1) {
+    return {
+      ok: false,
+      reason: `Position size too small for ${signal.ticker}. Increase position size above $${roundMoney(signal.entry_mid || signal.entry_high || signal.entry_low)} to buy at least 1 share.`,
+      shares,
+      required: signalNotional(signal, cfg),
+    };
+  }
   if (buyingPower == null) return { ok: true, reason: "buying power unavailable" };
   const reserve = await approvedOpenSignalReserve(env, cfg, excludeId);
   const available = Math.max(0, buyingPower - reserve);
