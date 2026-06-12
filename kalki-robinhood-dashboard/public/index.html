@@ -905,7 +905,10 @@ async function closePositionFromAlert(symbol, key) {
 
 async function closePositionSilent(symbol, key) {
   try {
-    await api("/api/place-order", {method:"POST", body:JSON.stringify({symbol, side:"sell", type:"market", quantity:"all", confirm:true})});
+    const pos = _livePositions.find(p=>p.symbol===symbol);
+    const qty = pos?.quantity;
+    if(!qty || qty<=0) throw new Error(`No open ${symbol} quantity found for auto-close`);
+    await api("/api/place-order", {method:"POST", body:JSON.stringify({symbol, side:"sell", type:"market", quantity:String(qty), confirm:true})});
     dismissAlert(key);
     toast(`${symbol} closed automatically`, "ok");
     setTimeout(loadDashboard, 2000);
