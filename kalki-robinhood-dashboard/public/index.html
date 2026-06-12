@@ -86,6 +86,7 @@ button{cursor:pointer;font:inherit}
 .score-tag{font-size:10px;color:rgba(255,255,255,.3)}
 .af{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,213,79,.1);color:#ffd54f;font-size:10px;font-weight:800;border:1px solid rgba(255,213,79,.25)}
 .df{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,82,82,.1);color:#ff5252;font-size:10px;font-weight:800;border:1px solid rgba(255,82,82,.25)}
+.cap-warn{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,213,79,.1);color:#ffd54f;font-size:10px;font-weight:800;border:1px solid rgba(255,213,79,.25)}
 
 .s-prices{display:flex;align-items:center;flex:1;min-width:0}
 .pc{display:flex;flex-direction:column;justify-content:center;padding:0 14px;border-right:1px solid rgba(255,255,255,.07);flex:1;min-width:72px}
@@ -97,6 +98,7 @@ button{cursor:pointer;font:inherit}
 
 .s-why{display:flex;align-items:center;padding:0 14px;width:200px;flex-shrink:0;border-left:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.3);line-height:1.4}
 .sr.dismissed .s-why{color:rgba(255,120,120,.78)}
+.sr.blocked{border-color:rgba(255,213,79,.28);opacity:.82}
 .s-time{display:flex;align-items:center;padding:0 12px;flex-shrink:0;border-left:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.25);white-space:nowrap}
 .s-actions{display:flex;align-items:center;gap:6px;padding:0 14px;flex-shrink:0;border-left:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.12)}
 .ab{padding:7px 13px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid;white-space:nowrap;transition:opacity .15s}
@@ -499,6 +501,13 @@ button{cursor:pointer;font:inherit}
           <div class="sinfo"><div class="sinfo-name">Auto close at stop loss</div><div class="sinfo-desc">Automatically place a market sell when live price drops to or below the signal's stop.</div></div>
           <label class="sw"><input type="checkbox" id="cfgAutoStop" onchange="saveSettings()"><div class="sw-t"><div class="sw-th"></div></div></label>
         </div>
+        <div class="srow">
+          <div class="sinfo"><div class="sinfo-name">Auto close at gain (%)</div><div class="sinfo-desc">Automatically place a market sell when open P&L reaches this percent gain.</div></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input class="num-in" type="number" id="cfgProfitPct" min="0.1" max="100" step="0.1" value="1" onchange="saveSettings()">
+            <label class="sw"><input type="checkbox" id="cfgAutoProfit" onchange="saveSettings()"><div class="sw-t"><div class="sw-th"></div></div></label>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -550,7 +559,7 @@ const timeAgo = iso => {
 const gradeClass = g => g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
 
 // ── settings ──
-const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",minBP:200,allowEst:false,autoT1:false,autoStop:false};
+const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",minBP:200,allowEst:false,autoT1:false,autoStop:false,autoProfit:false,profitPct:1};
 const mergeCfg = cfg => ({...DEFS,...(cfg||{}),sources:{...DEFS.sources,...((cfg||{}).sources||{})}});
 let cfgState = loadLocalCfg();
 const loadCfg = () => cfgState;
@@ -569,6 +578,7 @@ function saveCfg() {
     orderType:$("cfgOrderType").value, tif:$("cfgTIF").value,
     minBP:+$("cfgMinBP").value||200, allowEst:$("cfgAllowEst").checked,
     autoT1:$("cfgAutoT1").checked, autoStop:$("cfgAutoStop").checked,
+    autoProfit:$("cfgAutoProfit").checked, profitPct:+$("cfgProfitPct").value||1,
   };
   localStorage.setItem("kalki_cfg", JSON.stringify(cfg));
   // push to worker so Claude Code can read it
@@ -585,6 +595,7 @@ function syncCfgUI(cfg) {
   $("cfgOrderType").value=cfg.orderType; $("cfgTIF").value=cfg.tif;
   $("cfgMinBP").value=cfg.minBP; $("cfgAllowEst").checked=cfg.allowEst;
   $("cfgAutoT1").checked=cfg.autoT1||false; $("cfgAutoStop").checked=cfg.autoStop||false;
+  $("cfgAutoProfit").checked=cfg.autoProfit||false; $("cfgProfitPct").value=cfg.profitPct||1;
   $("cfgSourceTelegram").checked=cfg.sources?.telegram!==false;
   $("cfgSourceTradingView").checked=cfg.sources?.tradingview!==false;
   $("cfgSourceCloudflareScreener").checked=cfg.sources?.cloudflarescreener!==false;
@@ -623,6 +634,7 @@ function toast(msg,type="info",dur=3500) {
 
 // ── signals ──
 let seenIds=new Set(), activeSignal=null, reviewOk=false, lastSignalState="";
+let currentBuyingPower = null;
 const DAY_MS = 24*60*60*1000;
 const signalMs = s => Date.parse(s.added_at||s.updated_at||s.approved_at||s.dismissed_at||0);
 const isWithinDay = s => {
@@ -637,7 +649,7 @@ async function loadSignals() {
     const {signals=[]}=await api("/api/signals/pending");
     const feed=$("signalsFeed");
     const allSignals=signals||[];
-    const liveSignals=allSignals.filter(isLiveSignal);
+    const liveSignals=applyCapacityWarnings(allSignals.filter(isLiveSignal));
     const archiveSignals=allSignals.filter(isArchiveSignal);
     const recentSignals=allSignals.filter(s=>isWithinDay(s)&&!s.dismissed);
     const signalState=allSignals.map(s=>`${s.id}:${s.approved?1:0}:${s.executed?1:0}:${s.dismissed?1:0}`).join("|");
@@ -673,16 +685,48 @@ async function loadSignals() {
   } catch(e){console.warn("signals:",e.message)}
 }
 
+function signalRequiredNotional(s, cfg=loadCfg()) {
+  const positionSize=Math.max(0, Math.min(+cfg.size||500, +cfg.maxSize||1000));
+  const entry=+(s.entry_mid||s.entry_high||s.entry_low||0);
+  if(!entry) return positionSize;
+  const shares=Math.floor(positionSize/entry);
+  return shares>0 ? shares*entry : positionSize;
+}
+
+function applyCapacityWarnings(signals) {
+  const cfg=loadCfg();
+  if(currentBuyingPower==null) return signals;
+  const approvedReserve=signals
+    .filter(s=>s.approved&&!s.executed&&!s.dismissed)
+    .reduce((sum,s)=>sum+signalRequiredNotional(s,cfg),0);
+  let available=Math.max(0,currentBuyingPower-approvedReserve);
+  return signals.map(s=>{
+    const required=signalRequiredNotional(s,cfg);
+    if(!s.approved&&!s.dismissed) {
+      if(available<required) {
+        s.capacity={ok:false,available,required,reason:`Portfolio full: ${money(available)} buying power available after approved queue; ${money(required)} required.`};
+      } else {
+        s.capacity={ok:true,available,required};
+        available-=required;
+      }
+    }
+    return s;
+  });
+}
+
 function buildSignalRowHtml(s) {
   const est=!s.has_parsed_prices;
   const reason=s.dismissed_reason||"Dismissed.";
+  const blocked=s.capacity&&s.capacity.ok===false&&!s.approved&&!s.dismissed;
+  const whyText=blocked ? s.capacity.reason : (s.dismissed?reason:(s.ai_why||s.pattern||""));
   return `
-    <div class="sr ${s.dismissed?"dismissed":s.approved?"appr":"fresh"}" data-id="${esc(s.id)}">
+    <div class="sr ${blocked?"blocked ": ""}${s.dismissed?"dismissed":s.approved?"appr":"fresh"}" data-id="${esc(s.id)}">
       <div class="s-id">
         <div class="s-ticker">${esc(s.ticker)}</div>
         <div class="s-meta">
           <span class="grade ${gradeClass(s.grade)}">${esc(s.grade)}</span>
           ${s.score?`<span class="score-tag">${s.score}</span>`:""}
+          ${blocked?`<span class="cap-warn">Portfolio full</span>`:""}
           ${s.dismissed?`<span class="df">Dismissed</span>`:s.approved?`<span class="af">✓ Approved</span>`:""}
         </div>
       </div>
@@ -693,11 +737,11 @@ function buildSignalRowHtml(s) {
         <div class="pc"><div class="pl">T2</div><div class="pv pg" style="opacity:.6">${money(s.t2)}</div></div>
         <div class="pc"><div class="pl">R:R</div><div class="pv pm">${s.rr?Number(s.rr).toFixed(1):"--"}</div></div>
       </div>
-      <div class="s-why">${esc((s.dismissed?reason:(s.ai_why||s.pattern||"")).substring(0,140))}</div>
+      <div class="s-why">${esc(whyText.substring(0,140))}</div>
       <div class="s-time">${timeAgo(s.dismissed_at||s.added_at)}</div>
       <div class="s-actions">
-        <button class="ab ${s.approved?"ab-done approve-btn":"ab-approve approve-btn"}" onclick='approveSignal("${esc(s.id)}",this)' ${s.approved||s.dismissed?"disabled":""}>
-          ${s.dismissed?"Dismissed":s.approved?"✓ Approved":"Approve"}
+        <button class="ab ${s.approved?"ab-done approve-btn":blocked?"ab-manual approve-btn":"ab-approve approve-btn"}" onclick='approveSignal("${esc(s.id)}",this)' ${s.approved||s.dismissed||blocked?"disabled":""}>
+          ${s.dismissed?"Dismissed":s.approved?"✓ Approved":blocked?"No BP":"Approve"}
         </button>
         <button class="ab ab-manual" onclick='openManual(${JSON.stringify(s)})' ${s.dismissed?"disabled":""}>Manual</button>
         <button class="ab ab-x" onclick='dismissSignal("${esc(s.id)}",this)' ${s.dismissed?"disabled":""}>✕</button>
@@ -788,10 +832,13 @@ function fireExitAlert(symbol, type, livePrice, level, pnlPct) {
   _firedAlerts.add(key);
 
   const isTP = type === "t1";
-  const title = isTP ? `${symbol} hit T1 — take profit` : `${symbol} hit stop loss`;
-  const sub = isTP
-    ? `Live ${money(livePrice)} reached T1 ${money(level)} · ${pnlPct>0?"+":""}${pnlPct}%`
-    : `Live ${money(livePrice)} hit stop ${money(level)} · ${pnlPct>0?"+":""}${pnlPct}%`;
+  const isProfit = type === "profit";
+  const title = isProfit ? `${symbol} hit profit target` : isTP ? `${symbol} hit T1 — take profit` : `${symbol} hit stop loss`;
+  const sub = isProfit
+    ? `Live ${money(livePrice)} reached ${pnlPct>0?"+":""}${pnlPct}% gain · target ${level}%`
+    : isTP
+      ? `Live ${money(livePrice)} reached T1 ${money(level)} · ${pnlPct>0?"+":""}${pnlPct}%`
+      : `Live ${money(livePrice)} hit stop ${money(level)} · ${pnlPct>0?"+":""}${pnlPct}%`;
 
   // browser notification
   if (Notification?.permission === "granted") {
@@ -800,27 +847,27 @@ function fireExitAlert(symbol, type, livePrice, level, pnlPct) {
 
   // in-app banner
   const cfg = loadCfg();
-  const autoClose = isTP ? cfg.autoT1 : cfg.autoStop;
+  const autoClose = isProfit ? cfg.autoProfit : isTP ? cfg.autoT1 : cfg.autoStop;
   const alertsEl = $("exitAlerts");
   if (!alertsEl) return;
 
   const div = document.createElement("div");
-  div.className = `exit-alert ${isTP?"tp":"sl"}`;
+  div.className = `exit-alert ${isTP||isProfit?"tp":"sl"}`;
   div.id = `alert-${key}`;
   div.innerHTML = `
-    <div class="exit-alert-icon"><i class="ti ti-${isTP?"target":"shield-off"}" aria-hidden="true"></i></div>
+    <div class="exit-alert-icon"><i class="ti ti-${isTP||isProfit?"target":"shield-off"}" aria-hidden="true"></i></div>
     <div class="exit-alert-body">
       <div class="exit-alert-title">${esc(title)}</div>
       <div class="exit-alert-sub">${esc(sub)}</div>
     </div>
     <div class="exit-alert-actions">
-      <button class="ea-btn ${isTP?"ea-close-tp":"ea-close-sl"}" onclick="closePositionFromAlert('${esc(symbol)}','${key}')">Close position</button>
+      <button class="ea-btn ${isTP||isProfit?"ea-close-tp":"ea-close-sl"}" onclick="closePositionFromAlert('${esc(symbol)}','${key}')">Close position</button>
       <button class="ea-btn ea-dismiss" onclick="dismissAlert('${key}')">Dismiss</button>
     </div>`;
   alertsEl.prepend(div);
 
   if (autoClose) {
-    toast(`Auto-closing ${symbol} at ${isTP?"T1":"stop"}…`, "info");
+    toast(`Auto-closing ${symbol} at ${isProfit?`${level}% gain`:isTP?"T1":"stop"}…`, "info");
     closePositionSilent(symbol, key);
   }
 }
@@ -901,10 +948,12 @@ async function refreshLivePrices() {
       if (pnlEl) { pnlEl.className=`p-val ${pnlClass}`; pnlEl.innerHTML=`${money(unrealized)} <span style="font-size:10px;opacity:.7">${unrealized>=0?"+":""}${pnlPct}%</span>`; }
       if (valEl) valEl.textContent = money(livePrice * qty);
 
-      // check T1 / stop levels
+      // check configured exits
       const levels = _executedSignals[p.symbol];
+      const cfg = loadCfg();
+      const pct = avg ? +((livePrice/avg - 1)*100).toFixed(1) : 0;
+      if (cfg.autoProfit && pct >= (+cfg.profitPct || 1)) fireExitAlert(p.symbol, "profit", livePrice, +cfg.profitPct || 1, pct);
       if (levels) {
-        const pct = avg ? +((livePrice/avg - 1)*100).toFixed(1) : 0;
         if (levels.t1 && livePrice >= levels.t1) fireExitAlert(p.symbol, "t1", livePrice, levels.t1, pct);
         if (levels.stop && livePrice <= levels.stop) fireExitAlert(p.symbol, "sl", livePrice, levels.stop, pct);
       }
@@ -974,6 +1023,7 @@ async function loadDashboard() {
     const p=d.portfolio||{};
     $("aPortfolio").textContent=money(p.total_value);
     $("aBP").textContent=money(p.buying_power);
+    currentBuyingPower=Number.isFinite(+p.buying_power)?+p.buying_power:null;
     const positions=d.positions||[];
     $("aPos").textContent=`${positions.length} open`;
     // positions

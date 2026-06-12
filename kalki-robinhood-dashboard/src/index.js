@@ -541,6 +541,10 @@ function normalizeAgentConfig(value = {}) {
     tif: cfg.tif || DEFAULT_TIME_IN_FORCE,
     minBP: Number.isFinite(Number(cfg.minBP)) ? Number(cfg.minBP) : 200,
     allowEst: cfg.allowEst === true,
+    autoT1: cfg.autoT1 === true,
+    autoStop: cfg.autoStop === true,
+    autoProfit: cfg.autoProfit === true,
+    profitPct: Number.isFinite(Number(cfg.profitPct)) ? Math.max(0, Number(cfg.profitPct)) : 1,
   };
 }
 
@@ -560,6 +564,74 @@ function autoApproveSignalAllowed(signal, cfg) {
   const gradeOk = cfg.allGrades || cfg.grades.includes(signal.grade);
   const priceOk = signal.has_parsed_prices || cfg.allowEst;
   return gradeOk && priceOk;
+}
+
+function configuredPositionSize(cfg) {
+  const size = Number.isFinite(Number(cfg?.size)) ? Number(cfg.size) : 500;
+  const maxSize = Number.isFinite(Number(cfg?.maxSize)) ? Number(cfg.maxSize) : 1000;
+  return Math.max(0, Math.min(size, maxSize));
+}
+
+function signalNotional(signal, cfg) {
+  const entry = Number(signal.entry_mid || signal.entry_high || signal.entry_low || 0);
+  const positionSize = configuredPositionSize(cfg);
+  if (!Number.isFinite(entry) || entry <= 0 || positionSize <= 0) return positionSize;
+  const shares = Math.floor(positionSize / entry);
+  if (shares < 1) return positionSize;
+  return roundMoney(shares * entry);
+}
+
+async function currentBuyingPower(env) {
+  try {
+    if (await robinhoodConfigured(env)) {
+      const accounts = await callRobinhood(env, "get_accounts", {});
+      const account = selectAccount(accounts?.data?.accounts || [], env);
+      if (account) {
+        const portfolio = await callRobinhood(env, "get_portfolio", { account_number: account.account_number });
+        return numberOrNull(portfolio?.data?.buying_power?.buying_power ?? portfolio?.data?.buying_power);
+      }
+    }
+  } catch {}
+  const snapshot = await getStoredSnapshot(env).catch(() => null);
+  return numberOrNull(snapshot?.portfolio?.buying_power);
+}
+
+async function approvedOpenSignalReserve(env, cfg, excludeId = "") {
+  if (!env.KALKI_SYNC_DB) return 0;
+  const { results } = await env.KALKI_SYNC_DB.prepare(
+    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+            approved, approved_at, executed, dismissed
+     FROM group_alerts
+     WHERE approved = 1
+       AND (executed IS NULL OR executed = 0)
+       AND (dismissed IS NULL OR dismissed = 0)
+       AND (status IS NULL OR status != 'closed')
+     ORDER BY approved_at DESC LIMIT 100`
+  ).all();
+  return (results || []).reduce((sum, row) => {
+    if (row.id === excludeId) return sum;
+    return sum + signalNotional(parseSignalFromRow(row), cfg);
+  }, 0);
+}
+
+async function portfolioCapacityCheck(env, signal, cfg, excludeId = "") {
+  const buyingPower = await currentBuyingPower(env);
+  if (buyingPower == null) return { ok: true, reason: "buying power unavailable" };
+  const reserve = await approvedOpenSignalReserve(env, cfg, excludeId);
+  const available = Math.max(0, buyingPower - reserve);
+  const notional = signalNotional(signal, cfg);
+  if (notional <= 0) return { ok: false, reason: "position size is zero", buying_power: buyingPower, reserved: reserve, available, required: notional };
+  if (available < notional) {
+    return {
+      ok: false,
+      reason: `Not enough buying power. Available after approved queue: $${roundMoney(available)}; required: $${roundMoney(notional)}.`,
+      buying_power: buyingPower,
+      reserved: roundMoney(reserve),
+      available: roundMoney(available),
+      required: roundMoney(notional),
+    };
+  }
+  return { ok: true, buying_power: buyingPower, reserved: roundMoney(reserve), available: roundMoney(available), required: roundMoney(notional) };
 }
 
 function signalSourceKey(signal) {
@@ -605,6 +677,12 @@ async function handlePendingSignals(env) {
     if (!signalSourceAllowed(signal, cfg)) continue;
 
     if (!signal.executed && !signal.dismissed && !signal.approved && autoApproveSignalAllowed(signal, cfg)) {
+      const capacity = await portfolioCapacityCheck(env, signal, cfg, signal.id);
+      if (!capacity.ok) {
+        signal.capacity = capacity;
+        signals.push(signal);
+        continue;
+      }
       signal.approved = true;
       signal.approved_at = new Date().toISOString();
       await env.KALKI_SYNC_DB.prepare(
@@ -674,6 +752,15 @@ async function handleApproveSignal(request, env, id) {
     return json({ ok: false, error: "Manual approval confirmation is required." }, 409);
   }
   await ensureSignalColumns(env);
+  const row = await env.KALKI_SYNC_DB.prepare(
+    `SELECT id, sym, grade, note, added_at, updated_at, raw_json,
+            approved, approved_at, executed, dismissed
+     FROM group_alerts WHERE id = ?`
+  ).bind(id).first();
+  if (!row) return json({ ok: false, error: "Signal not found." }, 404);
+  const cfg = await getAgentConfig(env);
+  const capacity = await portfolioCapacityCheck(env, parseSignalFromRow(row), cfg, id);
+  if (!capacity.ok) return json({ ok: false, error: capacity.reason, capacity }, 409);
   await env.KALKI_SYNC_DB.prepare(
     `UPDATE group_alerts SET approved = 1, approved_at = ? WHERE id = ?`
   ).bind(new Date().toISOString(), id).run();
