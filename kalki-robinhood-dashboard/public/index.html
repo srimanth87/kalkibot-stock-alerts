@@ -84,6 +84,7 @@ button{cursor:pointer;font:inherit}
 .g-A{background:rgba(105,240,174,.09);color:#69f0ae;border-color:rgba(105,240,174,.22)}
 .g-Bp{background:rgba(68,138,255,.1);color:#82b1ff;border-color:rgba(68,138,255,.22)}
 .score-tag{font-size:10px;color:rgba(255,255,255,.3)}
+.source-tag{font-size:10px;color:rgba(130,177,255,.9);background:rgba(68,138,255,.12);border:1px solid rgba(68,138,255,.22);border-radius:999px;padding:2px 6px;font-weight:800}
 .af{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,213,79,.1);color:#ffd54f;font-size:10px;font-weight:800;border:1px solid rgba(255,213,79,.25)}
 .df{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,82,82,.1);color:#ff5252;font-size:10px;font-weight:800;border:1px solid rgba(255,82,82,.25)}
 .cap-warn{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;background:rgba(255,213,79,.1);color:#ffd54f;font-size:10px;font-weight:800;border:1px solid rgba(255,213,79,.25)}
@@ -729,12 +730,14 @@ function buildSignalRowHtml(s) {
   const reason=s.dismissed_reason||"Dismissed.";
   const blocked=s.capacity&&s.capacity.ok===false&&!s.approved&&!s.dismissed;
   const whyText=blocked ? s.capacity.reason : (s.dismissed?reason:(s.ai_why||s.pattern||""));
+  const sourceLabel=signalSourceLabel(s);
   return `
     <div class="sr ${blocked?"blocked ": ""}${s.dismissed?"dismissed":s.approved?"appr":"fresh"}" data-id="${esc(s.id)}">
       <div class="s-id">
         <div class="s-ticker">${esc(s.ticker)}</div>
         <div class="s-meta">
           <span class="grade ${gradeClass(s.grade)}">${esc(s.grade)}</span>
+          <span class="source-tag">${esc(sourceLabel)}</span>
           ${s.score?`<span class="score-tag">${s.score}</span>`:""}
           ${blocked?`<span class="cap-warn ${s.capacity.type==="size"?"bad":""}">${s.capacity.type==="size"?"Size too small":"Portfolio full"}</span>`:""}
           ${s.dismissed?`<span class="df">Dismissed</span>`:s.approved?`<span class="af">✓ Approved</span>`:""}
@@ -759,6 +762,14 @@ function buildSignalRowHtml(s) {
     </div>`;
 }
 
+function signalSourceLabel(s) {
+  const raw=String(s.source||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+  if(raw.includes("tradingview")) return "TradingView";
+  if(raw.includes("cloudflare")||raw.includes("luxalgo")||raw.includes("lux")) return "Cloudflare Screener";
+  if(raw.includes("telegram")) return "Telegram";
+  return s.source ? String(s.source).slice(0,28) : "Unknown";
+}
+
 function buildSignalRow(s) {
   const div=document.createElement("div");
   div.innerHTML=buildSignalRowHtml(s);
@@ -778,7 +789,7 @@ function renderSignalTable(body, signals, emptyText) {
       <td class="pr">${money(s.stop)}</td>
       <td class="pg">${money(s.t1)}</td>
       <td style="color:rgba(255,255,255,.5)">${s.rr?Number(s.rr).toFixed(1):"--"}</td>
-      <td style="color:rgba(255,255,255,.35);white-space:normal;min-width:260px">${esc(s.dismissed_reason||s.pattern||"--")}</td>
+      <td style="color:rgba(255,255,255,.35);white-space:normal;min-width:260px"><span class="source-tag">${esc(signalSourceLabel(s))}</span> ${esc(s.dismissed_reason||s.pattern||"--")}</td>
       <td><span class="st ${statusClass}">${statusText}</span></td>
     </tr>`;
   }).join("");
