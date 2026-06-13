@@ -557,6 +557,7 @@ function parseSignalFromRow(row) {
     has_parsed_prices: hasParsedPrices,
     ai_why: raw.aiWhy || null,
     source: raw.source || "telegram",
+    target_accounts: Array.isArray(raw.targetAccounts) ? raw.targetAccounts : [],
     added_at: row.added_at || row.updated_at,
     updated_at: row.updated_at || null,
   };
@@ -584,6 +585,8 @@ function normalizeAgentConfig(value = {}) {
     auto: cfg.auto === true,
     allGrades: cfg.allGrades === true,
     grades: grades.length ? grades : ["A+", "A"],
+    accounts: normalizeRoutingAccounts(cfg.accounts),
+    selectedAccountIds: normalizeSelectedAccountIds(cfg.selectedAccountIds, cfg.accounts),
     sources: {
       telegram: rawSources.telegram !== false,
       tradingview: rawSources.tradingview !== false,
@@ -603,6 +606,37 @@ function normalizeAgentConfig(value = {}) {
     autoProfit: cfg.autoProfit === true,
     profitPct: Number.isFinite(Number(cfg.profitPct)) ? Math.max(0, Number(cfg.profitPct)) : 1,
   };
+}
+
+function normalizeRoutingAccounts(accounts) {
+  if (!Array.isArray(accounts)) return [];
+  return accounts.map((account) => {
+    const broker = String(account?.broker || "robinhood").toLowerCase() === "alpaca" ? "alpaca" : "robinhood";
+    const id = String(account?.id || crypto.randomUUID()).slice(0, 80);
+    return {
+      id,
+      label: String(account?.label || `${broker} account`).slice(0, 80),
+      broker,
+      environment: String(account?.environment || (broker === "alpaca" ? "paper" : "live")).slice(0, 20),
+      accountNumber: String(account?.accountNumber || account?.account_number || "").slice(0, 80),
+      clientId: String(account?.clientId || account?.client_id || "").slice(0, 120),
+      enabled: account?.enabled !== false,
+    };
+  }).filter((account) => account.label && account.enabled);
+}
+
+function normalizeSelectedAccountIds(selected, accounts) {
+  const normalizedAccounts = normalizeRoutingAccounts(accounts);
+  const ids = Array.isArray(selected) ? selected.map((id) => String(id)) : [];
+  const valid = ids.filter((id) => normalizedAccounts.some((account) => account.id === id));
+  return valid.length ? valid : normalizedAccounts.slice(0, 1).map((account) => account.id);
+}
+
+function selectedRoutingAccounts(cfg, requested) {
+  const accounts = Array.isArray(cfg.accounts) ? cfg.accounts : [];
+  const requestedIds = Array.isArray(requested) ? requested.map((id) => String(id)) : [];
+  const ids = requestedIds.length ? requestedIds : (Array.isArray(cfg.selectedAccountIds) ? cfg.selectedAccountIds : []);
+  return accounts.filter((account) => ids.includes(account.id));
 }
 
 async function getAgentConfig(env) {
@@ -767,9 +801,14 @@ async function handlePendingSignals(env) {
       }
       signal.approved = true;
       signal.approved_at = new Date().toISOString();
+      const raw = (() => {
+        try { return row.raw_json ? JSON.parse(row.raw_json) : {}; } catch { return {}; }
+      })();
+      raw.targetAccounts = selectedRoutingAccounts(cfg);
       await env.KALKI_SYNC_DB.prepare(
-        `UPDATE group_alerts SET approved = 1, approved_at = ? WHERE id = ?`
-      ).bind(signal.approved_at, signal.id).run();
+        `UPDATE group_alerts SET approved = 1, approved_at = ?, raw_json = ?, updated_at = ? WHERE id = ?`
+      ).bind(signal.approved_at, JSON.stringify(raw), signal.approved_at, signal.id).run();
+      signal.target_accounts = raw.targetAccounts;
     }
 
     signals.push(signal);
@@ -819,6 +858,8 @@ async function handleCloseSignal(env, body) {
   if (!symbol) return json({ ok: false, error: "symbol is required" }, 400);
 
   await ensureSignalColumns(env);
+  const cfg = await getAgentConfig(env);
+  const targetAccounts = selectedRoutingAccounts(cfg, body.targetAccounts || body.target_accounts);
   const now = new Date().toISOString();
   const priceText = Number.isFinite(livePrice) ? ` @ $${livePrice.toFixed(2)}` : "";
   const pnlText = Number.isFinite(pnlPct) ? ` (${pnlPct > 0 ? "+" : ""}${pnlPct.toFixed(2)}%)` : "";
@@ -841,6 +882,7 @@ async function handleCloseSignal(env, body) {
     livePrice: Number.isFinite(livePrice) ? livePrice : null,
     level: Number.isFinite(level) ? level : null,
     pnlPct: Number.isFinite(pnlPct) ? pnlPct : null,
+    targetAccounts,
     aiWhy: note,
     note,
   });
@@ -893,12 +935,19 @@ async function handleApproveSignal(request, env, id) {
   ).bind(id).first();
   if (!row) return json({ ok: false, error: "Signal not found." }, 404);
   const cfg = await getAgentConfig(env);
-  const capacity = await portfolioCapacityCheck(env, parseSignalFromRow(row), cfg, id);
+  const targetAccounts = selectedRoutingAccounts(cfg, body.targetAccounts || body.target_accounts);
+  const raw = (() => {
+    try { return row.raw_json ? JSON.parse(row.raw_json) : {}; } catch { return {}; }
+  })();
+  raw.targetAccounts = targetAccounts;
+  const nextRaw = JSON.stringify(raw);
+  const signal = parseSignalFromRow({ ...row, raw_json: nextRaw });
+  const capacity = await portfolioCapacityCheck(env, signal, cfg, id);
   if (!capacity.ok) return json({ ok: false, error: capacity.reason, capacity }, 409);
   await env.KALKI_SYNC_DB.prepare(
-    `UPDATE group_alerts SET approved = 1, approved_at = ? WHERE id = ?`
-  ).bind(new Date().toISOString(), id).run();
-  return json({ ok: true, id, approved: true });
+    `UPDATE group_alerts SET approved = 1, approved_at = ?, raw_json = ?, updated_at = ? WHERE id = ?`
+  ).bind(new Date().toISOString(), nextRaw, new Date().toISOString(), id).run();
+  return json({ ok: true, id, approved: true, target_accounts: targetAccounts });
 }
 
 async function handleDismissSignal(request, env, id) {

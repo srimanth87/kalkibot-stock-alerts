@@ -30,6 +30,14 @@ button{cursor:pointer;font:inherit}
 .icon-btn{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);display:grid;place-items:center;cursor:pointer;color:rgba(255,255,255,.5);font-size:14px;flex-shrink:0}
 .icon-btn:hover{background:rgba(255,255,255,.12)}
 .btn-connect{padding:6px 14px;border-radius:8px;background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.3);color:#00e676;font-size:12px;font-weight:700;cursor:pointer}
+.acct-select{height:32px;max-width:240px;padding:0 10px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.75);font-size:11px;font-weight:800}
+.acct-select option{background:#10141f;color:#e4ebe5}
+.mini-grid{display:grid;grid-template-columns:1fr 120px 90px;gap:8px}
+.route-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.route-row{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(255,255,255,.04)}
+.route-row span{font-size:11px;color:rgba(255,255,255,.62)}
+.route-row strong{color:#fff}
+.route-row button{margin-left:auto}
 
 /* ── account strip ── */
 .acct{display:flex;align-items:center;height:40px;background:rgba(0,0,0,.22);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:52px;z-index:40;overflow-x:auto;scrollbar-width:none}
@@ -253,6 +261,7 @@ button{cursor:pointer;font:inherit}
     <button class="nav-item" onclick="showSection('setup',this)">Setup</button>
   </nav>
   <div class="gap"></div>
+  <select class="acct-select" id="routeSelect" onchange="selectRoute()"><option value="">Route: default</option></select>
   <div id="rhPill" class="pill-r"><span class="dot-r"></span><span id="rhLabel">Not connected</span></div>
   <div class="auto-chip" id="autoChip" onclick="openSettings()">
     <span>⚡</span><span id="autoChipLabel">Manual</span>
@@ -460,6 +469,29 @@ button{cursor:pointer;font:inherit}
     <div class="divider"></div>
 
     <div>
+      <div class="sg-title">Broker account routing</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="srow">
+          <div class="sinfo"><div class="sinfo-name">Selected route</div><div class="sinfo-desc">Approvals and auto-closes attach this account route for Claude execution.</div></div>
+          <select class="sel-in" id="cfgRoute" onchange="saveRouteSelection()"><option value="">Default Agentic Robinhood</option></select>
+        </div>
+        <div class="mini-grid">
+          <input class="num-in" id="routeLabel" placeholder="Label">
+          <select class="sel-in" id="routeBroker"><option value="robinhood">Robinhood</option><option value="alpaca">Alpaca</option></select>
+          <select class="sel-in" id="routeEnv"><option value="live">Live</option><option value="paper">Paper</option></select>
+        </div>
+        <div class="srow">
+          <div class="sinfo"><div class="sinfo-name">Account reference</div><div class="sinfo-desc">Robinhood: account number suffix/full number. Alpaca: autotrader client/profile id. No API secrets here.</div></div>
+          <input class="num-in" id="routeRef" placeholder="account number or client id">
+        </div>
+        <button class="ab ab-manual" style="width:100%;text-align:center" onclick="addRouteAccount()">+ Add route account</button>
+        <div class="route-list" id="routeList"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
       <div class="sg-title">Position sizing</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="srow">
@@ -584,7 +616,7 @@ const timeAgo = iso => {
 const gradeClass = g => g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
 
 // ── settings ──
-const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",executor:"claude",minBP:200,allowEst:false,autoT1:false,autoStop:false,autoProfit:false,profitPct:1};
+const DEFS = {auto:false,allGrades:false,grades:["A+","A"],accounts:[],selectedAccountIds:[],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",executor:"claude",minBP:200,allowEst:false,autoT1:false,autoStop:false,autoProfit:false,profitPct:1};
 const mergeCfg = cfg => ({...DEFS,...(cfg||{}),sources:{...DEFS.sources,...((cfg||{}).sources||{})}});
 let cfgState = loadLocalCfg();
 const loadCfg = () => cfgState;
@@ -598,6 +630,8 @@ function saveCfg() {
       tradingview:$("cfgSourceTradingView").checked,
       cloudflarescreener:$("cfgSourceCloudflareScreener").checked,
     },
+    accounts:loadCfg().accounts||[],
+    selectedAccountIds:selectedRouteIds(),
     size:+$("cfgSize").value||500, maxSize:+$("cfgMaxSize").value||1000,
     slip:+$("cfgSlip").value||3, drop:+$("cfgDrop").value||5,
     orderType:$("cfgOrderType").value, tif:$("cfgTIF").value,
@@ -627,11 +661,68 @@ function syncCfgUI(cfg) {
   $("cfgSourceTradingView").checked=cfg.sources?.tradingview!==false;
   $("cfgSourceCloudflareScreener").checked=cfg.sources?.cloudflarescreener!==false;
   document.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", cfg.allGrades||cfg.grades.includes(c.dataset.g)));
+  renderRoutes(cfg);
   const chip=$("autoChip"), lbl=$("autoChipLabel");
   if(cfg.auto){chip.classList.add("on");lbl.textContent=cfg.allGrades?"Auto: ALL":`Auto: ${cfg.grades.join("+")}` }
   else{chip.classList.remove("on");lbl.textContent="Manual"}
 }
 function toggleGrade(el){el.classList.toggle("on");saveCfg()}
+function routeLabel(account){return `${account.label} · ${account.broker}${account.environment?` ${account.environment}`:""}`;}
+function selectedRouteIds(){
+  const id=$("cfgRoute")?.value || $("routeSelect")?.value || "";
+  return id ? [id] : [];
+}
+function selectedTargetAccounts(){
+  const ids=selectedRouteIds();
+  const accounts=loadCfg().accounts||[];
+  return accounts.filter(a=>ids.includes(a.id));
+}
+function renderRoutes(cfg=loadCfg()){
+  const accounts=cfg.accounts||[];
+  const selected=(cfg.selectedAccountIds||[])[0]||"";
+  const opts='<option value="">Default Agentic Robinhood</option>'+accounts.map(a=>`<option value="${esc(a.id)}">${esc(routeLabel(a))}</option>`).join("");
+  if($("routeSelect")){$("routeSelect").innerHTML=opts;$("routeSelect").value=selected}
+  if($("cfgRoute")){$("cfgRoute").innerHTML=opts;$("cfgRoute").value=selected}
+  if($("routeList")) $("routeList").innerHTML=accounts.length?accounts.map(a=>`
+    <div class="route-row">
+      <span><strong>${esc(a.label)}</strong> ${esc(a.broker)} ${esc(a.environment||"")}${a.accountNumber?` · ${esc(a.accountNumber)}`:""}${a.clientId?` · ${esc(a.clientId)}`:""}</span>
+      <button class="ab ab-x" onclick="removeRouteAccount('${esc(a.id)}')">✕</button>
+    </div>`).join(""):`<div style="font-size:11px;color:rgba(255,255,255,.28)">No saved route accounts. Default uses the Agentic Robinhood account Claude selects.</div>`;
+}
+function selectRoute(){
+  const id=$("routeSelect").value;
+  if($("cfgRoute")) $("cfgRoute").value=id;
+  cfgState={...loadCfg(),selectedAccountIds:id?[id]:[]};
+  localStorage.setItem("kalki_cfg", JSON.stringify(cfgState));
+  saveCfg();
+}
+function saveRouteSelection(){
+  const id=$("cfgRoute").value;
+  if($("routeSelect")) $("routeSelect").value=id;
+  cfgState={...loadCfg(),selectedAccountIds:id?[id]:[]};
+  localStorage.setItem("kalki_cfg", JSON.stringify(cfgState));
+  saveCfg();
+}
+function addRouteAccount(){
+  const broker=$("routeBroker").value;
+  const ref=$("routeRef").value.trim();
+  const label=$("routeLabel").value.trim() || `${broker} ${$("routeEnv").value}`;
+  const account={id:`${broker}-${Date.now()}`,label,broker,environment:$("routeEnv").value,enabled:true};
+  if(broker==="alpaca") account.clientId=ref;
+  else account.accountNumber=ref;
+  cfgState={...loadCfg(),accounts:[...(loadCfg().accounts||[]),account],selectedAccountIds:[account.id]};
+  localStorage.setItem("kalki_cfg", JSON.stringify(cfgState));
+  $("routeLabel").value="";$("routeRef").value="";
+  saveCfg();
+  toast(`Route added: ${label}`,"ok");
+}
+function removeRouteAccount(id){
+  const next=(loadCfg().accounts||[]).filter(a=>a.id!==id);
+  const selected=(loadCfg().selectedAccountIds||[]).filter(x=>x!==id);
+  cfgState={...loadCfg(),accounts:next,selectedAccountIds:selected};
+  localStorage.setItem("kalki_cfg", JSON.stringify(cfgState));
+  saveCfg();
+}
 function resetSettings(){if(!confirm("Reset all settings to defaults?"))return;localStorage.removeItem("kalki_cfg");cfgState=mergeCfg();syncCfgUI(cfgState);api("/api/agent-config",{method:"POST",body:JSON.stringify(cfgState)}).catch(()=>{});toast("Reset to defaults","info")}
 function openSettings(){$("drawer").classList.add("open");$("drawerBg").classList.add("open")}
 function closeSettings(){$("drawer").classList.remove("open");$("drawerBg").classList.remove("open")}
@@ -852,7 +943,7 @@ function notifyNew(s) {
 async function approveSignal(id,btn) {
   btn.disabled=true; btn.textContent="…";
   try {
-    await api(`/api/signals/${id}/approve`,{method:"POST",body:JSON.stringify({manual:true})});
+    await api(`/api/signals/${id}/approve`,{method:"POST",body:JSON.stringify({manual:true,targetAccounts:selectedRouteIds()})});
     if ((loadCfg().executor||"claude")==="worker") {
       btn.textContent="Placing…";
       await api(`/api/signals/${id}/execute`,{method:"POST",body:JSON.stringify({})});
@@ -984,7 +1075,8 @@ async function closePositionSilent(symbol, key, meta={}) {
       triggerType: meta.type || "manual",
       livePrice: meta.livePrice,
       level: meta.level,
-      pnlPct: meta.pnlPct
+      pnlPct: meta.pnlPct,
+      targetAccounts:selectedRouteIds()
     })});
     if ((loadCfg().executor||"claude")==="worker" && res.id) {
       await api(`/api/signals/${res.id}/execute`,{method:"POST",body:JSON.stringify({})});
@@ -1073,7 +1165,7 @@ async function closePosition(symbol) {
   if (!confirm(`Close entire ${symbol} position (${qty} shares)? ${((loadCfg().executor||"claude")==="worker")?"Worker will place the sell order.":"Local watcher will place the sell order."}`)) return;
   toast(`Queuing close for ${symbol}…`, "info");
   try {
-    const res = await api("/api/signals/close", {method:"POST", body:JSON.stringify({symbol, quantity:qty})});
+    const res = await api("/api/signals/close", {method:"POST", body:JSON.stringify({symbol, quantity:qty,targetAccounts:selectedRouteIds()})});
     if ((loadCfg().executor||"claude")==="worker" && res.id) {
       await api(`/api/signals/${res.id}/execute`,{method:"POST",body:JSON.stringify({})});
       toast(`${symbol} sell order placed by Worker`, "ok", 6000);
