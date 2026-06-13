@@ -272,10 +272,10 @@ button{cursor:pointer;font:inherit}
 
 <!-- approved banner -->
 <div class="banner" id="banner">
-  ⚡ <strong><span id="qCount">0</span> signal(s) approved</strong> — waiting for Claude Code to execute
+  ⚡ <strong><span id="qCount">0</span> signal(s) approved</strong> — waiting for execution
   <div class="queue-list" id="qList"></div>
   <div class="banner-gap"></div>
-  <span style="font-size:11px;color:rgba(255,255,255,.3)">run <code>cd kalki-robinhood-dashboard && ./scripts/watch-approved-signals.sh</code></span>
+  <span style="font-size:11px;color:rgba(255,255,255,.3)">Worker direct mode uses no local Claude tokens</span>
 </div>
 
 <!-- main content -->
@@ -425,7 +425,7 @@ button{cursor:pointer;font:inherit}
       <div class="sg-title">Auto-approve</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="srow">
-          <div class="sinfo"><div class="sinfo-name">Auto-approve signals</div><div class="sinfo-desc">Automatically approve incoming signals. Claude Code executes them without you clicking Approve.</div></div>
+          <div class="sinfo"><div class="sinfo-name">Auto-approve signals</div><div class="sinfo-desc">Automatically approve incoming signals. Execution depends on the mode below.</div></div>
           <label class="sw"><input type="checkbox" id="cfgAuto" onchange="saveSettings()"><div class="sw-t"><div class="sw-th"></div></div></label>
         </div>
         <div class="srow">
@@ -443,7 +443,7 @@ button{cursor:pointer;font:inherit}
           </div>
         </div>
         <div class="srow">
-          <div class="sinfo"><div class="sinfo-name">Allow estimated prices</div><div class="sinfo-desc">Auto-approve signals marked EST (no exact entry/stop from alert). Claude will use estimated prices.</div></div>
+          <div class="sinfo"><div class="sinfo-name">Allow estimated prices</div><div class="sinfo-desc">Auto-approve signals marked EST (no exact entry/stop from alert).</div></div>
           <label class="sw"><input type="checkbox" id="cfgAllowEst" onchange="saveSettings()"><div class="sw-t"><div class="sw-th"></div></div></label>
         </div>
         <div class="srow">
@@ -503,7 +503,11 @@ button{cursor:pointer;font:inherit}
           <select class="sel-in" id="cfgTIF" onchange="saveSettings()"><option value="gfd">GFD</option><option value="gtc">GTC</option></select>
         </div>
         <div class="srow">
-          <div class="sinfo"><div class="sinfo-name">Min buying power ($)</div><div class="sinfo-desc">Claude pauses trading if buying power drops below this.</div></div>
+          <div class="sinfo"><div class="sinfo-name">Execution mode</div><div class="sinfo-desc">Worker direct places orders from Cloudflare. Local Claude watcher is legacy fallback.</div></div>
+          <select class="sel-in" id="cfgExecutor" onchange="saveSettings()"><option value="worker">Worker direct</option><option value="claude">Local Claude watcher</option></select>
+        </div>
+        <div class="srow">
+          <div class="sinfo"><div class="sinfo-name">Min buying power ($)</div><div class="sinfo-desc">Pause trading if buying power drops below this.</div></div>
           <input class="num-in" type="number" id="cfgMinBP" min="0" max="10000" step="50" value="200" onchange="saveSettings()">
         </div>
       </div>
@@ -580,7 +584,7 @@ const timeAgo = iso => {
 const gradeClass = g => g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
 
 // ── settings ──
-const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",minBP:200,allowEst:false,autoT1:false,autoStop:false,autoProfit:false,profitPct:1};
+const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",executor:"worker",minBP:200,allowEst:false,autoT1:false,autoStop:false,autoProfit:false,profitPct:1};
 const mergeCfg = cfg => ({...DEFS,...(cfg||{}),sources:{...DEFS.sources,...((cfg||{}).sources||{})}});
 let cfgState = loadLocalCfg();
 const loadCfg = () => cfgState;
@@ -597,6 +601,7 @@ function saveCfg() {
     size:+$("cfgSize").value||500, maxSize:+$("cfgMaxSize").value||1000,
     slip:+$("cfgSlip").value||3, drop:+$("cfgDrop").value||5,
     orderType:$("cfgOrderType").value, tif:$("cfgTIF").value,
+    executor:$("cfgExecutor").value,
     minBP:+$("cfgMinBP").value||200, allowEst:$("cfgAllowEst").checked,
     autoT1:$("cfgAutoT1").checked, autoStop:$("cfgAutoStop").checked,
     autoProfit:$("cfgAutoProfit").checked, profitPct:+$("cfgProfitPct").value||1,
@@ -614,6 +619,7 @@ function syncCfgUI(cfg) {
   $("cfgSize").value=cfg.size; $("cfgMaxSize").value=cfg.maxSize;
   $("cfgSlip").value=cfg.slip; $("cfgDrop").value=cfg.drop;
   $("cfgOrderType").value=cfg.orderType; $("cfgTIF").value=cfg.tif;
+  $("cfgExecutor").value=cfg.executor||"worker";
   $("cfgMinBP").value=cfg.minBP; $("cfgAllowEst").checked=cfg.allowEst;
   $("cfgAutoT1").checked=cfg.autoT1||false; $("cfgAutoStop").checked=cfg.autoStop||false;
   $("cfgAutoProfit").checked=cfg.autoProfit||false; $("cfgProfitPct").value=cfg.profitPct||1;
@@ -847,12 +853,18 @@ async function approveSignal(id,btn) {
   btn.disabled=true; btn.textContent="…";
   try {
     await api(`/api/signals/${id}/approve`,{method:"POST",body:JSON.stringify({manual:true})});
+    if ((loadCfg().executor||"worker")==="worker") {
+      btn.textContent="Placing…";
+      await api(`/api/signals/${id}/execute`,{method:"POST",body:JSON.stringify({})});
+      toast(`${btn.closest(".sr").querySelector(".s-ticker").textContent} order placed by Worker`,"ok",5000);
+    } else {
+      toast(`${btn.closest(".sr").querySelector(".s-ticker").textContent} approved — local watcher will execute`,"ok");
+    }
     btn.textContent="✓ Approved"; btn.className="ab ab-done";
     const row=btn.closest(".sr");
     row.classList.remove("fresh"); row.classList.add("appr");
     const meta=row.querySelector(".s-meta");
     if(!meta.querySelector(".af")){const f=document.createElement("span");f.className="af";f.textContent="✓ Approved";meta.appendChild(f)}
-    toast(`${row.querySelector(".s-ticker").textContent} approved — Claude Code will execute`,"ok");
     loadSignals();
   } catch(e){btn.disabled=false;btn.textContent="Approve";toast(e.message,"err")}
 }
@@ -966,7 +978,7 @@ async function closePositionSilent(symbol, key, meta={}) {
     const pos = _livePositions.find(p=>p.symbol===symbol);
     const qty = pos?.quantity;
     if(!qty || qty<=0) throw new Error(`No open ${symbol} quantity found for auto-close`);
-    await api("/api/signals/close", {method:"POST", body:JSON.stringify({
+    const res = await api("/api/signals/close", {method:"POST", body:JSON.stringify({
       symbol,
       quantity:String(qty),
       triggerType: meta.type || "manual",
@@ -974,6 +986,9 @@ async function closePositionSilent(symbol, key, meta={}) {
       level: meta.level,
       pnlPct: meta.pnlPct
     })});
+    if ((loadCfg().executor||"worker")==="worker" && res.id) {
+      await api(`/api/signals/${res.id}/execute`,{method:"POST",body:JSON.stringify({})});
+    }
     dismissAlert(key);
     markExitQueued(key);
     const label = meta.type==="stop" || meta.type==="sl" ? "stop-loss" : meta.type==="t1" ? "T1" : meta.type==="profit" ? "profit target" : "position";
@@ -1055,11 +1070,16 @@ async function refreshLivePrices() {
 async function closePosition(symbol) {
   const pos = _livePositions.find(p=>p.symbol===symbol);
   const qty = pos?.quantity ?? null;
-  if (!confirm(`Close entire ${symbol} position (${qty} shares)? Claude will place the sell order.`)) return;
+  if (!confirm(`Close entire ${symbol} position (${qty} shares)? ${((loadCfg().executor||"worker")==="worker")?"Worker will place the sell order.":"Local watcher will place the sell order."}`)) return;
   toast(`Queuing close for ${symbol}…`, "info");
   try {
     const res = await api("/api/signals/close", {method:"POST", body:JSON.stringify({symbol, quantity:qty})});
-    toast(res.message || `Close queued — Claude will sell ${symbol} shortly`, "ok", 6000);
+    if ((loadCfg().executor||"worker")==="worker" && res.id) {
+      await api(`/api/signals/${res.id}/execute`,{method:"POST",body:JSON.stringify({})});
+      toast(`${symbol} sell order placed by Worker`, "ok", 6000);
+    } else {
+      toast(res.message || `Close queued — local watcher will sell ${symbol} shortly`, "ok", 6000);
+    }
   } catch(e) { toast(e.message, "err"); }
 }
 

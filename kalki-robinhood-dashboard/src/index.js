@@ -88,6 +88,11 @@ export default {
         return await handleApproveSignal(request, env, id);
       }
 
+      if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/execute")) {
+        const id = url.pathname.split("/")[3];
+        return await handleExecuteSignal(env, id);
+      }
+
       if (request.method === "POST" && url.pathname.startsWith("/api/signals/") && url.pathname.endsWith("/dismiss")) {
         const id = url.pathname.split("/")[3];
         return await handleDismissSignal(request, env, id);
@@ -590,6 +595,7 @@ function normalizeAgentConfig(value = {}) {
     drop: Number.isFinite(Number(cfg.drop)) ? Number(cfg.drop) : 5,
     orderType: cfg.orderType || DEFAULT_ORDER_TYPE,
     tif: cfg.tif || DEFAULT_TIME_IN_FORCE,
+    executor: cfg.executor === "claude" ? "claude" : "worker",
     minBP: Number.isFinite(Number(cfg.minBP)) ? Number(cfg.minBP) : 200,
     allowEst: cfg.allowEst === true,
     autoT1: cfg.autoT1 === true,
@@ -920,6 +926,98 @@ async function handleMarkExecuted(env, id) {
     `UPDATE group_alerts SET executed = 1, executed_at = ? WHERE id = ?`
   ).bind(new Date().toISOString(), id).run();
   return json({ ok: true, id, executed: true });
+}
+
+async function handleExecuteSignal(env, id) {
+  if (!env.KALKI_SYNC_DB) return json({ ok: false, error: "KALKI_SYNC_DB not bound." }, 503);
+  if (!id) return json({ ok: false, error: "Signal id required." }, 400);
+  requireRobinhood(env);
+  await ensureSignalColumns(env);
+
+  const row = await env.KALKI_SYNC_DB.prepare(
+    `SELECT id, sym, grade, note, status, added_at, updated_at, raw_json,
+            approved, approved_at, executed, dismissed
+     FROM group_alerts WHERE id = ?`
+  ).bind(id).first();
+  if (!row) return json({ ok: false, error: "Signal not found." }, 404);
+  if (row.dismissed) return json({ ok: false, error: "Signal is dismissed." }, 409);
+  if (row.executed) return json({ ok: true, id, executed: true, skipped: true, reason: "already executed" });
+  if (!row.approved) return json({ ok: false, error: "Signal must be approved before execution." }, 409);
+
+  const signal = {
+    ...parseSignalFromRow(row),
+    approved: Boolean(row.approved),
+    approved_at: row.approved_at || null,
+    executed: Boolean(row.executed),
+    dismissed: Boolean(row.dismissed),
+  };
+  if (!signalFreshForExecution(signal)) return json({ ok: false, error: "Signal is stale and will not be executed." }, 409);
+
+  const cfg = await getAgentConfig(env);
+  const order = await buildOrderFromSignal(env, signal, cfg);
+  const review = await callRobinhood(env, "review_equity_order", order);
+  const reviewData = review?.data || review;
+  const checks = reviewData?.order_checks || {};
+  if (Object.keys(checks).length) {
+    return json({
+      ok: false,
+      error: "Broker review returned alerts; direct execution skipped.",
+      id,
+      order,
+      review: reviewData,
+    }, 409);
+  }
+
+  const placed = await callRobinhood(env, "place_equity_order", {
+    ...order,
+    ref_id: crypto.randomUUID(),
+  });
+  await env.KALKI_SYNC_DB.prepare(
+    `UPDATE group_alerts SET executed = 1, executed_at = ?, updated_at = ? WHERE id = ?`
+  ).bind(new Date().toISOString(), new Date().toISOString(), id).run();
+
+  return json({ ok: true, id, executed: true, order, review: reviewData, placed: placed?.data || placed });
+}
+
+async function buildOrderFromSignal(env, signal, cfg) {
+  const account = await resolveOrderAccountNumber({}, env);
+  const raw = signal.raw_json || {};
+  const isClose = raw.side === "sell" || signal.status === "close";
+
+  if (isClose) {
+    const quantity = Number(raw.quantity || 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`Close signal for ${signal.ticker} is missing a sell quantity.`);
+    return {
+      account_number: account,
+      symbol: signal.ticker,
+      side: "sell",
+      type: "market",
+      quantity: String(quantity),
+      time_in_force: String(cfg.tif || DEFAULT_TIME_IN_FORCE).toLowerCase(),
+      market_hours: DEFAULT_MARKET_HOURS,
+    };
+  }
+
+  const capacity = await portfolioCapacityCheck(env, signal, cfg, signal.id);
+  if (!capacity.ok) throw new Error(capacity.reason || "Portfolio capacity check failed.");
+  const quantity = signalShares(signal, cfg);
+  if (quantity < 1) throw new Error(`Position size too small for ${signal.ticker}.`);
+  const type = String(cfg.orderType || DEFAULT_ORDER_TYPE).toLowerCase();
+  const order = {
+    account_number: account,
+    symbol: signal.ticker,
+    side: "buy",
+    type,
+    quantity: String(quantity),
+    time_in_force: String(cfg.tif || DEFAULT_TIME_IN_FORCE).toLowerCase(),
+    market_hours: DEFAULT_MARKET_HOURS,
+  };
+  if (type === "limit") {
+    const entry = Number(signal.entry_mid || signal.entry_high || signal.entry_low);
+    if (!Number.isFinite(entry) || entry <= 0) throw new Error(`Signal ${signal.id} has no valid entry price for a limit order.`);
+    order.limit_price = toMoney(entry);
+  }
+  return order;
 }
 
 // ── MCP server — lets Claude Code connect via:
