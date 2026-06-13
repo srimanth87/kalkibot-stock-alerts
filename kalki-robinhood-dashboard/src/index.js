@@ -595,7 +595,7 @@ function normalizeAgentConfig(value = {}) {
     drop: Number.isFinite(Number(cfg.drop)) ? Number(cfg.drop) : 5,
     orderType: cfg.orderType || DEFAULT_ORDER_TYPE,
     tif: cfg.tif || DEFAULT_TIME_IN_FORCE,
-    executor: cfg.executor === "claude" ? "claude" : "worker",
+    executor: cfg.executor === "worker" ? "worker" : "claude",
     minBP: Number.isFinite(Number(cfg.minBP)) ? Number(cfg.minBP) : 200,
     allowEst: cfg.allowEst === true,
     autoT1: cfg.autoT1 === true,

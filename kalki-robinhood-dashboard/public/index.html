@@ -275,7 +275,7 @@ button{cursor:pointer;font:inherit}
   ⚡ <strong><span id="qCount">0</span> signal(s) approved</strong> — waiting for execution
   <div class="queue-list" id="qList"></div>
   <div class="banner-gap"></div>
-  <span style="font-size:11px;color:rgba(255,255,255,.3)">Worker direct mode uses no local Claude tokens</span>
+  <span style="font-size:11px;color:rgba(255,255,255,.3)">run <code>cd kalki-robinhood-dashboard && ./scripts/watch-approved-signals.sh</code></span>
 </div>
 
 <!-- main content -->
@@ -503,8 +503,8 @@ button{cursor:pointer;font:inherit}
           <select class="sel-in" id="cfgTIF" onchange="saveSettings()"><option value="gfd">GFD</option><option value="gtc">GTC</option></select>
         </div>
         <div class="srow">
-          <div class="sinfo"><div class="sinfo-name">Execution mode</div><div class="sinfo-desc">Worker direct places orders from Cloudflare. Local Claude watcher is legacy fallback.</div></div>
-          <select class="sel-in" id="cfgExecutor" onchange="saveSettings()"><option value="worker">Worker direct</option><option value="claude">Local Claude watcher</option></select>
+          <div class="sinfo"><div class="sinfo-name">Execution mode</div><div class="sinfo-desc">Claude watcher is required for Robinhood MCP. Worker direct is experimental.</div></div>
+          <select class="sel-in" id="cfgExecutor" onchange="saveSettings()"><option value="claude">Local Claude watcher</option><option value="worker">Worker direct experimental</option></select>
         </div>
         <div class="srow">
           <div class="sinfo"><div class="sinfo-name">Min buying power ($)</div><div class="sinfo-desc">Pause trading if buying power drops below this.</div></div>
@@ -584,7 +584,7 @@ const timeAgo = iso => {
 const gradeClass = g => g==="A+"?"g-Ap":g==="A"?"g-A":"g-Bp";
 
 // ── settings ──
-const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",executor:"worker",minBP:200,allowEst:false,autoT1:false,autoStop:false,autoProfit:false,profitPct:1};
+const DEFS = {auto:false,allGrades:false,grades:["A+","A"],sources:{telegram:true,tradingview:true,cloudflarescreener:true},size:500,maxSize:1000,slip:3,drop:5,orderType:"limit",tif:"gfd",executor:"claude",minBP:200,allowEst:false,autoT1:false,autoStop:false,autoProfit:false,profitPct:1};
 const mergeCfg = cfg => ({...DEFS,...(cfg||{}),sources:{...DEFS.sources,...((cfg||{}).sources||{})}});
 let cfgState = loadLocalCfg();
 const loadCfg = () => cfgState;
@@ -619,7 +619,7 @@ function syncCfgUI(cfg) {
   $("cfgSize").value=cfg.size; $("cfgMaxSize").value=cfg.maxSize;
   $("cfgSlip").value=cfg.slip; $("cfgDrop").value=cfg.drop;
   $("cfgOrderType").value=cfg.orderType; $("cfgTIF").value=cfg.tif;
-  $("cfgExecutor").value=cfg.executor||"worker";
+  $("cfgExecutor").value=cfg.executor||"claude";
   $("cfgMinBP").value=cfg.minBP; $("cfgAllowEst").checked=cfg.allowEst;
   $("cfgAutoT1").checked=cfg.autoT1||false; $("cfgAutoStop").checked=cfg.autoStop||false;
   $("cfgAutoProfit").checked=cfg.autoProfit||false; $("cfgProfitPct").value=cfg.profitPct||1;
@@ -853,7 +853,7 @@ async function approveSignal(id,btn) {
   btn.disabled=true; btn.textContent="…";
   try {
     await api(`/api/signals/${id}/approve`,{method:"POST",body:JSON.stringify({manual:true})});
-    if ((loadCfg().executor||"worker")==="worker") {
+    if ((loadCfg().executor||"claude")==="worker") {
       btn.textContent="Placing…";
       await api(`/api/signals/${id}/execute`,{method:"POST",body:JSON.stringify({})});
       toast(`${btn.closest(".sr").querySelector(".s-ticker").textContent} order placed by Worker`,"ok",5000);
@@ -986,7 +986,7 @@ async function closePositionSilent(symbol, key, meta={}) {
       level: meta.level,
       pnlPct: meta.pnlPct
     })});
-    if ((loadCfg().executor||"worker")==="worker" && res.id) {
+    if ((loadCfg().executor||"claude")==="worker" && res.id) {
       await api(`/api/signals/${res.id}/execute`,{method:"POST",body:JSON.stringify({})});
     }
     dismissAlert(key);
@@ -1070,11 +1070,11 @@ async function refreshLivePrices() {
 async function closePosition(symbol) {
   const pos = _livePositions.find(p=>p.symbol===symbol);
   const qty = pos?.quantity ?? null;
-  if (!confirm(`Close entire ${symbol} position (${qty} shares)? ${((loadCfg().executor||"worker")==="worker")?"Worker will place the sell order.":"Local watcher will place the sell order."}`)) return;
+  if (!confirm(`Close entire ${symbol} position (${qty} shares)? ${((loadCfg().executor||"claude")==="worker")?"Worker will place the sell order.":"Local watcher will place the sell order."}`)) return;
   toast(`Queuing close for ${symbol}…`, "info");
   try {
     const res = await api("/api/signals/close", {method:"POST", body:JSON.stringify({symbol, quantity:qty})});
-    if ((loadCfg().executor||"worker")==="worker" && res.id) {
+    if ((loadCfg().executor||"claude")==="worker" && res.id) {
       await api(`/api/signals/${res.id}/execute`,{method:"POST",body:JSON.stringify({})});
       toast(`${symbol} sell order placed by Worker`, "ok", 6000);
     } else {

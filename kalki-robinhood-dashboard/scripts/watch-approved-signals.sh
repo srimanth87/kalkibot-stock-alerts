@@ -3,6 +3,7 @@ set -euo pipefail
 
 API_BASE="${KALKI_API_BASE:-https://api.kalkianalysis.com}"
 POLL_SECONDS="${KALKI_POLL_SECONDS:-5}"
+BATCH_SECONDS="${KALKI_BATCH_SECONDS:-20}"
 PROCESS_EXISTING="${KALKI_PROCESS_EXISTING:-false}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_DIR="$ROOT_DIR/.kalki-agent-state"
@@ -30,6 +31,7 @@ fi
 echo "Kalki approval watcher started."
 echo "API: $API_BASE"
 echo "Polling every ${POLL_SECONDS}s. Press Ctrl+C to stop."
+echo "Batching approvals for up to ${BATCH_SECONDS}s before one Claude run."
 
 if [ "$PROCESS_EXISTING" != "true" ]; then
   baseline_json="$(curl -fsS "$API_BASE/api/signals/approved" || echo '{"signals":[]}')"
@@ -56,6 +58,9 @@ fi
 
 while true; do
   signals_json="$(curl -fsS "$API_BASE/api/signals/approved" || echo '{"signals":[]}')"
+  batch_file="$STATE_DIR/pending-batch.jsonl"
+  : > "$batch_file"
+  batch_count=0
 
   while IFS= read -r signal; do
     [ -n "$signal" ] || continue
@@ -69,9 +74,8 @@ while true; do
 
     echo "[$(date)] Approved signal ready: ${ticker:-UNKNOWN} ($id)"
     printf '%s\n' "$id" >> "$SEEN_FILE"
-
-    prompt="$(cat "$PROMPT_FILE"; printf '\n'; printf '%s\n' "$signal")"
-    claude -p --dangerously-skip-permissions "$prompt"
+    printf '%s\n' "$signal" >> "$batch_file"
+    batch_count=$((batch_count + 1))
   done < <(node -e '
     const fs = require("fs");
     const data = JSON.parse(fs.readFileSync(0, "utf8") || "{}");
@@ -79,6 +83,47 @@ while true; do
       console.log(JSON.stringify(signal));
     }
   ' <<< "$signals_json")
+
+  if [ "$batch_count" -gt 0 ]; then
+    deadline=$((SECONDS + BATCH_SECONDS))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+      sleep "$POLL_SECONDS"
+      signals_json="$(curl -fsS "$API_BASE/api/signals/approved" || echo '{"signals":[]}')"
+
+      while IFS= read -r signal; do
+        [ -n "$signal" ] || continue
+        id="$(node -e 'const s=JSON.parse(process.argv[1]); process.stdout.write(String(s.id||""))' "$signal")"
+        ticker="$(node -e 'const s=JSON.parse(process.argv[1]); process.stdout.write(String(s.ticker||""))' "$signal")"
+        [ -n "$id" ] || continue
+
+        if grep -Fxq "$id" "$SEEN_FILE"; then
+          continue
+        fi
+
+        echo "[$(date)] Added to current Claude batch: ${ticker:-UNKNOWN} ($id)"
+        printf '%s\n' "$id" >> "$SEEN_FILE"
+        printf '%s\n' "$signal" >> "$batch_file"
+        batch_count=$((batch_count + 1))
+      done < <(node -e '
+        const fs = require("fs");
+        const data = JSON.parse(fs.readFileSync(0, "utf8") || "{}");
+        for (const signal of data.signals || []) {
+          console.log(JSON.stringify(signal));
+        }
+      ' <<< "$signals_json")
+    done
+
+    batch_json="$(node -e '
+      const fs = require("fs");
+      const lines = fs.readFileSync(process.argv[1], "utf8").trim().split(/\n+/).filter(Boolean);
+      const signals = lines.map((line) => JSON.parse(line));
+      process.stdout.write(JSON.stringify({ signals }, null, 2));
+    ' "$batch_file")"
+    echo "[$(date)] Running Claude once for ${batch_count} approved signal(s)."
+    prompt="$(cat "$PROMPT_FILE"; printf '\n\nProcess this batch of approved signals in one run. Execute each signal at most once, mark executed or dismissed, then sync dashboard. Batch JSON:\n'; printf '%s\n' "$batch_json")"
+    claude -p --dangerously-skip-permissions "$prompt"
+    : > "$batch_file"
+  fi
 
   sleep "$POLL_SECONDS"
 done
