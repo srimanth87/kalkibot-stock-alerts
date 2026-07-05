@@ -369,6 +369,7 @@ async function loadTradeRows(env, profile, tableName) {
         t.*,
         entry_alert.raw_text AS entry_alert_raw_text,
         entry_alert.raw_json AS entry_alert_raw_json,
+        entry_alert.filter_status AS entry_alert_filter_status,
         exit_alert.raw_text AS exit_alert_raw_text,
         exit_alert.raw_json AS exit_alert_raw_json
       FROM ${table} t
@@ -402,6 +403,7 @@ function buildDailyComparison(rawTrades, filteredTrades) {
 
   for (const trade of rawTrades || []) {
     if (trade.status !== "closed") continue;
+    if (!trade.entryFilterStatus) continue;
     const row = ensure(etDayKey(Date.parse(trade.closedAt || trade.openedAt)));
     row.oldTrades += 1;
     row.oldPnl = roundMoney(row.oldPnl + trade.pnl);
@@ -894,6 +896,7 @@ function normalizeTrade(row) {
     status: row.status,
     entryAlertId: row.entry_alert_id || null,
     exitAlertId: row.exit_alert_id || null,
+    entryFilterStatus: row.entry_alert_filter_status || null,
     entryPrice: numberOrNull(row.entry_price),
     exitPrice: numberOrNull(row.exit_price),
     allocation: numberOrNull(row.allocation) || 0,
