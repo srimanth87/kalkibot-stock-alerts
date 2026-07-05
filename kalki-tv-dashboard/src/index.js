@@ -153,6 +153,32 @@ async function ensureSchema(env) {
   await addColumnIfMissing(env, "tv_profiles", "strategy_mode", "TEXT NOT NULL DEFAULT 'filtered_risk'");
   await addColumnIfMissing(env, "tv_profiles", "account_equity", "REAL NOT NULL DEFAULT 25000");
   await addColumnIfMissing(env, "tv_profiles", "risk_per_trade_pct", "REAL NOT NULL DEFAULT 0.25");
+  await migrateLegacyTradesToRaw(env);
+}
+
+async function migrateLegacyTradesToRaw(env) {
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO tv_raw_trades
+        (id, profile_id, ticker, status, entry_alert_id, exit_alert_id, entry_price, exit_price,
+         allocation, shares, tp1_price, stop_price, outcome, pnl, pnl_pct, opened_at, closed_at, updated_at)
+       SELECT
+         t.id, t.profile_id, t.ticker, t.status, t.entry_alert_id, t.exit_alert_id, t.entry_price, t.exit_price,
+         t.allocation, t.shares, t.tp1_price, t.stop_price, t.outcome, t.pnl, t.pnl_pct, t.opened_at, t.closed_at, t.updated_at
+       FROM tv_trades t
+       LEFT JOIN tv_alerts a ON a.id = t.entry_alert_id
+       WHERE a.filter_status IS NULL`
+    ),
+    env.DB.prepare(
+      `DELETE FROM tv_trades
+       WHERE id IN (
+         SELECT t.id
+         FROM tv_trades t
+         LEFT JOIN tv_alerts a ON a.id = t.entry_alert_id
+         WHERE a.filter_status IS NULL
+       )`
+    ),
+  ]);
 }
 
 async function requireSharedProfile(env, request) {
