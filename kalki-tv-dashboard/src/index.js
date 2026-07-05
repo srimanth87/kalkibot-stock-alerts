@@ -758,8 +758,8 @@ async function passesBuyFilter(alert) {
   }
 
   const [tickerBars, spyBars] = await Promise.all([
-    fetchYahooProxyBars(ticker, { range: "15d", interval: "15m" }),
-    fetchYahooProxyBars("SPY", { range: "15d", interval: "15m" }),
+    fetchYahooProxyBars(ticker, { interval: "15m", alertTime: alert.receivedAt }),
+    fetchYahooProxyBars("SPY", { interval: "15m", alertTime: alert.receivedAt }),
   ]);
   const tickerSnapshot = buildFilterSnapshot(tickerBars, alert.receivedAt);
   const spySnapshot = buildFilterSnapshot(spyBars, alert.receivedAt);
@@ -1369,11 +1369,11 @@ async function fetchYahooProxyPrice(ticker) {
   return null;
 }
 
-async function fetchYahooProxyBars(ticker, { range = "15d", interval = "15m" } = {}) {
+async function fetchYahooProxyBars(ticker, { range = "15d", interval = "15m", alertTime = null } = {}) {
   const symbol = toYahooSymbol(ticker);
   if (!symbol) return [];
   const encodedSymbol = encodeURIComponent(symbol);
-  const params = `range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}&includePrePost=false&cb=${Date.now()}`;
+  const params = yahooBarsParams({ range, interval, alertTime });
   const yahooUrls = [
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?${params}`,
     `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?${params}`,
@@ -1418,6 +1418,15 @@ async function fetchYahooProxyBars(ticker, { range = "15d", interval = "15m" } =
   }
 
   return [];
+}
+
+function yahooBarsParams({ range, interval, alertTime }) {
+  const alertMs = Date.parse(alertTime || "");
+  const common = `interval=${encodeURIComponent(interval)}&includePrePost=false&cb=${Date.now()}`;
+  if (!Number.isFinite(alertMs)) return `range=${encodeURIComponent(range)}&${common}`;
+  const period1 = Math.floor((alertMs - 45 * 24 * 60 * 60 * 1000) / 1000);
+  const period2 = Math.floor((alertMs + 2 * 60 * 60 * 1000) / 1000);
+  return `period1=${period1}&period2=${period2}&${common}`;
 }
 
 function buildFilterSnapshot(bars, alertTime) {
