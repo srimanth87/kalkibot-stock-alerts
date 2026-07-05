@@ -146,6 +146,11 @@ async function ensureSchema(env) {
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS tv_quote_cache (
+      ticker TEXT PRIMARY KEY,
+      price REAL NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
   ]);
   await addColumnIfMissing(env, "tv_alerts", "filter_status", "TEXT");
   await addColumnIfMissing(env, "tv_alerts", "filter_reason", "TEXT");
@@ -299,7 +304,7 @@ async function handleDashboard(env, shared, request) {
   const initialRawTrades = (rawTradeRows || []).map(normalizeTrade);
   const openTrades = initialTrades.filter((trade) => trade.status === "open");
   const openRawTrades = initialRawTrades.filter((trade) => trade.status === "open");
-  const quotes = await fetchQuotesForTrades([...openTrades, ...openRawTrades]);
+  const quotes = await fetchQuotesForTrades(env, [...openTrades, ...openRawTrades]);
   if ((openTrades.length || openRawTrades.length) && quotes.size) {
     await autoCloseTradesFromQuotes(env, profile, openTrades, quotes);
     await autoCloseRawTradesFromQuotes(env, profile, openRawTrades, quotes);
@@ -986,7 +991,7 @@ function enrichTradeWithQuote(trade, quote) {
   };
 }
 
-async function fetchQuotesForTrades(trades) {
+async function fetchQuotesForTrades(env, trades) {
   const tickers = [...new Set((trades || []).map((trade) => sanitizeTicker(trade.ticker)).filter(Boolean))];
   const map = new Map();
   if (!tickers.length) return map;
@@ -996,10 +1001,38 @@ async function fetchQuotesForTrades(trades) {
     return price ? { ticker, price } : null;
   }));
   for (const result of results) {
-    if (result) map.set(result.ticker, { price: result.price });
+    if (!result) continue;
+    map.set(result.ticker, { price: result.price });
+    await saveQuoteCache(env, result.ticker, result.price);
+  }
+
+  const missingTickers = tickers.filter((ticker) => !map.has(ticker));
+  if (missingTickers.length) {
+    const cached = await loadQuoteCache(env, missingTickers);
+    for (const quote of cached) {
+      map.set(quote.ticker, { price: quote.price, cached: true });
+    }
   }
 
   return map;
+}
+
+async function saveQuoteCache(env, ticker, price) {
+  await env.DB.prepare(
+    `INSERT INTO tv_quote_cache (ticker, price, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(ticker) DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at`
+  ).bind(ticker, price, new Date().toISOString()).run();
+}
+
+async function loadQuoteCache(env, tickers) {
+  const quotes = [];
+  for (const ticker of tickers || []) {
+    const row = await env.DB.prepare(`SELECT ticker, price FROM tv_quote_cache WHERE ticker = ?`).bind(ticker).first();
+    const price = positiveNumber(row?.price);
+    if (row?.ticker && price) quotes.push({ ticker: row.ticker, price });
+  }
+  return quotes;
 }
 
 async function autoCloseTradesFromQuotes(env, profile, trades, quotes) {

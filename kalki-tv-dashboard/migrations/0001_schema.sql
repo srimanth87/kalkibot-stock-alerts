@@ -95,3 +95,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_raw_trades_profile_status
 
 CREATE INDEX IF NOT EXISTS idx_tv_raw_trades_profile_closed
   ON tv_raw_trades(profile_id, closed_at DESC);
+
+CREATE TABLE IF NOT EXISTS tv_quote_cache (
+  ticker TEXT PRIMARY KEY,
+  price REAL NOT NULL,
+  updated_at TEXT NOT NULL
+);
