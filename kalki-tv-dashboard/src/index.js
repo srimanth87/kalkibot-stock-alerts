@@ -362,7 +362,9 @@ function buildDailyComparison(rawTrades, filteredTrades) {
   }
   for (const trade of filteredTrades || []) {
     if (trade.status !== "closed") continue;
-    const row = ensure(etDayKey(Date.parse(trade.closedAt || trade.openedAt)));
+    const date = etDayKey(Date.parse(trade.closedAt || trade.openedAt));
+    if (!byDate.has(date)) continue;
+    const row = ensure(date);
     row.newTrades += 1;
     row.newPnl = roundMoney(row.newPnl + trade.pnl);
     if (trade.pnl > 0) row.newWins += 1;
