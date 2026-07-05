@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS tv_profiles (
   allocation_per_alert REAL NOT NULL DEFAULT 1000,
   default_tp_pct REAL NOT NULL DEFAULT 3,
   default_stop_pct REAL NOT NULL DEFAULT 2,
+  strategy_mode TEXT NOT NULL DEFAULT 'filtered_risk',
+  account_equity REAL NOT NULL DEFAULT 25000,
+  risk_per_trade_pct REAL NOT NULL DEFAULT 0.25,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

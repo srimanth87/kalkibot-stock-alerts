@@ -1,10 +1,13 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_WEBHOOK_URL = "https://tv.kalkianalysis.com/api/tv/webhook";
 const MAX_WEBHOOK_BYTES = 64 * 1024;
 const DEFAULT_YAHOO_PROXY_BASE_URL = "https://yahoo-proxy.srimanthgada87.workers.dev";
 const SETUP_PASSCODE = "1515";
 const DEFAULT_ACCOUNT_EQUITY = 25000;
 const DEFAULT_RISK_PER_TRADE_PCT = 0.0025;
+const DEFAULT_STRATEGY_MODE = "filtered_risk";
+const OLD_FIXED_STRATEGY_MODE = "raw_fixed";
+const MIN_BUY_MINUTES_ET = 10 * 60;
+const MAX_BUY_MINUTES_ET = 15 * 60 + 15;
 const BLOCKED_BUY_TICKERS = new Set([
   "SPXL",
   "FNGU",
@@ -68,6 +71,9 @@ async function ensureSchema(env) {
       allocation_per_alert REAL NOT NULL DEFAULT 1000,
       default_tp_pct REAL NOT NULL DEFAULT 3,
       default_stop_pct REAL NOT NULL DEFAULT 2,
+      strategy_mode TEXT NOT NULL DEFAULT 'filtered_risk',
+      account_equity REAL NOT NULL DEFAULT 25000,
+      risk_per_trade_pct REAL NOT NULL DEFAULT 0.25,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`),
@@ -144,6 +150,9 @@ async function ensureSchema(env) {
   await addColumnIfMissing(env, "tv_alerts", "filter_status", "TEXT");
   await addColumnIfMissing(env, "tv_alerts", "filter_reason", "TEXT");
   await addColumnIfMissing(env, "tv_alerts", "filter_details", "TEXT");
+  await addColumnIfMissing(env, "tv_profiles", "strategy_mode", "TEXT NOT NULL DEFAULT 'filtered_risk'");
+  await addColumnIfMissing(env, "tv_profiles", "account_equity", "REAL NOT NULL DEFAULT 25000");
+  await addColumnIfMissing(env, "tv_profiles", "risk_per_trade_pct", "REAL NOT NULL DEFAULT 0.25");
 }
 
 async function requireSharedProfile(env, request) {
@@ -170,13 +179,16 @@ async function requireSharedProfile(env, request) {
       allocation_per_alert: 1000,
       default_tp_pct: 3,
       default_stop_pct: 2,
+      strategy_mode: DEFAULT_STRATEGY_MODE,
+      account_equity: DEFAULT_ACCOUNT_EQUITY,
+      risk_per_trade_pct: DEFAULT_RISK_PER_TRADE_PCT * 100,
       created_at: now,
       updated_at: now,
     };
     await env.DB.prepare(
       `INSERT INTO tv_profiles
-        (id, name, token_hashes, access_code_hash, webhook_secret_hash, allocation_per_alert, default_tp_pct, default_stop_pct, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (id, name, token_hashes, access_code_hash, webhook_secret_hash, allocation_per_alert, default_tp_pct, default_stop_pct, strategy_mode, account_equity, risk_per_trade_pct, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       profile.id,
       profile.name,
@@ -186,6 +198,9 @@ async function requireSharedProfile(env, request) {
       profile.allocation_per_alert,
       profile.default_tp_pct,
       profile.default_stop_pct,
+      profile.strategy_mode,
+      profile.account_equity,
+      profile.risk_per_trade_pct,
       profile.created_at,
       profile.updated_at,
     ).run();
@@ -214,21 +229,29 @@ async function handleSettings(request, env, profile) {
   const allocation = positiveNumber(body.allocationPerAlert) || profile.allocation_per_alert || 1000;
   const tp = positiveNumber(body.defaultTpPct) || profile.default_tp_pct || 3;
   const stop = positiveNumber(body.defaultStopPct) || profile.default_stop_pct || 2;
+  const mode = normalizeStrategyMode(body.strategyMode || profile.strategy_mode);
+  const equity = positiveNumber(body.accountEquity) || accountEquity(profile);
+  const riskPct = positiveNumber(body.riskPerTradePct) || riskPerTradePct(profile);
   const name = body.name != null ? cleanName(body.name) : profile.name;
   const updatedAt = new Date().toISOString();
   await env.DB.prepare(
     `UPDATE tv_profiles
-     SET name = ?, allocation_per_alert = ?, default_tp_pct = ?, default_stop_pct = ?, updated_at = ?
+     SET name = ?, allocation_per_alert = ?, default_tp_pct = ?, default_stop_pct = ?,
+         strategy_mode = ?, account_equity = ?, risk_per_trade_pct = ?, updated_at = ?
      WHERE id = ?`
-  ).bind(name, allocation, tp, stop, updatedAt, profile.id).run();
-  await env.DB.prepare(
-    `UPDATE tv_trades
-     SET allocation = ?, shares = ? / entry_price, tp1_price = ROUND(entry_price * (1 + ? / 100.0), 2),
-         stop_price = ROUND(entry_price * (1 - ? / 100.0), 2), updated_at = ?
-     WHERE profile_id = ? AND status = 'open'`
-  ).bind(allocation, allocation, tp, stop, updatedAt, profile.id).run();
-  const next = { ...profile, name, allocation_per_alert: allocation, default_tp_pct: tp, default_stop_pct: stop, updated_at: updatedAt };
-  return json({ ok: true, profile: publicProfile(next), updatedOpenTrades: true });
+  ).bind(name, allocation, tp, stop, mode, equity, riskPct, updatedAt, profile.id).run();
+  const next = {
+    ...profile,
+    name,
+    allocation_per_alert: allocation,
+    default_tp_pct: tp,
+    default_stop_pct: stop,
+    strategy_mode: mode,
+    account_equity: equity,
+    risk_per_trade_pct: riskPct,
+    updated_at: updatedAt,
+  };
+  return json({ ok: true, profile: publicProfile(next), updatedOpenTrades: false });
 }
 
 async function handleRotateWebhook(request, env, profile) {
@@ -262,7 +285,6 @@ async function handleDashboard(env, shared, request) {
     `SELECT * FROM tv_alerts WHERE profile_id = ? ORDER BY created_at DESC LIMIT 80`
   ).bind(profile.id).all();
 
-  const cutoff = Date.now() - DAY_MS;
   const trades = (tradeRows || []).map((row) => {
     const trade = normalizeTrade(row);
     return enrichTradeWithQuote(trade, quotes.get(trade.ticker));
@@ -271,10 +293,10 @@ async function handleDashboard(env, shared, request) {
     const trade = normalizeTrade(row);
     return enrichTradeWithQuote(trade, quotes.get(trade.ticker));
   });
-  const active = trades.filter((trade) => trade.status === "open" && Date.parse(trade.openedAt) >= cutoff);
-  const history = trades.filter((trade) => trade.status !== "open" || Date.parse(trade.openedAt) < cutoff);
-  const rawActive = rawTrades.filter((trade) => trade.status === "open" && Date.parse(trade.openedAt) >= cutoff);
-  const rawHistory = rawTrades.filter((trade) => trade.status !== "open" || Date.parse(trade.openedAt) < cutoff);
+  const active = trades.filter((trade) => trade.status === "open");
+  const history = trades.filter((trade) => trade.status !== "open");
+  const rawActive = rawTrades.filter((trade) => trade.status === "open");
+  const rawHistory = rawTrades.filter((trade) => trade.status !== "open");
   const closedToday = trades.filter((trade) => trade.status === "closed" && sameEtDay(trade.closedAt));
   const rawClosedToday = rawTrades.filter((trade) => trade.status === "closed" && sameEtDay(trade.closedAt));
   const winsToday = closedToday.filter((trade) => trade.pnl > 0);
@@ -449,6 +471,18 @@ async function openTradeForBuy(env, profile, alert, alertId) {
 
   const tp1 = positiveNumber(alert.t1) || roundMoney(alert.price * (1 + (profile.default_tp_pct || 3) / 100));
   const stop = positiveNumber(alert.stop) || roundMoney(alert.price * (1 - (profile.default_stop_pct || 2) / 100));
+  if (strategyMode(profile) === OLD_FIXED_STRATEGY_MODE) {
+    const allocation = positiveNumber(alert.allocation) || profile.allocation_per_alert || 1000;
+    const shares = allocation / alert.price;
+    await markAlertFilter(env, alertId, "bypassed", "old fixed allocation mode");
+    return await insertFilteredTrade(env, profile, alert, alertId, {
+      allocation,
+      shares,
+      tp1,
+      stop,
+    });
+  }
+
   const filter = await passesBuyFilter(alert);
   if (!filter.ok) {
     await markAlertFilter(env, alertId, "rejected", filter.reason, filter.details);
@@ -462,10 +496,17 @@ async function openTradeForBuy(env, profile, alert, alertId) {
     });
   }
 
-  const sizing = calculateRiskSizing(alert.price, stop);
-  const allocation = sizing.allocation;
-  const shares = sizing.shares;
+  const sizing = calculateRiskSizing(alert.price, stop, profile);
   await markAlertFilter(env, alertId, "passed", "accepted by filtered strategy", filter.details);
+  return await insertFilteredTrade(env, profile, alert, alertId, {
+    allocation: sizing.allocation,
+    shares: sizing.shares,
+    tp1,
+    stop,
+  });
+}
+
+async function insertFilteredTrade(env, profile, alert, alertId, sizing) {
   const trade = {
     id: crypto.randomUUID(),
     profile_id: profile.id,
@@ -473,10 +514,10 @@ async function openTradeForBuy(env, profile, alert, alertId) {
     status: "open",
     entry_alert_id: alertId,
     entry_price: alert.price,
-    allocation,
-    shares,
-    tp1_price: tp1,
-    stop_price: stop,
+    allocation: sizing.allocation,
+    shares: sizing.shares,
+    tp1_price: sizing.tp1,
+    stop_price: sizing.stop,
     opened_at: alert.receivedAt,
     updated_at: new Date().toISOString(),
   };
@@ -553,6 +594,9 @@ async function markAlertFilter(env, alertId, status, reason = "", details = null
 async function passesBuyFilter(alert) {
   const ticker = sanitizeTicker(alert.ticker);
   if (!ticker) return { ok: false, reason: "missing ticker" };
+  const minutes = etMinutes(alert.receivedAt);
+  if (minutes < MIN_BUY_MINUTES_ET) return { ok: false, reason: "before 10:00 AM ET" };
+  if (minutes > MAX_BUY_MINUTES_ET) return { ok: false, reason: "after 3:15 PM ET" };
   if (BLOCKED_BUY_TICKERS.has(ticker)) {
     return { ok: false, reason: "blocked leveraged or volatility product" };
   }
@@ -571,6 +615,8 @@ async function passesBuyFilter(alert) {
     close: roundMoney(tickerSnapshot.close),
     ema200: roundMoney(tickerSnapshot.ema200),
     vwap: roundMoney(tickerSnapshot.vwap),
+    atr14: roundMoney(tickerSnapshot.atr14),
+    vwapDistanceAtr: Math.round(tickerSnapshot.vwapDistanceAtr * 100) / 100,
     volumeRatio: Math.round(tickerSnapshot.volumeRatio * 100) / 100,
     spyClose: roundMoney(spySnapshot.close),
     spyVwap: roundMoney(spySnapshot.vwap),
@@ -585,6 +631,9 @@ async function passesBuyFilter(alert) {
   if (!(spySnapshot.close > spySnapshot.vwap)) {
     return { ok: false, reason: "SPY below VWAP", details };
   }
+  if (tickerSnapshot.vwapDistanceAtr > 1.5) {
+    return { ok: false, reason: "price more than 1.5 ATR above VWAP", details };
+  }
   if (!(tickerSnapshot.volumeRatio >= 1)) {
     return { ok: false, reason: "volume below 1.0x 20-bar average", details };
   }
@@ -592,8 +641,8 @@ async function passesBuyFilter(alert) {
   return { ok: true, details };
 }
 
-function calculateRiskSizing(entryPrice, stopPrice) {
-  const riskDollars = DEFAULT_ACCOUNT_EQUITY * DEFAULT_RISK_PER_TRADE_PCT;
+function calculateRiskSizing(entryPrice, stopPrice, profile) {
+  const riskDollars = accountEquity(profile) * (riskPerTradePct(profile) / 100);
   const riskPerShare = entryPrice - stopPrice;
   if (!(riskPerShare > 0)) {
     const allocation = riskDollars;
@@ -788,9 +837,28 @@ function publicProfile(profile) {
     allocationPerAlert: Number(profile.allocation_per_alert || 1000),
     defaultTpPct: Number(profile.default_tp_pct || 3),
     defaultStopPct: Number(profile.default_stop_pct || 2),
+    strategyMode: strategyMode(profile),
+    accountEquity: accountEquity(profile),
+    riskPerTradePct: riskPerTradePct(profile),
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
   };
+}
+
+function normalizeStrategyMode(value) {
+  return value === OLD_FIXED_STRATEGY_MODE ? OLD_FIXED_STRATEGY_MODE : DEFAULT_STRATEGY_MODE;
+}
+
+function strategyMode(profile) {
+  return normalizeStrategyMode(profile?.strategy_mode);
+}
+
+function accountEquity(profile) {
+  return positiveNumber(profile?.account_equity) || DEFAULT_ACCOUNT_EQUITY;
+}
+
+function riskPerTradePct(profile) {
+  return positiveNumber(profile?.risk_per_trade_pct) || DEFAULT_RISK_PER_TRADE_PCT * 100;
 }
 
 function normalizeTrade(row) {
@@ -1169,14 +1237,37 @@ function buildFilterSnapshot(bars, alertTime) {
   const vwap = intradayVwap(dayBars);
   const previous20 = usableBars.slice(-21, -1);
   const averageVolume20 = average(previous20.map((bar) => bar.volume));
-  if (!ema200 || !vwap || !averageVolume20) return null;
+  const atr14 = atr(usableBars, 14);
+  if (!ema200 || !vwap || !averageVolume20 || !atr14) return null;
 
   return {
     close: latest.close,
     ema200,
     vwap,
+    atr14,
+    vwapDistanceAtr: (latest.close - vwap) / atr14,
     volumeRatio: latest.volume / averageVolume20,
   };
+}
+
+function atr(bars, length) {
+  const clean = (bars || []).filter((bar) => (
+    Number.isFinite(bar.high)
+    && Number.isFinite(bar.low)
+    && Number.isFinite(bar.close)
+  ));
+  if (clean.length < length + 1) return null;
+  const trueRanges = [];
+  for (let index = 1; index < clean.length; index += 1) {
+    const bar = clean[index];
+    const previousClose = clean[index - 1].close;
+    trueRanges.push(Math.max(
+      bar.high - bar.low,
+      Math.abs(bar.high - previousClose),
+      Math.abs(bar.low - previousClose),
+    ));
+  }
+  return average(trueRanges.slice(-length));
 }
 
 function ema(values, length) {
@@ -1218,6 +1309,19 @@ function etDayKey(value) {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(value));
+}
+
+function etMinutes(value) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(value));
+  const hour = Number(parts.find((part) => part.type === "hour")?.value);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
+  return hour * 60 + minute;
 }
 
 function cleanName(value) {
