@@ -8,6 +8,30 @@ const DEFAULT_STRATEGY_MODE = "filtered_risk";
 const OLD_FIXED_STRATEGY_MODE = "raw_fixed";
 const MIN_BUY_MINUTES_ET = 10 * 60;
 const MAX_BUY_MINUTES_ET = 15 * 60 + 15;
+const HISTORICAL_BEST_FILTER_SNAPSHOT = {
+  label: "Historical Best Filter Snapshot",
+  source: "Pasted old-trades export matched to 15-minute market data",
+  oldPnl: 57.98,
+  newPnl: 427.38,
+  improvement: 369.40,
+  oldTrades: 108,
+  newTrades: 34,
+  rejectedTrades: 74,
+  newWins: 22,
+  newLosses: 12,
+  newWinRate: 64.7,
+  profitFactor: 2.91,
+  averagePerTrade: 12.57,
+  allocationModel: "Fixed $1,000 per trade",
+  rules: [
+    "Price > 200 EMA",
+    "Price > VWAP",
+    "SPY > VWAP",
+    "Volume >= 1.0x prior 20-bar average",
+    "Exclude leveraged / volatility products",
+    "No trades after 3:15 PM ET",
+  ],
+};
 const BLOCKED_BUY_TICKERS = new Set([
   "SPXL",
   "FNGU",
@@ -504,6 +528,7 @@ async function handleDashboard(env, shared, request) {
     rawActive,
     rawHistory,
     comparison,
+    historicalSnapshot: HISTORICAL_BEST_FILTER_SNAPSHOT,
     alerts: (alertRows || []).map(normalizeAlert),
   });
 }
