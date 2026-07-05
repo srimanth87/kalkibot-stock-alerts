@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS tv_alerts (
   received_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
   duplicate INTEGER DEFAULT 0,
+  filter_status TEXT,
+  filter_reason TEXT,
+  filter_details TEXT,
   FOREIGN KEY (profile_id) REFERENCES tv_profiles(id)
 );
 
@@ -61,3 +64,31 @@ CREATE INDEX IF NOT EXISTS idx_tv_trades_profile_status
 
 CREATE INDEX IF NOT EXISTS idx_tv_trades_profile_closed
   ON tv_trades(profile_id, closed_at DESC);
+
+CREATE TABLE IF NOT EXISTS tv_raw_trades (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL,
+  ticker TEXT NOT NULL,
+  status TEXT NOT NULL,
+  entry_alert_id TEXT,
+  exit_alert_id TEXT,
+  entry_price REAL NOT NULL,
+  exit_price REAL,
+  allocation REAL NOT NULL,
+  shares REAL NOT NULL,
+  tp1_price REAL NOT NULL,
+  stop_price REAL NOT NULL,
+  outcome TEXT,
+  pnl REAL DEFAULT 0,
+  pnl_pct REAL DEFAULT 0,
+  opened_at TEXT NOT NULL,
+  closed_at TEXT,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (profile_id) REFERENCES tv_profiles(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tv_raw_trades_profile_status
+  ON tv_raw_trades(profile_id, status, opened_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_tv_raw_trades_profile_closed
+  ON tv_raw_trades(profile_id, closed_at DESC);

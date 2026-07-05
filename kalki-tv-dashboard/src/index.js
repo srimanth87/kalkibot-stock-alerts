@@ -84,7 +84,10 @@ async function ensureSchema(env) {
       idempotency_key TEXT NOT NULL,
       received_at TEXT NOT NULL,
       created_at TEXT NOT NULL,
-      duplicate INTEGER DEFAULT 0
+      duplicate INTEGER DEFAULT 0,
+      filter_status TEXT,
+      filter_reason TEXT,
+      filter_details TEXT
     )`),
     env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tv_alerts_profile_idempotency ON tv_alerts(profile_id, idempotency_key)`),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_tv_alerts_profile_created ON tv_alerts(profile_id, created_at DESC)`),
@@ -110,12 +113,37 @@ async function ensureSchema(env) {
     )`),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_tv_trades_profile_status ON tv_trades(profile_id, status, opened_at DESC)`),
     env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_tv_trades_profile_closed ON tv_trades(profile_id, closed_at DESC)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS tv_raw_trades (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      ticker TEXT NOT NULL,
+      status TEXT NOT NULL,
+      entry_alert_id TEXT,
+      exit_alert_id TEXT,
+      entry_price REAL NOT NULL,
+      exit_price REAL,
+      allocation REAL NOT NULL,
+      shares REAL NOT NULL,
+      tp1_price REAL NOT NULL,
+      stop_price REAL NOT NULL,
+      outcome TEXT,
+      pnl REAL DEFAULT 0,
+      pnl_pct REAL DEFAULT 0,
+      opened_at TEXT NOT NULL,
+      closed_at TEXT,
+      updated_at TEXT NOT NULL
+    )`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_tv_raw_trades_profile_status ON tv_raw_trades(profile_id, status, opened_at DESC)`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_tv_raw_trades_profile_closed ON tv_raw_trades(profile_id, closed_at DESC)`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS tv_app_state (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`),
   ]);
+  await addColumnIfMissing(env, "tv_alerts", "filter_status", "TEXT");
+  await addColumnIfMissing(env, "tv_alerts", "filter_reason", "TEXT");
+  await addColumnIfMissing(env, "tv_alerts", "filter_details", "TEXT");
 }
 
 async function requireSharedProfile(env, request) {
@@ -215,40 +243,19 @@ async function handleRotateWebhook(request, env, profile) {
 async function handleDashboard(env, shared, request) {
   const { profile, webhookSecret } = shared;
   const setupUnlocked = hasSetupPasscode(request);
-  let { results: tradeRows } = await env.DB.prepare(
-    `SELECT
-        t.*,
-        entry_alert.raw_text AS entry_alert_raw_text,
-        entry_alert.raw_json AS entry_alert_raw_json,
-        exit_alert.raw_text AS exit_alert_raw_text,
-        exit_alert.raw_json AS exit_alert_raw_json
-      FROM tv_trades t
-      LEFT JOIN tv_alerts entry_alert ON entry_alert.id = t.entry_alert_id
-      LEFT JOIN tv_alerts exit_alert ON exit_alert.id = t.exit_alert_id
-      WHERE t.profile_id = ?
-      ORDER BY COALESCE(t.closed_at, t.opened_at) DESC
-      LIMIT 300`
-  ).bind(profile.id).all();
+  let tradeRows = await loadTradeRows(env, profile, "tv_trades");
+  let rawTradeRows = await loadTradeRows(env, profile, "tv_raw_trades");
 
   const initialTrades = (tradeRows || []).map(normalizeTrade);
+  const initialRawTrades = (rawTradeRows || []).map(normalizeTrade);
   const openTrades = initialTrades.filter((trade) => trade.status === "open");
-  const quotes = await fetchQuotesForTrades(openTrades);
-  if (openTrades.length && quotes.size) {
+  const openRawTrades = initialRawTrades.filter((trade) => trade.status === "open");
+  const quotes = await fetchQuotesForTrades([...openTrades, ...openRawTrades]);
+  if ((openTrades.length || openRawTrades.length) && quotes.size) {
     await autoCloseTradesFromQuotes(env, profile, openTrades, quotes);
-    ({ results: tradeRows } = await env.DB.prepare(
-      `SELECT
-          t.*,
-          entry_alert.raw_text AS entry_alert_raw_text,
-          entry_alert.raw_json AS entry_alert_raw_json,
-          exit_alert.raw_text AS exit_alert_raw_text,
-          exit_alert.raw_json AS exit_alert_raw_json
-        FROM tv_trades t
-        LEFT JOIN tv_alerts entry_alert ON entry_alert.id = t.entry_alert_id
-        LEFT JOIN tv_alerts exit_alert ON exit_alert.id = t.exit_alert_id
-        WHERE t.profile_id = ?
-        ORDER BY COALESCE(t.closed_at, t.opened_at) DESC
-        LIMIT 300`
-    ).bind(profile.id).all());
+    await autoCloseRawTradesFromQuotes(env, profile, openRawTrades, quotes);
+    tradeRows = await loadTradeRows(env, profile, "tv_trades");
+    rawTradeRows = await loadTradeRows(env, profile, "tv_raw_trades");
   }
 
   const { results: alertRows } = await env.DB.prepare(
@@ -260,15 +267,24 @@ async function handleDashboard(env, shared, request) {
     const trade = normalizeTrade(row);
     return enrichTradeWithQuote(trade, quotes.get(trade.ticker));
   });
+  const rawTrades = (rawTradeRows || []).map((row) => {
+    const trade = normalizeTrade(row);
+    return enrichTradeWithQuote(trade, quotes.get(trade.ticker));
+  });
   const active = trades.filter((trade) => trade.status === "open" && Date.parse(trade.openedAt) >= cutoff);
   const history = trades.filter((trade) => trade.status !== "open" || Date.parse(trade.openedAt) < cutoff);
+  const rawActive = rawTrades.filter((trade) => trade.status === "open" && Date.parse(trade.openedAt) >= cutoff);
+  const rawHistory = rawTrades.filter((trade) => trade.status !== "open" || Date.parse(trade.openedAt) < cutoff);
   const closedToday = trades.filter((trade) => trade.status === "closed" && sameEtDay(trade.closedAt));
+  const rawClosedToday = rawTrades.filter((trade) => trade.status === "closed" && sameEtDay(trade.closedAt));
   const winsToday = closedToday.filter((trade) => trade.pnl > 0);
   const lossesToday = closedToday.filter((trade) => trade.pnl < 0);
   const netToday = roundMoney(closedToday.reduce((sum, trade) => sum + trade.pnl, 0));
+  const rawNetToday = roundMoney(rawClosedToday.reduce((sum, trade) => sum + trade.pnl, 0));
   const investedOpen = roundMoney(active.reduce((sum, trade) => sum + trade.allocation, 0));
   const unrealizedOpen = roundMoney(active.reduce((sum, trade) => sum + (trade.currentPnl || 0), 0));
   const winRate = closedToday.length ? Math.round((winsToday.length / closedToday.length) * 1000) / 10 : 0;
+  const comparison = buildDailyComparison(rawTrades, trades);
 
   return json({
     ok: true,
@@ -284,13 +300,84 @@ async function handleDashboard(env, shared, request) {
       lossesToday: lossesToday.length,
       winRate,
       netToday,
+      rawNetToday,
+      improvementToday: roundMoney(netToday - rawNetToday),
       investedOpen,
       unrealizedOpen,
     },
     active,
     history,
+    rawActive,
+    rawHistory,
+    comparison,
     alerts: (alertRows || []).map(normalizeAlert),
   });
+}
+
+async function loadTradeRows(env, profile, tableName) {
+  const table = tradeTableName(tableName);
+  const { results } = await env.DB.prepare(
+    `SELECT
+        t.*,
+        entry_alert.raw_text AS entry_alert_raw_text,
+        entry_alert.raw_json AS entry_alert_raw_json,
+        exit_alert.raw_text AS exit_alert_raw_text,
+        exit_alert.raw_json AS exit_alert_raw_json
+      FROM ${table} t
+      LEFT JOIN tv_alerts entry_alert ON entry_alert.id = t.entry_alert_id
+      LEFT JOIN tv_alerts exit_alert ON exit_alert.id = t.exit_alert_id
+      WHERE t.profile_id = ?
+      ORDER BY COALESCE(t.closed_at, t.opened_at) DESC
+      LIMIT 300`
+  ).bind(profile.id).all();
+  return results || [];
+}
+
+function buildDailyComparison(rawTrades, filteredTrades) {
+  const byDate = new Map();
+  const ensure = (date) => {
+    if (!byDate.has(date)) {
+      byDate.set(date, {
+        date,
+        oldTrades: 0,
+        oldWins: 0,
+        oldLosses: 0,
+        oldPnl: 0,
+        newTrades: 0,
+        newWins: 0,
+        newLosses: 0,
+        newPnl: 0,
+      });
+    }
+    return byDate.get(date);
+  };
+
+  for (const trade of rawTrades || []) {
+    if (trade.status !== "closed") continue;
+    const row = ensure(etDayKey(Date.parse(trade.closedAt || trade.openedAt)));
+    row.oldTrades += 1;
+    row.oldPnl = roundMoney(row.oldPnl + trade.pnl);
+    if (trade.pnl > 0) row.oldWins += 1;
+    if (trade.pnl < 0) row.oldLosses += 1;
+  }
+  for (const trade of filteredTrades || []) {
+    if (trade.status !== "closed") continue;
+    const row = ensure(etDayKey(Date.parse(trade.closedAt || trade.openedAt)));
+    row.newTrades += 1;
+    row.newPnl = roundMoney(row.newPnl + trade.pnl);
+    if (trade.pnl > 0) row.newWins += 1;
+    if (trade.pnl < 0) row.newLosses += 1;
+  }
+
+  return [...byDate.values()]
+    .map((row) => ({
+      ...row,
+      rejectedTrades: Math.max(0, row.oldTrades - row.newTrades),
+      improvement: roundMoney(row.newPnl - row.oldPnl),
+      oldWinRate: row.oldTrades ? Math.round((row.oldWins / row.oldTrades) * 1000) / 10 : 0,
+      newWinRate: row.newTrades ? Math.round((row.newWins / row.newTrades) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 async function handleTradingViewWebhook(request, env, url) {
@@ -342,8 +429,10 @@ async function handleTradingViewWebhook(request, env, url) {
   }
 
   if (alert.eventType === "exit") {
+    await closeRawTradeForExit(env, profile, alert, alertId);
     return await closeTradeForExit(env, profile, alert, alertId);
   }
+  await openRawTradeForBuy(env, profile, alert, alertId);
   return await openTradeForBuy(env, profile, alert, alertId);
 }
 
@@ -352,6 +441,7 @@ async function openTradeForBuy(env, profile, alert, alertId) {
     `SELECT * FROM tv_trades WHERE profile_id = ? AND ticker = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1`
   ).bind(profile.id, alert.ticker).first();
   if (existing) {
+    await markAlertFilter(env, alertId, "skipped", "open filtered trade already exists");
     return json({ ok: true, skipped: "open_trade_exists", alert_id: alertId, trade: normalizeTrade(existing) });
   }
 
@@ -359,6 +449,7 @@ async function openTradeForBuy(env, profile, alert, alertId) {
   const stop = positiveNumber(alert.stop) || roundMoney(alert.price * (1 - (profile.default_stop_pct || 2) / 100));
   const filter = await passesBuyFilter(alert);
   if (!filter.ok) {
+    await markAlertFilter(env, alertId, "rejected", filter.reason, filter.details);
     return json({
       ok: true,
       action: "rejected",
@@ -372,6 +463,7 @@ async function openTradeForBuy(env, profile, alert, alertId) {
   const sizing = calculateRiskSizing(alert.price, stop);
   const allocation = sizing.allocation;
   const shares = sizing.shares;
+  await markAlertFilter(env, alertId, "passed", "accepted by filtered strategy", filter.details);
   const trade = {
     id: crypto.randomUUID(),
     profile_id: profile.id,
@@ -404,6 +496,56 @@ async function openTradeForBuy(env, profile, alert, alertId) {
     trade.updated_at,
   ).run();
   return json({ ok: true, action: "opened", alert_id: alertId, trade: normalizeTrade(trade) });
+}
+
+async function openRawTradeForBuy(env, profile, alert, alertId) {
+  const existing = await env.DB.prepare(
+    `SELECT * FROM tv_raw_trades WHERE profile_id = ? AND ticker = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1`
+  ).bind(profile.id, alert.ticker).first();
+  if (existing) return normalizeTrade(existing);
+
+  const allocation = positiveNumber(alert.allocation) || profile.allocation_per_alert || 1000;
+  const shares = allocation / alert.price;
+  const tp1 = positiveNumber(alert.t1) || roundMoney(alert.price * (1 + (profile.default_tp_pct || 3) / 100));
+  const stop = positiveNumber(alert.stop) || roundMoney(alert.price * (1 - (profile.default_stop_pct || 2) / 100));
+  const trade = {
+    id: crypto.randomUUID(),
+    profile_id: profile.id,
+    ticker: alert.ticker,
+    status: "open",
+    entry_alert_id: alertId,
+    entry_price: alert.price,
+    allocation,
+    shares,
+    tp1_price: tp1,
+    stop_price: stop,
+    opened_at: alert.receivedAt,
+    updated_at: new Date().toISOString(),
+  };
+  await env.DB.prepare(
+    `INSERT INTO tv_raw_trades
+      (id, profile_id, ticker, status, entry_alert_id, entry_price, allocation, shares, tp1_price, stop_price, opened_at, updated_at)
+     VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    trade.id,
+    trade.profile_id,
+    trade.ticker,
+    trade.entry_alert_id,
+    trade.entry_price,
+    trade.allocation,
+    trade.shares,
+    trade.tp1_price,
+    trade.stop_price,
+    trade.opened_at,
+    trade.updated_at,
+  ).run();
+  return normalizeTrade(trade);
+}
+
+async function markAlertFilter(env, alertId, status, reason = "", details = null) {
+  await env.DB.prepare(
+    `UPDATE tv_alerts SET filter_status = ?, filter_reason = ?, filter_details = ? WHERE id = ?`
+  ).bind(status, reason, details ? JSON.stringify(details) : null, alertId).run();
 }
 
 async function passesBuyFilter(alert) {
@@ -483,6 +625,24 @@ async function closeTradeForExit(env, profile, alert, alertId) {
     alert_id: alertId,
     trade: normalizeTrade({ ...trade, status: "closed", exit_alert_id: alertId, exit_price: alert.price, outcome, pnl, pnl_pct: pnlPct, closed_at: closedAt }),
   });
+}
+
+async function closeRawTradeForExit(env, profile, alert, alertId) {
+  const trade = await env.DB.prepare(
+    `SELECT * FROM tv_raw_trades WHERE profile_id = ? AND ticker = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1`
+  ).bind(profile.id, alert.ticker).first();
+  if (!trade) return null;
+
+  const pnl = roundMoney((alert.price - trade.entry_price) * trade.shares);
+  const pnlPct = roundMoney(((alert.price - trade.entry_price) / trade.entry_price) * 100);
+  const outcome = alert.price >= trade.entry_price ? "take_profit" : "stop_loss";
+  const closedAt = alert.receivedAt;
+  await env.DB.prepare(
+    `UPDATE tv_raw_trades
+     SET status = 'closed', exit_alert_id = ?, exit_price = ?, outcome = ?, pnl = ?, pnl_pct = ?, closed_at = ?, updated_at = ?
+     WHERE id = ?`
+  ).bind(alertId, alert.price, outcome, pnl, pnlPct, closedAt, new Date().toISOString(), trade.id).run();
+  return normalizeTrade({ ...trade, status: "closed", exit_alert_id: alertId, exit_price: alert.price, outcome, pnl, pnl_pct: pnlPct, closed_at: closedAt });
 }
 
 function normalizeTvAlert(body, profile) {
@@ -667,6 +827,9 @@ function normalizeAlert(row) {
     timeframe: row.timeframe || null,
     grade: row.grade || null,
     rawText: row.raw_text || "",
+    filterStatus: row.filter_status || null,
+    filterReason: row.filter_reason || null,
+    filterDetails: parseLooseJson(row.filter_details) || null,
     receivedAt: row.received_at,
     createdAt: row.created_at,
     duplicate: Boolean(row.duplicate),
@@ -684,6 +847,15 @@ async function setState(env, key, value, updatedAt = new Date().toISOString()) {
      VALUES (?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
   ).bind(key, String(value), updatedAt).run();
+}
+
+async function addColumnIfMissing(env, table, column, type) {
+  try {
+    await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+  } catch (error) {
+    const message = errorMessage(error).toLowerCase();
+    if (!message.includes("duplicate column") && !message.includes("already exists")) throw error;
+  }
 }
 
 function sameEtDay(value) {
@@ -745,16 +917,17 @@ async function autoCloseTradesFromQuotes(env, profile, trades, quotes) {
     }
     if (!outcome) continue;
 
-    await closeTradeFromSystemPrice(env, profile, trade, currentPrice, outcome);
+    await closeTradeFromSystemPrice(env, profile, trade, currentPrice, outcome, "tv_trades");
   }
 }
 
-async function closeTradeFromSystemPrice(env, profile, trade, exitPrice, outcome) {
+async function closeTradeFromSystemPrice(env, profile, trade, exitPrice, outcome, tableName = "tv_trades") {
+  const table = tradeTableName(tableName);
   const closedAt = new Date().toISOString();
   const rawText = outcome === "take_profit"
     ? `AUTO TAKE PROFIT ${trade.ticker} @ ${exitPrice}`
     : `AUTO STOP LOSS ${trade.ticker} @ ${exitPrice}`;
-  const idempotencyKey = await sha256Hex(`${profile.id}:auto:${outcome}:${trade.id}:${exitPrice}:${sameMinute(closedAt)}`);
+  const idempotencyKey = await sha256Hex(`${profile.id}:${table}:auto:${outcome}:${trade.id}:${exitPrice}:${sameMinute(closedAt)}`);
   const alertId = crypto.randomUUID();
 
   try {
@@ -782,10 +955,33 @@ async function closeTradeFromSystemPrice(env, profile, trade, exitPrice, outcome
   const pnl = roundMoney((exitPrice - trade.entryPrice) * trade.shares);
   const pnlPct = roundMoney(((exitPrice - trade.entryPrice) / trade.entryPrice) * 100);
   await env.DB.prepare(
-    `UPDATE tv_trades
+    `UPDATE ${table}
      SET status = 'closed', exit_alert_id = ?, exit_price = ?, outcome = ?, pnl = ?, pnl_pct = ?, closed_at = ?, updated_at = ?
      WHERE id = ? AND status = 'open'`
   ).bind(alertId, exitPrice, outcome, pnl, pnlPct, closedAt, closedAt, trade.id).run();
+}
+
+async function autoCloseRawTradesFromQuotes(env, profile, trades, quotes) {
+  for (const trade of trades || []) {
+    if (!trade || trade.status !== "open") continue;
+    const currentPrice = positiveNumber(quotes.get(trade.ticker)?.price);
+    if (!currentPrice) continue;
+
+    let outcome = null;
+    if (trade.stopPrice && currentPrice <= trade.stopPrice) {
+      outcome = "stop_loss";
+    } else if (trade.tp1Price && currentPrice >= trade.tp1Price) {
+      outcome = "take_profit";
+    }
+    if (!outcome) continue;
+
+    await closeTradeFromSystemPrice(env, profile, trade, currentPrice, outcome, "tv_raw_trades");
+  }
+}
+
+function tradeTableName(value) {
+  if (value === "tv_raw_trades") return "tv_raw_trades";
+  return "tv_trades";
 }
 
 function toYahooSymbol(ticker) {
