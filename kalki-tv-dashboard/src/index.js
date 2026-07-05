@@ -478,7 +478,13 @@ async function handleDashboard(env, shared, request) {
   const quotes = await fetchCachedQuotesForTrades(env, [...openTrades, ...openRawTrades]);
 
   const { results: alertRows } = await env.DB.prepare(
-    `SELECT * FROM tv_alerts WHERE profile_id = ? ORDER BY created_at DESC LIMIT 80`
+    `SELECT
+       id, event_type, ticker, price, timeframe, grade, raw_text,
+       filter_status, filter_reason, filter_details, received_at, created_at, duplicate
+     FROM tv_alerts
+     WHERE profile_id = ?
+     ORDER BY created_at DESC
+     LIMIT 40`
   ).bind(profile.id).all();
 
   const trades = (tradeRows || []).map((row) => {
@@ -539,10 +545,8 @@ async function loadTradeRows(env, profile, tableName) {
     `SELECT
         t.*,
         entry_alert.raw_text AS entry_alert_raw_text,
-        entry_alert.raw_json AS entry_alert_raw_json,
         entry_alert.filter_status AS entry_alert_filter_status,
-        exit_alert.raw_text AS exit_alert_raw_text,
-        exit_alert.raw_json AS exit_alert_raw_json
+        exit_alert.raw_text AS exit_alert_raw_text
       FROM ${table} t
       LEFT JOIN tv_alerts entry_alert ON entry_alert.id = t.entry_alert_id
       LEFT JOIN tv_alerts exit_alert ON exit_alert.id = t.exit_alert_id
@@ -1075,8 +1079,8 @@ function normalizeTrade(row) {
     tp1Price: numberOrNull(row.tp1_price),
     stopPrice: numberOrNull(row.stop_price),
     outcome: row.outcome || null,
-    entryTrigger: summarizeAlertTrigger(row.entry_alert_raw_text, row.entry_alert_raw_json, "buy"),
-    exitTrigger: summarizeAlertTrigger(row.exit_alert_raw_text, row.exit_alert_raw_json, row.outcome || "closed"),
+    entryTrigger: summarizeAlertTrigger(row.entry_alert_raw_text, "buy"),
+    exitTrigger: summarizeAlertTrigger(row.exit_alert_raw_text, row.outcome || "closed"),
     pnl: numberOrNull(row.pnl) || 0,
     pnlPct: numberOrNull(row.pnl_pct) || 0,
     currentPrice: null,
@@ -1096,10 +1100,10 @@ function normalizeAlert(row) {
     price: numberOrNull(row.price),
     timeframe: row.timeframe || null,
     grade: row.grade || null,
-    rawText: row.raw_text || "",
+    rawText: truncateText(row.raw_text, 260),
     filterStatus: row.filter_status || null,
     filterReason: row.filter_reason || null,
-    filterDetails: parseLooseJson(row.filter_details) || null,
+    filterDetails: compactFilterDetails(row.filter_details),
     receivedAt: row.received_at,
     createdAt: row.created_at,
     duplicate: Boolean(row.duplicate),
@@ -1340,13 +1344,12 @@ function requireSetupPasscode(request) {
   throw error;
 }
 
-function summarizeAlertTrigger(rawText, rawJson, fallback) {
+function summarizeAlertTrigger(rawText, fallback) {
   const text = String(rawText || "").trim();
-  if (!text && !rawJson) return fallback || null;
+  if (!text) return fallback || null;
   if (/^AUTO\s+/i.test(text)) return text;
 
-  const parsed = parseLooseJson(rawJson) || parseLooseJson(text);
-  const alertLabel = String(parsed?.alert || "").trim();
+  const alertLabel = matchGroup(text, /"alert"\s*:\s*"([^"]+)"/i) || matchGroup(text, /\balert\s*[:=]\s*([^\n\r,}]+)/i);
   if (alertLabel && alertLabel.toLowerCase() !== "scripted alert") return alertLabel;
 
   const lowered = `${alertLabel} ${text}`.toLowerCase();
@@ -1360,6 +1363,27 @@ function summarizeAlertTrigger(rawText, rawJson, fallback) {
   if (lowered.includes("bearish confirmation")) return "Bearish Confirmation";
 
   return fallback || "Alert";
+}
+
+function compactFilterDetails(value) {
+  const parsed = parseLooseJson(value);
+  if (!parsed) return null;
+  return {
+    close: parsed.close,
+    ema200: parsed.ema200,
+    vwap: parsed.vwap,
+    atr14: parsed.atr14,
+    vwapDistanceAtr: parsed.vwapDistanceAtr,
+    volumeRatio: parsed.volumeRatio,
+    spyClose: parsed.spyClose,
+    spyVwap: parsed.spyVwap,
+    warning: truncateText(parsed.warning, 120),
+  };
+}
+
+function truncateText(value, maxLength = 260) {
+  const text = String(value || "");
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
 }
 
 function parseLooseJson(value) {
