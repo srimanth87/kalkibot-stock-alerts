@@ -367,10 +367,23 @@ async function backfillOneFilteredTrade(env, profile, rawTrade) {
     return { ticker: rawTrade.ticker, action: "rejected", reason: "missing ticker or entry price" };
   }
 
-  const filter = await passesBuyFilter(alert);
+  let filter = await passesBuyFilter(alert);
+  let filterStatus = "passed";
+  let filterReason = "backfilled through filtered strategy";
   if (!filter.ok) {
-    await markAlertFilter(env, rawTrade.entry_alert_id, "rejected", filter.reason, filter.details);
-    return { ticker: alert.ticker, action: "rejected", reason: filter.reason };
+    if (!isMarketDataUnavailableReason(filter.reason)) {
+      await markAlertFilter(env, rawTrade.entry_alert_id, "rejected", filter.reason, filter.details);
+      return { ticker: alert.ticker, action: "rejected", reason: filter.reason };
+    }
+    filterStatus = "passed_unverified";
+    filterReason = `backfilled without Yahoo history: ${filter.reason}`;
+    filter = {
+      ok: true,
+      details: {
+        warning: filter.reason,
+        note: "Yahoo proxy did not return enough historical bars at the alert timestamp; deterministic time/blocklist checks still passed.",
+      },
+    };
   }
 
   const sizing = calculateRiskSizing(alert.price, alert.stop, profile);
@@ -387,7 +400,7 @@ async function backfillOneFilteredTrade(env, profile, rawTrade) {
     ? roundMoney(((exitPrice - alert.price) / alert.price) * 100)
     : 0;
 
-  await markAlertFilter(env, rawTrade.entry_alert_id, "passed", "backfilled through filtered strategy", filter.details);
+  await markAlertFilter(env, rawTrade.entry_alert_id, filterStatus, filterReason, filter.details);
   await env.DB.prepare(
     `INSERT OR IGNORE INTO tv_trades
       (id, profile_id, ticker, status, entry_alert_id, exit_alert_id, entry_price, exit_price,
@@ -417,10 +430,15 @@ async function backfillOneFilteredTrade(env, profile, rawTrade) {
   return {
     ticker: alert.ticker,
     action: "created",
+    filterStatus,
     status,
     allocation: sizing.allocation,
     pnl,
   };
+}
+
+function isMarketDataUnavailableReason(reason) {
+  return String(reason || "").startsWith("not enough ");
 }
 
 async function handleDashboard(env, shared, request) {
