@@ -304,13 +304,7 @@ async function handleDashboard(env, shared, request) {
   const initialRawTrades = (rawTradeRows || []).map(normalizeTrade);
   const openTrades = initialTrades.filter((trade) => trade.status === "open");
   const openRawTrades = initialRawTrades.filter((trade) => trade.status === "open");
-  const quotes = await fetchQuotesForTrades(env, [...openTrades, ...openRawTrades]);
-  if ((openTrades.length || openRawTrades.length) && quotes.size) {
-    await autoCloseTradesFromQuotes(env, profile, openTrades, quotes);
-    await autoCloseRawTradesFromQuotes(env, profile, openRawTrades, quotes);
-    tradeRows = await loadTradeRows(env, profile, "tv_trades");
-    rawTradeRows = await loadTradeRows(env, profile, "tv_raw_trades");
-  }
+  const quotes = await fetchCachedQuotesForTrades(env, [...openTrades, ...openRawTrades]);
 
   const { results: alertRows } = await env.DB.prepare(
     `SELECT * FROM tv_alerts WHERE profile_id = ? ORDER BY created_at DESC LIMIT 80`
@@ -1014,6 +1008,17 @@ async function fetchQuotesForTrades(env, trades) {
     }
   }
 
+  return map;
+}
+
+async function fetchCachedQuotesForTrades(env, trades) {
+  const tickers = [...new Set((trades || []).map((trade) => sanitizeTicker(trade.ticker)).filter(Boolean))];
+  const map = new Map();
+  if (!tickers.length) return map;
+  const cached = await loadQuoteCache(env, tickers);
+  for (const quote of cached) {
+    map.set(quote.ticker, { price: quote.price, cached: true });
+  }
   return map;
 }
 
