@@ -48,6 +48,11 @@ export default {
         const shared = await requireSharedProfile(env, request);
         return await handleRotateWebhook(request, env, shared.profile);
       }
+      if (request.method === "POST" && url.pathname === "/api/admin/backfill-filtered") {
+        requireSetupPasscode(request);
+        const shared = await requireSharedProfile(env, request);
+        return await handleBackfillFiltered(request, env, shared.profile);
+      }
       if (request.method === "POST" && isTradingViewWebhookPath(url.pathname)) {
         return await handleTradingViewWebhook(request, env, url);
       }
@@ -292,6 +297,130 @@ async function handleRotateWebhook(request, env, profile) {
     .bind(await sha256Hex(webhookSecret), updatedAt, profile.id).run();
   await setState(env, "shared_webhook_secret", webhookSecret, updatedAt);
   return json({ ok: true, webhookSecret, webhookUrl: webhookUrl(request, webhookSecret) });
+}
+
+async function handleBackfillFiltered(request, env, profile) {
+  const body = await request.json().catch(() => ({}));
+  const limit = Math.min(positiveInteger(body.limit) || 3, 5);
+  const { results } = await env.DB.prepare(
+    `SELECT
+       r.*,
+       entry_alert.raw_text AS entry_alert_raw_text,
+       entry_alert.raw_json AS entry_alert_raw_json
+     FROM tv_raw_trades r
+     JOIN tv_alerts entry_alert ON entry_alert.id = r.entry_alert_id
+     WHERE r.profile_id = ?
+       AND entry_alert.event_type = 'buy'
+       AND entry_alert.filter_status IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM tv_trades t
+         WHERE t.profile_id = r.profile_id AND t.entry_alert_id = r.entry_alert_id
+       )
+     ORDER BY r.opened_at ASC
+     LIMIT ?`
+  ).bind(profile.id, limit).all();
+
+  const rows = results || [];
+  const outcomes = [];
+  for (const rawTrade of rows) {
+    outcomes.push(await backfillOneFilteredTrade(env, profile, rawTrade));
+  }
+
+  const remaining = await env.DB.prepare(
+    `SELECT COUNT(*) AS count
+     FROM tv_raw_trades r
+     JOIN tv_alerts entry_alert ON entry_alert.id = r.entry_alert_id
+     WHERE r.profile_id = ?
+       AND entry_alert.event_type = 'buy'
+       AND entry_alert.filter_status IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM tv_trades t
+         WHERE t.profile_id = r.profile_id AND t.entry_alert_id = r.entry_alert_id
+       )`
+  ).bind(profile.id).first();
+
+  const passed = outcomes.filter((item) => item.action === "created").length;
+  const rejected = outcomes.filter((item) => item.action === "rejected").length;
+  return json({
+    ok: true,
+    processed: outcomes.length,
+    passed,
+    rejected,
+    remaining: Number(remaining?.count || 0),
+    outcomes,
+  });
+}
+
+async function backfillOneFilteredTrade(env, profile, rawTrade) {
+  const alert = {
+    eventType: "buy",
+    ticker: sanitizeTicker(rawTrade.ticker),
+    price: positiveNumber(rawTrade.entry_price),
+    receivedAt: normalizeTimestamp(rawTrade.opened_at),
+    allocation: positiveNumber(rawTrade.allocation) || profile.allocation_per_alert,
+    stop: positiveNumber(rawTrade.stop_price),
+    t1: positiveNumber(rawTrade.tp1_price),
+    rawText: rawTrade.entry_alert_raw_text || "",
+  };
+  if (!alert.ticker || !alert.price) {
+    await markAlertFilter(env, rawTrade.entry_alert_id, "rejected", "backfill missing ticker or entry price");
+    return { ticker: rawTrade.ticker, action: "rejected", reason: "missing ticker or entry price" };
+  }
+
+  const filter = await passesBuyFilter(alert);
+  if (!filter.ok) {
+    await markAlertFilter(env, rawTrade.entry_alert_id, "rejected", filter.reason, filter.details);
+    return { ticker: alert.ticker, action: "rejected", reason: filter.reason };
+  }
+
+  const sizing = calculateRiskSizing(alert.price, alert.stop, profile);
+  const status = rawTrade.status === "closed" ? "closed" : "open";
+  const exitPrice = numberOrNull(rawTrade.exit_price);
+  const closedAt = rawTrade.closed_at || null;
+  const outcome = status === "closed"
+    ? (rawTrade.outcome || (exitPrice >= alert.price ? "take_profit" : "stop_loss"))
+    : null;
+  const pnl = status === "closed" && exitPrice
+    ? roundMoney((exitPrice - alert.price) * sizing.shares)
+    : 0;
+  const pnlPct = status === "closed" && exitPrice
+    ? roundMoney(((exitPrice - alert.price) / alert.price) * 100)
+    : 0;
+
+  await markAlertFilter(env, rawTrade.entry_alert_id, "passed", "backfilled through filtered strategy", filter.details);
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO tv_trades
+      (id, profile_id, ticker, status, entry_alert_id, exit_alert_id, entry_price, exit_price,
+       allocation, shares, tp1_price, stop_price, outcome, pnl, pnl_pct, opened_at, closed_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    `backfill:${rawTrade.id}`,
+    profile.id,
+    alert.ticker,
+    status,
+    rawTrade.entry_alert_id,
+    status === "closed" ? rawTrade.exit_alert_id : null,
+    alert.price,
+    status === "closed" ? exitPrice : null,
+    sizing.allocation,
+    sizing.shares,
+    alert.t1,
+    alert.stop,
+    outcome,
+    pnl,
+    pnlPct,
+    alert.receivedAt,
+    closedAt,
+    new Date().toISOString(),
+  ).run();
+
+  return {
+    ticker: alert.ticker,
+    action: "created",
+    status,
+    allocation: sizing.allocation,
+    pnl,
+  };
 }
 
 async function handleDashboard(env, shared, request) {
@@ -1406,6 +1535,11 @@ function normalizeTimestamp(value) {
 
 function positiveNumber(value) {
   const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function positiveInteger(value) {
+  const number = Math.floor(Number(value));
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
