@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kalki TV · Signal Trades</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#030918;color:#eef7ff}body{overflow-x:hidden}.bg{position:fixed;inset:0;background:radial-gradient(circle at 50% 12%,rgba(11,164,210,.38),transparent 34%),radial-gradient(circle at 9% 4%,rgba(16,95,210,.34),transparent 28%),linear-gradient(135deg,#020712 0%,#061327 48%,#050817 100%);z-index:-3}.bg:after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.75),transparent 70%);opacity:.35}.stars{position:fixed;inset:0;z-index:-2;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:42px 42px;opacity:.08}.top{height:64px;display:flex;align-items:center;gap:18px;padding:0 28px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(2,7,18,.62);backdrop-filter:blur(22px);position:sticky;top:0;z-index:40}.brand{display:flex;align-items:center;gap:11px;font-weight:900;font-size:18px;color:#fff}.mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#23f2c3,#0b8cff);display:grid;place-items:center;color:#00131a;font-weight:1000}.nav{display:flex;gap:3px}.nav button{border:0;background:transparent;color:rgba(255,255,255,.48);font-weight:800;font-size:12px;padding:8px 12px;border-radius:8px}.nav button.active,.nav button:hover{background:rgba(255,255,255,.08);color:#fff}.spacer{flex:1}.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(35,242,195,.23);background:rgba(35,242,195,.08);color:#60ffd7;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:900}.dot{width:7px;height:7px;border-radius:50%;background:#23f2c3;box-shadow:0 0 12px #23f2c3}.icon-btn,.btn{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:rgba(255,255,255,.72);border-radius:9px;height:34px;padding:0 12px;font-weight:850;font-size:12px}.btn.primary{background:#fff;color:#061327;border-color:#fff}.btn.good{background:rgba(35,242,195,.13);border-color:rgba(35,242,195,.28);color:#60ffd7}.btn.danger{background:rgba(255,82,104,.1);border-color:rgba(255,82,104,.28);color:#ff8b9c}.app{padding:34px 28px 60px;max-width:1500px;margin:auto}.hero{display:grid;grid-template-columns:1fr auto;align-items:end;gap:20px;margin:24px 0 28px}.eyebrow{font-size:11px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:#62e8ff}.hero h1{font-size:52px;line-height:.95;margin:8px 0 12px;letter-spacing:0;color:#fff}.hero h1 span{display:block;background:linear-gradient(90deg,#fff,#43d8ff 50%,#23f2c3);-webkit-background-clip:text;background-clip:text;color:transparent}.hero p{max-width:660px;margin:0;color:rgba(255,255,255,.66);font-size:15px;line-height:1.6}.profile-card{min-width:300px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.055);border-radius:10px;padding:14px}.profile-card small{display:block;color:rgba(255,255,255,.42);font-size:10px;text-transform:uppercase;font-weight:900;letter-spacing:.12em}.profile-card strong{display:block;margin-top:5px;color:#fff}.grid{display:grid;gap:14px}.metrics{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px}.metric{border:1px solid rgba(255,255,255,.095);background:rgba(255,255,255,.06);border-radius:10px;padding:15px;box-shadow:0 20px 60px rgba(0,0,0,.18)}.metric span{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:900;color:rgba(255,255,255,.4)}.metric strong{display:block;margin-top:8px;font-size:25px;color:#fff}.metric small{color:rgba(255,255,255,.42)}.metric .green{color:#23f2c3}.metric .red{color:#ff5a76}.layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,.8fr);gap:16px}.panel{border:1px solid rgba(255,255,255,.095);background:rgba(4,13,30,.72);border-radius:10px;overflow:hidden;box-shadow:0 24px 90px rgba(0,0,0,.22)}.panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.035)}.panel-head h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;margin:0;color:#fff}.badge{padding:3px 8px;border-radius:999px;font-size:10px;font-weight:900;border:1px solid rgba(255,255,255,.13);color:rgba(255,255,255,.55)}.tabs{display:flex;gap:6px;margin-left:auto}.tabs button{height:28px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-weight:850;font-size:11px;padding:0 10px}.tabs button.active{background:rgba(35,242,195,.11);border-color:rgba(35,242,195,.26);color:#60ffd7}.table{width:100%;border-collapse:collapse}.table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.34);font-weight:950;padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.06)}.table td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.045);font-size:13px;color:rgba(255,255,255,.75)}.table tr:last-child td{border-bottom:0}.ticker{font-weight:1000;color:#fff;font-size:15px}.sub{display:block;color:rgba(255,255,255,.33);font-size:11px;margin-top:2px}.status{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:950;border:1px solid}.status.open{color:#60ffd7;background:rgba(35,242,195,.09);border-color:rgba(35,242,195,.22)}.status.take_profit{color:#60ffd7;background:rgba(35,242,195,.09);border-color:rgba(35,242,195,.22)}.status.stop_loss{color:#ff8b9c;background:rgba(255,82,104,.09);border-color:rgba(255,82,104,.24)}.green{color:#23f2c3!important}.red{color:#ff5a76!important}.muted{color:rgba(255,255,255,.38)!important}.alerts{padding:12px;display:grid;gap:10px;max-height:368px;overflow:auto}.alert{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.045);border-radius:9px;padding:10px}.side{font-size:10px;font-weight:1000;border-radius:6px;padding:5px 7px}.side.buy{color:#001b13;background:#23f2c3}.side.exit{color:#fff;background:#8c96a8}.alert strong{color:#fff}.alert p{grid-column:2/4;margin:2px 0 0;color:rgba(255,255,255,.42);font-size:11px;line-height:1.45}.audit{grid-column:1/-1}.audit-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;padding:16px}.audit-card{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);border-radius:9px;padding:14px}.bars{height:150px;display:flex;align-items:end;gap:12px;padding-top:20px}.bars.empty{display:grid;place-items:center;padding-top:0;color:rgba(255,255,255,.34);font-size:12px}.bar{flex:1;border-radius:7px 7px 0 0;background:linear-gradient(180deg,#23f2c3,#0b8cff);min-height:16px;opacity:.85}.bar.loss{background:linear-gradient(180deg,#ff5a76,#7a1e35)}.setup{display:grid;grid-template-columns:1fr 1fr;gap:16px}.view.hidden{display:none}.form{padding:16px;display:grid;gap:12px}.field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:950;color:rgba(255,255,255,.38);margin-bottom:6px}.field input,.field textarea{width:100%;border-radius:8px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.065);color:#fff;padding:10px 11px;font:inherit;font-weight:750}.field textarea{min-height:180px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5}.secret-box{border:1px solid rgba(35,242,195,.22);background:rgba(35,242,195,.06);border-radius:9px;padding:12px;color:#bfffee;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5;word-break:break-all}.empty{padding:34px;text-align:center;color:rgba(255,255,255,.42)}.hint{padding:0 16px 16px;color:rgba(255,255,255,.52);font-size:12px;line-height:1.5}.toastbox{position:fixed;right:18px;bottom:18px;z-index:120;display:grid;gap:8px}.toast{padding:11px 13px;border-radius:9px;background:#0b1830;border:1px solid rgba(255,255,255,.12);color:#fff;font-weight:800;font-size:13px}.toast.ok{border-left:3px solid #23f2c3}.toast.err{border-left:3px solid #ff5a76}@media(max-width:1050px){.hero,.layout,.audit-grid,.setup{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:40px}.top{padding:0 14px;gap:8px}.nav{display:none}}@media(max-width:680px){.metrics{grid-template-columns:1fr}.app{padding:22px 12px 50px}.hero h1{font-size:34px}.table{min-width:720px}.panel{overflow:auto}.profile-card{min-width:0}.pill{display:none}}
+</style>
+</head>
+<body>
+<div class="bg"></div><div class="stars"></div>
+<header class="top">
+  <div class="brand"><div class="mark">K</div><span>Kalki TV</span></div>
+  <nav class="nav">
+    <button class="active" onclick="showMain(this)">Dashboard</button>
+    <button onclick="showTab('active',this)">Open Trades</button>
+    <button onclick="showTab('history',this)">Old Trades</button>
+    <button onclick="showSetup(this)">Setup</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="pill"><span class="dot"></span>Webhook live</span>
+  <button class="icon-btn" onclick="loadDashboard()">Refresh</button>
+</header>
+<main class="app">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">TradingView Signal Journal</div>
+      <h1>Track BUY alerts.<span>Audit exits.</span></h1>
+      <p>Each BUY opens a simulated trade using your per-alert allocation. Each EXIT closes the latest open trade for that ticker as take profit or stop loss, then moves into the old trades report.</p>
+    </div>
+    <div class="profile-card">
+      <small>Shared dashboard</small>
+      <strong id="profileName">--</strong>
+      <span class="sub" id="profileSettings">$1,000 per alert · TP 3% · SL 2%</span>
+    </div>
+  </section>
+  <section class="grid metrics">
+    <article class="metric"><span>Open Trades</span><strong id="mOpen">0</strong><small id="mInvested">$0 invested</small></article>
+    <article class="metric"><span>Closed Today</span><strong id="mClosed">0</strong><small>moved to old trades</small></article>
+    <article class="metric"><span>Win Rate</span><strong id="mWin">0%</strong><small id="mWinDetail">0 TP / 0 SL</small></article>
+    <article class="metric"><span>Net P&L Today</span><strong id="mPnl" class="green">$0.00</strong><small id="mPnlSub">closed alerts only</small></article>
+  </section>
+  <section class="layout view" id="dashboardView">
+    <div class="panel">
+      <div class="panel-head"><h2>Signal Trades</h2><span class="badge" id="tradeCount">0 open</span><div class="tabs"><button class="active" id="activeTabBtn" onclick="showTab('active',this)">Open</button><button id="historyTabBtn" onclick="showTab('history',this)">Old</button></div></div>
+      <div style="overflow:auto"><table class="table"><thead><tr><th>Ticker</th><th>Entry</th><th>Current</th><th>TP1</th><th>Stop</th><th>Allocation</th><th>P&amp;L</th><th>Status</th></tr></thead><tbody id="tradeBody"></tbody></table></div>
+    </div>
+    <aside class="panel">
+      <div class="panel-head"><h2>Latest Alerts</h2><span class="badge" id="alertCount">0</span></div>
+      <div class="alerts" id="alerts"></div>
+    </aside>
+    <div class="panel audit">
+      <div class="panel-head"><h2>Daily Audit Report</h2><span class="badge">Today</span></div>
+      <div class="audit-grid">
+        <div class="audit-card">
+          <table class="table"><tbody>
+            <tr><td>Take profits</td><td class="green" id="aWins">0</td></tr>
+            <tr><td>Stop losses</td><td class="red" id="aLosses">0</td></tr>
+            <tr><td>Average closed P&L</td><td id="aAvg">$0.00</td></tr>
+            <tr><td>Current open allocation</td><td id="aOpenAlloc">$0.00</td></tr>
+          </tbody></table>
+        </div>
+        <div class="audit-card">
+          <div class="bars" id="bars"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="setup view hidden" id="setupView">
+    <div class="panel">
+      <div class="panel-head"><h2>Settings</h2></div>
+      <div class="form">
+        <div class="field"><label>Name</label><input id="setName"></div>
+        <div class="field"><label>Allocation per BUY alert</label><input id="setAllocation" type="number" min="1" step="1"></div>
+        <div class="field"><label>Default TP1 %</label><input id="setTp" type="number" min="0.1" step="0.1"></div>
+        <div class="field"><label>Default Stop Loss %</label><input id="setStop" type="number" min="0.1" step="0.1"></div>
+        <button class="btn good" onclick="saveSettings()">Save settings</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>TradingView Webhook</h2></div>
+      <div class="form">
+        <div class="field"><label>Webhook URL</label><input id="webhookUrl" readonly></div>
+        <div class="field"><label>Shared webhook secret</label><div class="secret-box" id="secretBox">Loading...</div></div>
+        <div class="field"><label>LuxAlgo message template</label><textarea id="payloadSample" readonly></textarea></div>
+        <button class="btn primary" onclick="copyPayload()">Copy template</button>
+        <button class="btn danger" onclick="rotateWebhook()">Rotate webhook secret</button>
+      </div>
+      <div class="hint">Use the full webhook URL shown above in TradingView. For LuxAlgo Signals & Overlays, use Any alert() function call and paste this message template in the LuxAlgo alert message box. The secret lives in the URL.</div>
+    </div>
+  </section>
+</main>
+<div class="toastbox" id="toasts"></div>
+<script>
+const API="";
+let data={active:[],history:[],alerts:[],summary:{},profile:null,webhookSecret:"",webhookUrl:"",setupUnlocked:false}, currentTab="active", setupPasscode="";
+const $=id=>document.getElementById(id);
+const money=v=>"$"+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=v=>Number(v||0).toFixed(1)+"%";
+const esc=v=>String(v??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+async function api(path,opts={}){const headers={"Content-Type":"application/json",...(opts.headers||{})};if(setupPasscode)headers["X-Setup-Passcode"]=setupPasscode;const r=await fetch(API+path,{...opts,headers});const d=await r.json().catch(()=>({}));if(!r.ok||d.ok===false)throw new Error(d.error||`HTTP ${r.status}`);return d}
+async function loadDashboard(){try{data=await api("/api/dashboard");render()}catch(e){toast(e.message,"err")}}
+function render(){const p=data.profile||{};$("profileName").textContent=p.name||"TradingView signals";$("profileSettings").textContent=`${money(p.allocationPerAlert||1000)} per alert · TP ${p.defaultTpPct||3}% · SL ${p.defaultStopPct||2}%`;$("setName").value=p.name||"";$("setAllocation").value=p.allocationPerAlert||1000;$("setTp").value=p.defaultTpPct||3;$("setStop").value=p.defaultStopPct||2;$("webhookUrl").value=data.webhookUrl||"Unlock Setup to view webhook URL";$("secretBox").textContent=data.webhookSecret||"Locked";$("payloadSample").value=samplePayload();const s=data.summary||{};$("mOpen").textContent=s.activeTrades||0;$("mInvested").textContent=`${money(s.investedOpen)} open allocation`;$("mClosed").textContent=s.closedToday||0;$("mWin").textContent=pct(s.winRate);$("mWinDetail").textContent=`${s.winsToday||0} TP / ${s.lossesToday||0} SL`;$("mPnl").textContent=money(s.netToday);$("mPnl").className=(s.netToday||0)>=0?"green":"red";$("mPnlSub").textContent=`closed ${money(s.netToday||0)} · open ${money(s.unrealizedOpen||0)}`;$("aWins").textContent=s.winsToday||0;$("aLosses").textContent=s.lossesToday||0;$("aOpenAlloc").textContent=money(s.investedOpen);$("aAvg").textContent=money(s.closedToday?Number(s.netToday||0)/s.closedToday:0);renderTrades();renderAlerts();renderBars()}
+function samplePayload(){return JSON.stringify({alert:"{default}",ticker:"{ticker}",tf:"{tf}",ohlcv:{open:"{open}",high:"{high}",low:"{low}",close:"{close}",volume:"{volume}"},bartime:"{time}"},null,2)}
+function renderTrades(){const rows=currentTab==="active"?data.active||[]:data.history||[];$("tradeCount").textContent=currentTab==="active"?`${rows.length} open`:`${rows.length} old`;$("activeTabBtn").classList.toggle("active",currentTab==="active");$("historyTabBtn").classList.toggle("active",currentTab==="history");$("tradeBody").innerHTML=rows.length?rows.map(t=>{const isClosed=t.status==="closed";const pnlValue=isClosed?t.pnl:t.currentPnl;const pnlPctValue=isClosed?t.pnlPct:t.currentPnlPct;const result=pnlValue!=null?`${money(pnlValue)} (${pct(pnlPctValue)})`:"--";const cls=pnlValue>0?"green":pnlValue<0?"red":"muted";const status=isClosed?(t.outcome||"closed"):"open";const current=isClosed?money(t.exitPrice):t.currentPrice?money(t.currentPrice):"--";const sourceLine=isClosed?`IN: ${t.entryTrigger||"BUY"} · OUT: ${t.exitTrigger||"Closed"}`:`IN: ${t.entryTrigger||"BUY"}`;const statusDetail=isClosed&&t.closedAt?`Closed ${timeLabel(t.closedAt)}`:(t.exitTrigger||t.entryTrigger||"Alert");return `<tr><td><span class="ticker">${esc(t.ticker)}</span><span class="sub">${timeLabel(t.openedAt)}</span><span class="sub">${esc(sourceLine)}</span></td><td>${money(t.entryPrice)}</td><td>${current}</td><td class="green">${money(t.tp1Price)}</td><td class="red">${money(t.stopPrice)}</td><td>${money(t.allocation)}</td><td class="${cls}">${result}</td><td><span class="status ${esc(status)}">${esc(status.replace("_"," "))}</span><span class="sub">${esc(statusDetail)}</span></td></tr>`}).join(""):`<tr><td colspan="8"><div class="empty">${currentTab==="active"?"No open trades yet. Send a BUY alert from TradingView.":"No old trades yet. Closed trades and open trades older than one day appear here."}</div></td></tr>`}
+function renderAlerts(){const alerts=data.alerts||[];$("alertCount").textContent=alerts.length;$("alerts").innerHTML=alerts.length?alerts.map(a=>`<div class="alert"><span class="side ${a.eventType}">${a.eventType.toUpperCase()}</span><div><strong>${esc(a.ticker)}</strong><span class="sub">${timeLabel(a.receivedAt)}</span></div><strong>${money(a.price)}</strong><p>${esc(a.rawText||"TradingView alert")}</p></div>`).join(""):`<div class="empty">No alerts received yet.</div>`}
+function renderBars(){const vals=[data.summary?.winsToday||0,data.summary?.lossesToday||0,Math.abs(data.summary?.netToday||0)/100,data.summary?.activeTrades||0];const hasData=vals.some(v=>v>0);$("bars").classList.toggle("empty",!hasData);$("bars").innerHTML=hasData?vals.map((v,i)=>`<div class="bar ${i===1?"loss":""}" style="height:${Math.max(16,Math.min(140,18+v*24))}px"></div>`).join(""):`<div>No closed-trade activity yet.</div>`}
+function showTab(tab,btn){currentTab=tab;document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));if(btn)btn.classList.add("active");$("dashboardView").classList.remove("hidden");$("setupView").classList.add("hidden");renderTrades()}
+function showMain(btn){showTab("active",btn)}
+async function unlockSetup(){if(data.setupUnlocked)return true;const code=prompt("Enter setup passcode");if(code==null)return false;setupPasscode=String(code).trim();try{await loadDashboard();if(!data.setupUnlocked)throw new Error("Invalid passcode");toast("Setup unlocked","ok");return true}catch(e){setupPasscode="";await loadDashboard();toast("Wrong passcode","err");return false}}
+async function showSetup(btn){const ok=await unlockSetup();if(!ok)return;document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));if(btn)btn.classList.add("active");$("dashboardView").classList.add("hidden");$("setupView").classList.remove("hidden")}
+async function saveSettings(){try{const res=await api("/api/profile/settings",{method:"POST",body:JSON.stringify({name:$("setName").value,allocationPerAlert:$("setAllocation").value,defaultTpPct:$("setTp").value,defaultStopPct:$("setStop").value})});data.profile=res.profile;toast(res.updatedOpenTrades?"Settings saved and open trades updated":"Settings saved","ok");await loadDashboard()}catch(e){toast(e.message,"err")}}
+async function rotateWebhook(){if(!confirm("Rotate webhook secret? Existing TradingView alerts using the old secret URL will stop working."))return;try{const res=await api("/api/profile/rotate-webhook",{method:"POST",body:"{}"});data.webhookSecret=res.webhookSecret;data.webhookUrl=res.webhookUrl||data.webhookUrl;$("secretBox").textContent=res.webhookSecret;$("webhookUrl").value=data.webhookUrl;$("payloadSample").value=samplePayload();toast("Webhook secret rotated. Update TradingView.","ok",7000)}catch(e){toast(e.message,"err")}}
+async function copyPayload(){try{await navigator.clipboard.writeText($("payloadSample").value);toast("Copied template","ok")}catch(e){toast("Could not copy","err")}}
+function timeLabel(iso){if(!iso)return"--";const d=new Date(iso);return d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}
+function toast(msg,type="ok",dur=3500){const el=document.createElement("div");el.className=`toast ${type}`;el.textContent=msg;$("toasts").appendChild(el);setTimeout(()=>el.remove(),dur)}
+loadDashboard();setInterval(loadDashboard,15000);
+</script>
+</body>
+</html>
