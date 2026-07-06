@@ -24,6 +24,22 @@ const BLOCKED_BUY_TICKERS = new Set([
   "LABD",
 ]);
 
+// Reused Intl formatters. Constructing an Intl.DateTimeFormat is expensive
+// (~0.05ms each) and the dashboard calls these hundreds of times per request,
+// which alone blew the Workers CPU budget. Build once at module scope, reuse.
+const ET_DAY_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const ET_TIME_FORMAT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return cors(null, 204);
@@ -1132,8 +1148,7 @@ async function addColumnIfMissing(env, table, column, type) {
 
 function sameEtDay(value) {
   if (!value) return false;
-  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
-  return fmt.format(new Date(value)) === fmt.format(new Date());
+  return ET_DAY_FORMAT.format(new Date(value)) === ET_DAY_FORMAT.format(new Date());
 }
 
 function webhookUrl(request, secret = "") {
@@ -1573,21 +1588,11 @@ function average(values) {
 }
 
 function etDayKey(value) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(value));
+  return ET_DAY_FORMAT.format(new Date(value));
 }
 
 function etMinutes(value) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date(value));
+  const parts = ET_TIME_FORMAT.formatToParts(new Date(value));
   const hour = Number(parts.find((part) => part.type === "hour")?.value);
   const minute = Number(parts.find((part) => part.type === "minute")?.value);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
