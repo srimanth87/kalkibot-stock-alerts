@@ -35,7 +35,10 @@ export default {
       }
 
       if (request.method === "GET" && url.pathname === "/api/dashboard") {
-        const shared = await requireSharedProfile(env, request);
+        // Read-only path: skip ensureSchema + webhook-secret rewrite so the
+        // dashboard load stays well under the Worker CPU limit. Fall back to the
+        // full initializer only when no profile exists yet (first run).
+        const shared = (await loadSharedProfileForRead(env, request)) || (await requireSharedProfile(env, request));
         return await handleDashboard(env, shared, request);
       }
       if (request.method === "POST" && url.pathname === "/api/profile/settings") {
@@ -260,6 +263,31 @@ async function requireSharedProfile(env, request) {
   };
 }
 
+async function loadSharedProfileForRead(env, request) {
+  // Lightweight version of requireSharedProfile for read-only GETs: no schema
+  // migrations and no webhook-secret rewrite, which keeps CPU per request low.
+  // Returns null (so the caller can fall back to full init) if anything is
+  // missing — e.g. a brand-new DB where the schema/profile don't exist yet.
+  try {
+    const sharedProfileId = await getState(env, "shared_profile_id");
+    const webhookSecret = await getState(env, "shared_webhook_secret");
+    let profile = sharedProfileId
+      ? await env.DB.prepare(`SELECT * FROM tv_profiles WHERE id = ?`).bind(sharedProfileId).first()
+      : null;
+    if (!profile) {
+      profile = await env.DB.prepare(`SELECT * FROM tv_profiles ORDER BY updated_at DESC LIMIT 1`).first();
+    }
+    if (!profile) return null;
+    return {
+      profile,
+      webhookSecret: webhookSecret || null,
+      webhookUrl: webhookUrl(request, webhookSecret || ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function handleSettings(request, env, profile) {
   const body = await request.json().catch(() => ({}));
   const allocation = positiveNumber(body.allocationPerAlert) || profile.allocation_per_alert || 1000;
@@ -444,14 +472,15 @@ function isMarketDataUnavailableReason(reason) {
 async function handleDashboard(env, shared, request) {
   const { profile, webhookSecret } = shared;
   const setupUnlocked = hasSetupPasscode(request);
-  let tradeRows = await loadTradeRows(env, profile, "tv_trades");
-  let rawTradeRows = await loadTradeRows(env, profile, "tv_raw_trades");
+  const tradeRows = await loadTradeRows(env, profile, "tv_trades");
+  const rawTradeRows = await loadTradeRows(env, profile, "tv_raw_trades");
 
-  const initialTrades = (tradeRows || []).map(normalizeTrade);
-  const initialRawTrades = (rawTradeRows || []).map(normalizeTrade);
-  const openTrades = initialTrades.filter((trade) => trade.status === "open");
-  const openRawTrades = initialRawTrades.filter((trade) => trade.status === "open");
-  const quotes = await fetchCachedQuotesForTrades(env, [...openTrades, ...openRawTrades]);
+  // Normalize each row once (summarizeAlertTrigger runs regexes, so a second
+  // pass is costly), then reuse for both quote lookup and enrichment.
+  const baseTrades = (tradeRows || []).map(normalizeTrade);
+  const baseRawTrades = (rawTradeRows || []).map(normalizeTrade);
+  const openForQuotes = [...baseTrades, ...baseRawTrades].filter((trade) => trade.status === "open");
+  const quotes = await fetchCachedQuotesForTrades(env, openForQuotes);
 
   const { results: alertRows } = await env.DB.prepare(
     `SELECT
@@ -463,14 +492,8 @@ async function handleDashboard(env, shared, request) {
      LIMIT 40`
   ).bind(profile.id).all();
 
-  const trades = (tradeRows || []).map((row) => {
-    const trade = normalizeTrade(row);
-    return enrichTradeWithQuote(trade, quotes.get(trade.ticker));
-  });
-  const rawTrades = (rawTradeRows || []).map((row) => {
-    const trade = normalizeTrade(row);
-    return enrichTradeWithQuote(trade, quotes.get(trade.ticker));
-  });
+  const trades = baseTrades.map((trade) => enrichTradeWithQuote(trade, quotes.get(trade.ticker)));
+  const rawTrades = baseRawTrades.map((trade) => enrichTradeWithQuote(trade, quotes.get(trade.ticker)));
   const active = trades.filter((trade) => trade.status === "open");
   const history = trades.filter((trade) => trade.status !== "open");
   const rawActive = rawTrades.filter((trade) => trade.status === "open");
