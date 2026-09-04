@@ -16,6 +16,35 @@ Volume: 24.5M · 1.8x avg
 
 ⚡ _Kalki Analysis Platform_`;
 
+// Verbatim production message from kalki-telegram-scorer (2026-09-04). It is HTML,
+// not Markdown: the ticker regex used to miss <b>MUU</b> and fall through to the
+// "⚡ Kalki Analysis Platform" footer, tracking a position for ticker "KALKI".
+const SCORER_HTML_ALERT = `⚡ <b>MUU</b>
+🏆 Grade: C · Score: 5/10
+📈 Entry: $30.00-$31.00
+🛑 Stop: $28.00 (-8.2%)
+🎯 T1: $32.00 (+4.9%)
+🎯 T2: $34.00 (+11.5%)
+🎯 T3: $36.00 (+18.0%)
+📊 R:R: 0.6:1
+📦 Volume: 25.4M · 0.7x avg
+📌 Pattern: Descending Channel
+⏰ 09/04/2026 · 9:15 AM EDT
+⚡ Kalki Analysis Platform`;
+
+test("parseScoredAlert reads the ticker from an HTML scorer alert", () => {
+  const parsed = parseScoredAlert(SCORER_HTML_ALERT);
+
+  assert.equal(parsed.sym, "MUU", "must not fall through to the KALKI footer");
+  assert.equal(parsed.grade, "C");
+  assert.equal(parsed.score, 5);
+  assert.equal(parsed.entryLow, 30);
+  assert.equal(parsed.entryHigh, 31);
+  assert.equal(parsed.stop, 28);
+  assert.deepEqual(parsed.targets, [32, 34, 36]);
+  assert.equal(parsed.pattern, "Descending Channel");
+});
+
 test("parseScoredAlert parses final scored compact alert", () => {
   const parsed = parseScoredAlert(SAMPLE_ALERT);
 

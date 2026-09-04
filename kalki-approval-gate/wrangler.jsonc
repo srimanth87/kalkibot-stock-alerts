@@ -9,12 +9,32 @@
       "id": "eb001ab61912408e8301ec07b05921fd"
     }
   ],
+  "services": [
+    {
+      "binding": "TELEGRAM_FORWARDER",
+      "service": "kalki-telegram-forwarder"
+    },
+    {
+      "binding": "INGESTION",
+      "service": "kalki-d1-ingestion"
+    }
+  ],
   "vars": {
     "WATCH_CHAT_IDS": "1026720092",
     "DESTINATION_CHAT_ID": "-1003967721534",
     "TELEGRAM_WEBHOOK_PATH": "/telegram/webhook",
     "APPROVAL_TTL_SECONDS": "604800",
-    "DISABLE_NOTIFICATION": "false"
+    "DISABLE_NOTIFICATION": "false",
+    "KALKI_INGEST_KEY": "ksb_6Fv9xQ2mR7pL4tN8",
+
+    // ── AUDIENCE SWITCH ──────────────────────────────────────────────
+    // "test" -> Kalki-stock-alerts-oth only, no fan-out to customers
+    // "prod" -> Kalki-stocks + fan-out to all 7 customer groups
+    // Anything else (typo / unset) is treated as "test" on purpose.
+    // Check the live value any time: GET /health -> alert_mode
+    "ALERT_MODE": "test",
+
+    "TEST_DESTINATION_CHAT_ID": "-1003377752970"
   },
   "observability": {
     "enabled": true,

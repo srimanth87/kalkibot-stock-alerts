@@ -8,6 +8,8 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, X-Kalki-Key",
 };
 
+const MODE_KEY = "config:alert_mode";
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -15,6 +17,9 @@ export default {
     }
 
     const url = new URL(request.url);
+    // A KV-stored mode wins over the deployed var, so the audience can be
+    // switched from Telegram without a redeploy.
+    env = await withRuntimeMode(env);
 
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
       return jsonResponse({
@@ -23,10 +28,34 @@ export default {
         webhook_path: env.TELEGRAM_WEBHOOK_PATH || DEFAULT_WEBHOOK_PATH,
         set_webhook_paths: ["/set-webhook", "/telegram/set-webhook"],
         watch_chat_ids: parseChatList(env.WATCH_CHAT_IDS || env.WATCH_CHAT_ID),
+        alert_mode: getAlertMode(env),
+        audience: isTestMode(env) ? "test group only (no fan-out)" : "all customer groups",
         destination_chat_id: getDestinationChatId(env) || null,
+        prod_destination_chat_id: String(env.DESTINATION_CHAT_ID || "").trim() || null,
+        test_destination_chat_id: getTestDestinationChatId(env) || null,
         kv_bound: Boolean(env.APPROVAL_STATE),
+        forwarder_bound: Boolean(env.TELEGRAM_FORWARDER?.fetch),
         approver_restricted: parseApproverIds(env).length > 0,
       });
+    }
+
+    if (url.pathname === "/mode") {
+      if (request.method === "GET") {
+        return jsonResponse({
+          ok: true,
+          mode: getAlertMode(env),
+          audience: isTestMode(env) ? "test group only (no fan-out)" : "all customer groups",
+          destination_chat_id: getDestinationChatId(env) || null,
+        });
+      }
+
+      if (request.method === "POST") {
+        if (!isModeChangeAuthorized(request, env)) {
+          return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+        }
+        const body = await request.json().catch(() => ({}));
+        return jsonResponse(await setAlertMode(env, body.mode));
+      }
     }
 
     if (request.method === "GET" && url.pathname === "/debug/telegram") {
@@ -301,10 +330,21 @@ async function handleCallbackQuery(callbackQuery, env) {
       decidedBy: actor,
       deliveredMessageId: sent.message_id ?? null,
     };
+    const forwardResult = await triggerForwarder(env, record, sent);
+    updated.forwardResult = forwardResult;
+    const ingestionResult = await notifyIngestion(env, record, sent);
+    updated.ingestionResult = ingestionResult;
     await putApproval(env, updated);
     await updateApprovalMessage(botToken, updated);
-    await answerCallback(botToken, callbackQuery.id, "Accepted and sent to Kalki-stocks.");
-    return { ok: true, approval_id: record.id, status: "accepted", delivered_message_id: sent.message_id ?? null };
+    await answerCallback(botToken, callbackQuery.id, buildAcceptNotice(forwardResult, ingestionResult));
+    return {
+      ok: true,
+      approval_id: record.id,
+      status: "accepted",
+      delivered_message_id: sent.message_id ?? null,
+      forward: forwardResult,
+      ingestion: ingestionResult,
+    };
   }
 
   const updated = {
@@ -336,6 +376,23 @@ function buildApprovalText(record) {
     "",
     preview,
   ].join("\n");
+}
+
+function buildAcceptNotice(forwardResult, ingestionResult) {
+  const parts = ["Accepted and sent to Kalki-stocks."];
+  if (forwardResult.skipped) {
+    parts.push(forwardResult.reason?.startsWith("Test mode") ? "Fan-out skipped (test mode)." : "Not forwarded.");
+  } else if (!forwardResult.ok) {
+    parts.push("Forwarder needs attention.");
+  } else {
+    parts.push("Forwarded to groups.");
+  }
+  if (ingestionResult.ok === false) {
+    parts.push("NOT tracked for TP/SL.");
+  } else if (!ingestionResult.skipped) {
+    parts.push(ingestionResult.ignored ? "No levels found, not tracked." : "Tracking TP/SL.");
+  }
+  return parts.join(" ");
 }
 
 function buildDecisionText(record) {
@@ -375,6 +432,108 @@ async function answerCallback(botToken, callbackQueryId, text, showAlert = false
     text,
     show_alert: showAlert,
   });
+}
+
+async function triggerForwarder(env, record, sent) {
+  if (isTestMode(env)) {
+    return { ok: true, skipped: true, reason: "Test mode (ALERT_MODE=test): fan-out to customer groups disabled" };
+  }
+
+  if (!env.TELEGRAM_FORWARDER?.fetch) {
+    return { ok: true, skipped: true, reason: "TELEGRAM_FORWARDER service binding is not configured" };
+  }
+
+  const response = await env.TELEGRAM_FORWARDER.fetch(new Request("https://telegram-forwarder.internal/api/forward", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sourceChatId: record.destinationChatId,
+      messageId: sent.message_id,
+      text: record.text,
+      replyToMessageId: record.replyToMessageId || null,
+      date: sent.date || Math.floor(Date.now() / 1000),
+    }),
+  }));
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) {
+    return {
+      ok: false,
+      error: data.error || data.message || `Forwarder returned HTTP ${response.status}`,
+      detail: data,
+    };
+  }
+  return data;
+}
+
+/**
+ * Records the accepted alert in D1 together with the Kalki-stocks message id.
+ *
+ * kalki-position-tracker can only monitor a position that carries the id of the
+ * original Kalki-stocks post, because that is the message its TP/SL replies are
+ * threaded under. Without this call every position is skipped as "missing
+ * original Kalki-stocks message id" and no TP/SL alert ever fires.
+ *
+ * Never throws: a tracking failure must not stop the alert that was already
+ * delivered, and must never turn into a non-2xx that Telegram would retry.
+ */
+async function notifyIngestion(env, record, sent) {
+  try {
+    if (record.replyToMessageId) {
+      return { ok: true, skipped: true, reason: "Reply event, not a new alert" };
+    }
+
+    const messageId = sent?.message_id;
+    if (!Number.isFinite(messageId)) {
+      return { ok: false, error: "No delivered message id to track" };
+    }
+
+    const init = {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Kalki-Key": String(env.KALKI_INGEST_KEY || ""),
+      },
+      body: JSON.stringify({
+        text: record.text,
+        sourceChatId: record.destinationChatId,
+        sourceMessageId: String(messageId),
+        receivedAt: sent.date
+          ? new Date(sent.date * 1000).toISOString()
+          : new Date().toISOString(),
+      }),
+    };
+
+    const response = env.INGESTION?.fetch
+      ? await env.INGESTION.fetch(new Request("https://kalki-d1-ingestion.internal/ingest", init))
+      : await fetch(getIngestionUrl(env), init);
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      const error = data.error || data.message || `Ingestion returned HTTP ${response.status}`;
+      console.error("Ingestion tracking failed", { error, source_message_id: messageId });
+      return { ok: false, error, detail: data };
+    }
+    return data;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown ingestion error";
+    console.error("Ingestion tracking threw", { message });
+    return { ok: false, error: message };
+  }
+}
+
+function getIngestionUrl(env) {
+  const configured = String(
+    env.INGESTION_URL || "https://kalki-d1-ingestion.srimanthgada87.workers.dev/ingest",
+  ).trim();
+  try {
+    const url = new URL(configured);
+    url.pathname = "/ingest";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "https://kalki-d1-ingestion.srimanthgada87.workers.dev/ingest";
+  }
 }
 
 async function callTelegramApi(botToken, methodName, payload) {
@@ -501,7 +660,82 @@ function isAllowedApprover(userId, env) {
 }
 
 function getDestinationChatId(env) {
+  if (isTestMode(env)) {
+    // Fail safe: never silently fall back to the customer channel in test mode.
+    return getTestDestinationChatId(env) || String(env.DESTINATION_CHAT_ID || "").trim();
+  }
   return String(env.DESTINATION_CHAT_ID || env.KALKI_STOCKS_CHAT_ID || "").trim();
+}
+
+function getTestDestinationChatId(env) {
+  return String(env.TEST_DESTINATION_CHAT_ID || "").trim();
+}
+
+/**
+ * ALERT_MODE is the single switch between audiences:
+ *
+ *   "prod" -> posts to DESTINATION_CHAT_ID and fans out to every customer group
+ *   "test" -> posts to TEST_DESTINATION_CHAT_ID only, fan-out disabled
+ *
+ * Anything other than an explicit prod value is treated as test, so a typo or a
+ * missing variable keeps alerts away from customers rather than broadcasting to
+ * them. Reported by /health as `alert_mode`.
+ */
+function getAlertMode(env) {
+  const mode = String(env.ALERT_MODE || "").trim().toLowerCase();
+  if (["prod", "production", "live"].includes(mode)) return "prod";
+  if (["test", "testing", "staging", "dev"].includes(mode)) return "test";
+  // Unset: preserve the pre-ALERT_MODE behaviour (test only if a test group exists).
+  return getTestDestinationChatId(env) ? "test" : "prod";
+}
+
+function isTestMode(env) {
+  return getAlertMode(env) === "test";
+}
+
+function normalizeAlertMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  if (["prod", "production", "live"].includes(mode)) return "prod";
+  if (["test", "testing", "staging", "dev"].includes(mode)) return "test";
+  return null;
+}
+
+/** Applies a KV-stored mode override, so switching needs no redeploy. */
+async function withRuntimeMode(env) {
+  if (!env.APPROVAL_STATE) return env;
+  try {
+    const stored = normalizeAlertMode(await env.APPROVAL_STATE.get(MODE_KEY));
+    return stored ? { ...env, ALERT_MODE: stored } : env;
+  } catch (error) {
+    // Never let a KV hiccup take the gate down; fall back to the deployed var.
+    console.error("Failed to read alert mode", { message: error?.message });
+    return env;
+  }
+}
+
+async function setAlertMode(env, value) {
+  const mode = normalizeAlertMode(value);
+  if (!mode) {
+    return { ok: false, error: `Invalid mode ${JSON.stringify(value)}. Use "test" or "prod".` };
+  }
+  if (!env.APPROVAL_STATE) {
+    return { ok: false, error: "APPROVAL_STATE KV binding is required to change mode" };
+  }
+
+  await env.APPROVAL_STATE.put(MODE_KEY, mode);
+  const applied = { ...env, ALERT_MODE: mode };
+  return {
+    ok: true,
+    mode,
+    audience: isTestMode(applied) ? "test group only (no fan-out)" : "all customer groups",
+    destination_chat_id: getDestinationChatId(applied) || null,
+  };
+}
+
+function isModeChangeAuthorized(request, env) {
+  const expected = String(env.MODE_API_KEY || env.APPROVAL_API_KEY || "").trim();
+  if (!expected) return true;
+  return request.headers.get("X-Kalki-Key") === expected;
 }
 
 function getBotToken(env) {

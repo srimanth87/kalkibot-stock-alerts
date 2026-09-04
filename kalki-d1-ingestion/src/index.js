@@ -174,30 +174,44 @@ export async function upsertManualPortfolioPosition(env, body) {
   return { ok: true, position: await getPortfolioPosition(env.DB, id) };
 }
 
+/**
+ * Removes Telegram HTML formatting tags (<b>, <i>, <code>, ...) so the same
+ * parser handles both HTML and Markdown alert bodies. A no-op for plain text.
+ */
+function stripHtmlTags(value) {
+  return String(value || "").replace(/<\/?[a-zA-Z][^>]*>/g, "");
+}
+
 export function parseScoredAlert(value) {
   const raw = String(value || "").trim();
   if (!raw) return null;
 
-  const ticker = raw.match(/(?:^|\n)\s*⚡\s*\*?([A-Z][A-Z0-9.-]{0,9})\*?/i)
-    || raw.match(/\bTicker\s*:\s*([A-Z][A-Z0-9.-]{0,9})\b/i);
-  const entry = extractMoneyRange(raw, "Entry");
-  const stop = extractMoneyRange(raw, "Stop");
-  const targets = [...raw.matchAll(/\bT(\d+)\s*:\s*\$?\s*(\d+(?:\.\d+)?)/gi)]
+  // kalki-telegram-scorer publishes HTML ("⚡ <b>MUU</b>"), while manual alerts use
+  // Markdown ("⚡ *MUU*"). Without stripping tags the ticker match fails on the
+  // first line and silently falls through to the "⚡ Kalki Analysis Platform"
+  // footer, tracking a position for the non-existent ticker KALKI.
+  const plain = stripHtmlTags(raw);
+
+  const ticker = plain.match(/(?:^|\n)\s*⚡\s*\*?([A-Z][A-Z0-9.-]{0,9})\*?/i)
+    || plain.match(/\bTicker\s*:\s*([A-Z][A-Z0-9.-]{0,9})\b/i);
+  const entry = extractMoneyRange(plain, "Entry");
+  const stop = extractMoneyRange(plain, "Stop");
+  const targets = [...plain.matchAll(/\bT(\d+)\s*:\s*\$?\s*(\d+(?:\.\d+)?)/gi)]
     .sort((a, b) => Number(a[1]) - Number(b[1]))
     .map((match) => roundPrice(Number.parseFloat(match[2])))
     .filter(Number.isFinite);
 
   if (!ticker || !entry || !stop || targets.length === 0) return null;
 
-  const price = extractMoneyRange(raw, "Price");
-  const score = raw.match(/Score\s*:\s*\*?\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+)\s*\*?/i);
-  const setup = raw.match(/\bSetup\s*\*?\s*(\d+(?:\.\d+)?)\s*(?:\/\s*(\d+)|%)\s*\*?/i);
-  const pattern = raw.match(/Pattern\s*:\s*([^\n]+)/i)?.[1]?.trim() || "";
-  const volumeContext = parseVolumeContext(raw);
+  const price = extractMoneyRange(plain, "Price");
+  const score = plain.match(/Score\s*:\s*\*?\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+)\s*\*?/i);
+  const setup = plain.match(/\bSetup\s*\*?\s*(\d+(?:\.\d+)?)\s*(?:\/\s*(\d+)|%)\s*\*?/i);
+  const pattern = plain.match(/Pattern\s*:\s*([^\n]+)/i)?.[1]?.trim() || "";
+  const volumeContext = parseVolumeContext(plain);
 
   return {
     sym: ticker[1].toUpperCase().replace(/[^A-Z0-9.-]/g, ""),
-    grade: (raw.match(/Grade\s*:\s*\*?\s*([A-D][+-]?)/i)?.[1] || "").toUpperCase(),
+    grade: (plain.match(/Grade\s*:\s*\*?\s*([A-D][+-]?)/i)?.[1] || "").toUpperCase(),
     score: score ? Number.parseFloat(score[1]) : setup ? Number.parseFloat(setup[1]) : null,
     scoreMax: score?.[2] ? Number.parseFloat(score[2]) : setup?.[2] ? Number.parseFloat(setup[2]) : setup ? 100 : null,
     pattern,
@@ -207,7 +221,7 @@ export function parseScoredAlert(value) {
     entryMid: roundPrice((entry.low + entry.high) / 2),
     stop: roundPrice(stop.low),
     targets: [...new Set(targets)],
-    entryDate: parseAlertEntryDate(raw),
+    entryDate: parseAlertEntryDate(plain),
     volume: volumeContext.volume,
     volumeRatio: volumeContext.volumeRatio,
     avgVolume20: volumeContext.avgVolume20,

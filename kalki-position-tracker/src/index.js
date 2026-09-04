@@ -25,6 +25,19 @@ export default {
         return json(await checkOpenPositions(env, { dryRun }));
       }
 
+      if (request.method === "POST" && url.pathname === "/close") {
+        if (!authorized(request, env)) return json({ ok: false, error: "Unauthorized" }, 401);
+        const body = await request.json().catch(() => ({}));
+        const result = await closePosition(env, {
+          sym: body.sym || body.ticker || body.symbol,
+          id: body.id,
+          price: body.price ?? body.exit ?? body.exitPrice,
+          note: body.note || body.reason || "",
+          dryRun: isTruthy(body.dryRun) || isTruthy(url.searchParams.get("dryRun")),
+        });
+        return json(result, result.ok ? 200 : 400);
+      }
+
       return json({ ok: false, error: "Not found" }, 404);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -44,13 +57,39 @@ export async function checkOpenPositions(env, options = {}) {
   const positions = await listOpenPositions(env.DB, options.limit || readLimit(env.CHECK_LIMIT));
   const results = [];
 
+  // Most 5-minute ticks produce no events, so the table is only ensured on the
+  // first event of an invocation rather than on every check.
+  const priceCache = new Map();
+  const maxPriceFetches = readMaxPriceFetches(env);
+  let priceFetches = 0;
+
+  let eventsTableReady = false;
+  const ensureEventsTable = async () => {
+    if (eventsTableReady) return;
+    await ensureAlertEventsTable(env.DB);
+    eventsTableReady = true;
+  };
+
   for (const position of positions) {
     if (!getKalkiStocksReplyMessageId(env, position)) {
       results.push({ id: position.id, sym: position.sym, status: "skipped", reason: "missing original Kalki-stocks message id" });
       continue;
     }
 
-    const price = await getLatestPrice(env, position.sym, options.prices);
+    // One fetch per distinct ticker, capped per run: several positions can share
+    // a symbol, and the Free plan allows only 50 subrequests per invocation.
+    let price;
+    if (priceCache.has(position.sym)) {
+      price = priceCache.get(position.sym);
+    } else if (priceFetches >= maxPriceFetches) {
+      results.push({ id: position.id, sym: position.sym, status: "skipped", reason: "price budget reached, deferred to next run" });
+      continue;
+    } else {
+      price = await getLatestPrice(env, position.sym, options.prices);
+      priceFetches += 1;
+      priceCache.set(position.sym, price);
+    }
+
     if (!Number.isFinite(price)) {
       results.push({ id: position.id, sym: position.sym, status: "skipped", reason: "price unavailable" });
       continue;
@@ -65,10 +104,18 @@ export async function checkOpenPositions(env, options = {}) {
       event: evaluation.event,
       tpsHit: evaluation.tpsHit,
       nextTP: evaluation.nextTP,
+      closed: evaluation.closed === true,
     };
 
     if (!dryRun && evaluation.alert) {
       await sendApproval(env, position, evaluation);
+      await ensureEventsTable();
+      result.recorded = await recordAlertEvent(
+        env.DB,
+        position,
+        evaluation,
+        getKalkiStocksReplyMessageId(env, position),
+      );
     }
 
     if (!dryRun) {
@@ -83,7 +130,76 @@ export async function checkOpenPositions(env, options = {}) {
     dryRun,
     checked: positions.length,
     alerts: results.filter((result) => result.status === "alert").length,
+    priceFetches,
+    deferred: results.filter((result) => result.reason === "price budget reached, deferred to next run").length,
     results,
+  };
+}
+
+/**
+ * Manual exit: closes an open position at an analyst-chosen price.
+ *
+ * Follows the same order as an automatic TP/SL hit — queue the approval, log the
+ * event, then persist — so a manual close behaves identically to an automatic
+ * one everywhere downstream (D1 state, alert_events, threaded Telegram reply).
+ */
+export async function closePosition(env, options = {}) {
+  requireDb(env);
+
+  const sym = String(options.sym || "").toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+  const id = String(options.id || "");
+  if (!sym && !id) return { ok: false, error: "sym or id is required" };
+
+  const positions = await listOpenPositions(env.DB, readLimit(env.CHECK_LIMIT));
+  const position = positions.find((entry) => (id ? entry.id === id : entry.sym === sym));
+  if (!position) {
+    return { ok: false, error: `No open position found for ${id || sym}` };
+  }
+
+  const replyMessageId = getKalkiStocksReplyMessageId(env, position);
+  if (!replyMessageId) {
+    return { ok: false, error: `${position.sym} has no original Kalki-stocks message id, so the close cannot be threaded` };
+  }
+
+  // Fall back to the live price when the analyst does not name an exit.
+  const requested = num(options.price);
+  const price = Number.isFinite(requested) ? requested : await getLatestPrice(env, position.sym);
+  if (!Number.isFinite(price)) {
+    return { ok: false, error: `No exit price given and no live price available for ${position.sym}` };
+  }
+
+  const evaluation = {
+    alert: true,
+    event: "manual",
+    label: "TRADE CLOSED",
+    price,
+    tpsHit: int(position.tpsHit),
+    nextTP: null,
+    pnlPct: calculatePnlPct(num(position.entryPrice), price),
+    statusText: "CLOSED (manual)",
+    stopAlerted: Boolean(position.stopAlerted),
+    closed: true,
+    note: String(options.note || ""),
+  };
+
+  if (options.dryRun) {
+    return { ok: true, dryRun: true, id: position.id, sym: position.sym, price, pnlPct: evaluation.pnlPct };
+  }
+
+  await sendApproval(env, position, evaluation);
+  await ensureAlertEventsTable(env.DB);
+  const recorded = await recordAlertEvent(env.DB, position, evaluation, replyMessageId);
+  await updateTrackedPosition(env.DB, position, evaluation);
+
+  return {
+    ok: true,
+    id: position.id,
+    sym: position.sym,
+    entryPrice: num(position.entryPrice),
+    exitPrice: price,
+    pnlPct: evaluation.pnlPct,
+    recorded,
+    status: "closed",
   };
 }
 
@@ -107,6 +223,8 @@ export function evaluatePosition(position, price) {
       pnlPct,
       statusText: "STOP LOSS",
       stopAlerted: true,
+      // Terminal: the trade is over, stop re-pricing it every 5 minutes.
+      closed: true,
     };
   }
 
@@ -123,6 +241,8 @@ export function evaluatePosition(position, price) {
       pnlPct,
       statusText: nextTP ? `Watching TP${tpsHit + 1}` : "ALL TPs HIT",
       stopAlerted: Boolean(position.stopAlerted),
+      // Terminal only once the final target is reached.
+      closed: !nextTP,
     };
   }
 
@@ -135,7 +255,55 @@ export function evaluatePosition(position, price) {
     pnlPct,
     statusText: nextTP ? `Watching TP${tpsHit + 1}` : targets.length ? "ALL TPs HIT" : "Tracking",
     stopAlerted: Boolean(position.stopAlerted),
+    closed: false,
   };
+}
+
+/**
+ * Append-only trade history. The position row is overwritten on every check, so
+ * without this the lifecycle (when each target was hit, at what price) is lost.
+ * The unique index makes a re-run of the same event a no-op, so a cron retry
+ * cannot create duplicate history.
+ */
+async function ensureAlertEventsTable(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS alert_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    position_id TEXT NOT NULL,
+    sym TEXT NOT NULL,
+    event TEXT NOT NULL,
+    price REAL,
+    pnl_pct REAL,
+    telegram_message_id TEXT,
+    created_at TEXT NOT NULL
+  )`).run();
+  await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS alert_events_unique
+    ON alert_events(position_id, event)`).run();
+}
+
+function eventName(evaluation) {
+  if (evaluation.event === "stop") return "STOP_HIT";
+  if (evaluation.event === "manual") return "MANUAL_EXIT";
+  if (evaluation.event === "target") return `TP${evaluation.tpsHit}_HIT`;
+  return null;
+}
+
+async function recordAlertEvent(db, position, evaluation, telegramMessageId) {
+  const name = eventName(evaluation);
+  if (!name) return null;
+
+  await db.prepare(`INSERT OR IGNORE INTO alert_events
+    (position_id, sym, event, price, pnl_pct, telegram_message_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(
+      position.id,
+      position.sym,
+      name,
+      evaluation.price,
+      Number.isFinite(evaluation.pnlPct) ? evaluation.pnlPct : null,
+      telegramMessageId ? String(telegramMessageId) : null,
+      new Date().toISOString(),
+    ).run();
+
+  return name;
 }
 
 async function listOpenPositions(db, limit) {
@@ -150,6 +318,8 @@ async function listOpenPositions(db, limit) {
 
 async function updateTrackedPosition(db, position, evaluation) {
   const now = new Date().toISOString();
+  const closing = evaluation.closed === true;
+  const closedPrice = closing ? evaluation.price : position.closedPrice ?? null;
   const raw = {
     ...position.raw,
     currentPrice: evaluation.price,
@@ -162,17 +332,28 @@ async function updateTrackedPosition(db, position, evaluation) {
     lastTrackerEvent: evaluation.event || position.raw.lastTrackerEvent || null,
   };
 
+  if (closing) {
+    raw.closedPrice = evaluation.price;
+    raw.closedAt = now;
+    raw.closeReason = evaluation.event === "stop"
+      ? "stop"
+      : evaluation.event === "manual"
+        ? "manual"
+        : "all_targets_hit";
+    if (evaluation.note) raw.closeNote = evaluation.note;
+  }
+
   await db.prepare(`INSERT OR REPLACE INTO portfolio_positions
     (id, sym, grade, state, entry_date, entry_price, current_price, closed_price, pnl_pct, updated_at, raw_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
       position.id,
       position.sym,
       position.grade || "",
-      position.state || "open",
+      closing ? "closed" : position.state || "open",
       position.entryDate,
       position.entryPrice,
       evaluation.price,
-      null,
+      closedPrice,
       evaluation.pnlPct,
       now,
       JSON.stringify(raw),
@@ -323,6 +504,21 @@ function buildTelegramAlert(position, evaluation) {
   const pnl = Number.isFinite(evaluation.pnlPct)
     ? `${evaluation.pnlPct >= 0 ? "+" : ""}${evaluation.pnlPct.toFixed(2)}%`
     : "n/a";
+
+  if (evaluation.event === "manual") {
+    const winner = Number.isFinite(evaluation.pnlPct) && evaluation.pnlPct >= 0;
+    const lines = [
+      `🔔 <b>${escapeHtml(position.sym)} CLOSED</b>`,
+      "",
+      `Entry: ${Number.isFinite(entry) ? `$${money(entry)}` : "n/a"}`,
+      `Exit: $${money(evaluation.price)}`,
+      "",
+      `${winner ? "Profit" : "Loss"}: ${escapeHtml(pnl)} ${winner ? "✅" : "🔻"}`,
+    ];
+    if (evaluation.note) lines.push("", escapeHtml(evaluation.note));
+    return lines.join("\n");
+  }
+
   const targetLine = evaluation.event === "target"
     ? `Target: $${money(evaluation.target)}`
     : `Stop: $${money(position.breakdown)}`;
@@ -335,8 +531,6 @@ function buildTelegramAlert(position, evaluation) {
     `Entry: ${Number.isFinite(entry) ? `$${money(entry)}` : "n/a"} | P/L: ${escapeHtml(pnl)}`,
     targetLine,
     nextLine,
-    "",
-    "Accept to notify groups as a reply to the original alert.",
   ].join("\n");
 }
 
@@ -352,6 +546,7 @@ function normalizePositionRow(row) {
     entryDate: row.entry_date || raw.entryDate || null,
     entryPrice: num(row.entry_price) ?? num(raw.entryPrice),
     currentPrice: num(row.current_price) ?? num(raw.currentPrice),
+    closedPrice: num(row.closed_price) ?? num(raw.closedPrice),
     breakdown: num(raw.breakdown ?? raw.brk),
     resistances,
     tpsHit: int(raw.tpsHit),
@@ -361,10 +556,23 @@ function normalizePositionRow(row) {
   };
 }
 
+/**
+ * Accepts a comma-separated list so a test group can be tracked alongside
+ * Kalki-stocks. Without this, alerts published to the test group are ingested
+ * but then skipped as "missing original Kalki-stocks message id", which makes a
+ * working pipeline look broken during verification.
+ */
+function getTrackedChatIds(env) {
+  return String(env.KALKI_STOCKS_CHAT_ID || "-1003967721534")
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function getKalkiStocksReplyMessageId(env, position) {
   const sourceChatId = String(position.sourceChatId || position.raw?.sourceChatId || "");
-  const expectedChatId = String(env.KALKI_STOCKS_CHAT_ID || "-1003967721534");
-  if (sourceChatId && sourceChatId !== expectedChatId) return null;
+  const trackedChatIds = getTrackedChatIds(env);
+  if (sourceChatId && trackedChatIds.length && !trackedChatIds.includes(sourceChatId)) return null;
   const parsed = Number.parseInt(position.sourceMessageId || position.raw?.sourceMessageId || "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
@@ -409,6 +617,11 @@ function authorized(request, env) {
 
 function getAlertChatId(env) {
   return String(env.NASDAQ_SCANNER_CHAT_ID || env.ALERT_CHAT_ID || "").trim();
+}
+
+function readMaxPriceFetches(env) {
+  const parsed = Number.parseInt(env.MAX_PRICE_FETCHES || "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 40;
 }
 
 function readLimit(value) {

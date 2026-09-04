@@ -8,8 +8,13 @@
     "ALPACA_BASE_URL": "https://data.alpaca.markets",
     "TRADIER_BASE_URL": "https://api.tradier.com",
     "NASDAQ_SCANNER_CHAT_ID": "1026720092",
-    "KALKI_STOCKS_CHAT_ID": "-1003967721534",
-    "CHECK_LIMIT": "100"
+    // Comma-separated. -1003377752970 (Kalki-stock-alerts-oth) is the test group and
+    // can be removed once verification is done.
+    "KALKI_STOCKS_CHAT_ID": "-1003967721534,-1003377752970",
+    "CHECK_LIMIT": "100",
+    // Max distinct tickers priced per run, to stay under the Free-plan
+    // 50-subrequest cap. Positions beyond it are deferred to the next run.
+    "MAX_PRICE_FETCHES": "40"
   },
   "d1_databases": [
     {
@@ -30,7 +35,11 @@
   ],
   "triggers": {
     "crons": [
-      "*/5 * * * *"
+      // Regular US session only (9:30 AM - 4:00 PM ET), weekdays.
+      // 13:00-21:55 UTC covers it under both EDT (13:30-20:00) and EST
+      // (14:30-21:00). Wider windows are pointless: extractYahooPrice reads
+      // meta.regularMarketPrice, which is frozen outside the regular session.
+      "*/5 13-21 * * 1-5"
     ]
   },
   "observability": {

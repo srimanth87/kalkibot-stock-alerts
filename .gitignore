@@ -14,3 +14,7 @@ telegram-forwarder/.DS_Store
 kalki-paid-telegram/.wrangler/
 kalki-robinhood-dashboard/.claude/
 kalki-robinhood-dashboard/.kalki-agent-state/
+
+# Local credential notes (never commit)
+.credentials*.txt
+**/.credentials*.txt
